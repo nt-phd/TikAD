@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="44.068" height="30.577" viewBox="0 0 44.068 30.577">
+<defs>
+<clipPath id="clip-0">
+<path clip-rule="nonzero" d="M 0 0 L 34 0 L 34 30.578125 L 0 30.578125 Z M 0 0 "/>
+</clipPath>
+<clipPath id="clip-1">
+<path clip-rule="nonzero" d="M 10 0 L 44.066406 0 L 44.066406 30.578125 L 10 30.578125 Z M 10 0 "/>
+</clipPath>
+<clipPath id="clip-2">
+<path clip-rule="nonzero" d="M 4 0 L 40 0 L 40 30.578125 L 4 30.578125 Z M 4 0 "/>
+</clipPath>
+</defs>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -0.00059375 -0.0010625 L 3.968156 -0.0010625 M 35.718156 -0.0010625 L 39.686906 -0.0010625 " transform="matrix(1, 0, 0, -1, 2.192, 15.288)"/>
+<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" d="M 22.035156 15.289062 L 6.160156 5.367188 L 6.160156 25.210938 L 22.035156 15.289062 "/>
+<g clip-path="url(#clip-0)">
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 19.843156 -0.0010625 L 3.968156 9.920813 L 3.968156 -9.922937 L 19.843156 -0.0010625 " transform="matrix(1, 0, 0, -1, 2.192, 15.288)"/>
+</g>
+<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" d="M 22.035156 15.289062 L 37.910156 5.367188 L 37.910156 25.210938 L 22.035156 15.289062 "/>
+<g clip-path="url(#clip-1)">
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 19.843156 -0.0010625 L 35.718156 9.920813 L 35.718156 -9.922937 L 19.843156 -0.0010625 " transform="matrix(1, 0, 0, -1, 2.192, 15.288)"/>
+</g>
+<g clip-path="url(#clip-2)">
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 13.491594 12.897375 L 19.843156 9.920813 L 19.843156 -9.922937 L 26.190812 -12.8995 " transform="matrix(1, 0, 0, -1, 2.192, 15.288)"/>
+</g>
+</svg>

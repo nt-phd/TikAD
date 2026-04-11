@@ -1,0 +1,19 @@
+export const GRID_SIZE = 20;
+// 1 TikZ unit = 1cm = 28.3465 pt (as used by pdf2svg coordinate system)
+export const TIKZ_PT_PER_UNIT = 28.3465;
+export const RENDER_SERVER_URL = (import.meta.env.VITE_RENDER_SERVER_URL as string | undefined)?.trim() || 'http://127.0.0.1:3737';
+export const RENDER_DEBOUNCE_MS = 600;
+export const SNAP_GRID = 0.5;
+export const MIN_ZOOM = 0.1;
+export const MAX_ZOOM = 5.0;
+export const ZOOM_STEP = 1.1;
+export const MAJOR_GRID_EVERY = 5;
+export const GRID_COLOR_MINOR = '#c8c8c8';
+export const GRID_COLOR_MAJOR = '#b0b0b0';
+export const WIRE_COLOR = '#000000';
+export const WIRE_WIDTH = 2;
+export const COMPONENT_COLOR = '#000000';
+export const COMPONENT_STROKE_WIDTH = 2;
+export const SELECTION_COLOR = '#2196F3';
+export const GHOST_OPACITY = 0.4;
+export const DEFAULT_STYLE: 'european' | 'american' = 'european';

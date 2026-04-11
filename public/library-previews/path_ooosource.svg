@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="44.068" height="18.208" viewBox="0 0 44.068 18.208">
+<defs>
+<clipPath id="clip-0">
+<path clip-rule="nonzero" d="M 8 0 L 39 0 L 39 18.207031 L 8 18.207031 Z M 8 0 "/>
+</clipPath>
+<clipPath id="clip-1">
+<path clip-rule="nonzero" d="M 3 0 L 35 0 L 35 18.207031 L 3 18.207031 Z M 3 0 "/>
+</clipPath>
+<clipPath id="clip-2">
+<path clip-rule="nonzero" d="M 8 0 L 39 0 L 39 18.207031 L 8 18.207031 Z M 8 0 "/>
+</clipPath>
+</defs>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -0.00059375 -0.00146875 L 12.698625 -0.00146875 M 24.222062 -0.00146875 L 39.686906 -0.00146875 " transform="matrix(1, 0, 0, -1, 2.192, 9.104)"/>
+<g clip-path="url(#clip-0)">
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 25.378312 -2.782719 C 25.378312 -0.61475 23.6205 1.146969 21.448625 1.146969 C 19.280656 1.146969 17.522844 -0.61475 17.522844 -2.782719 C 17.522844 -4.954594 19.280656 -6.712406 21.448625 -6.712406 C 23.6205 -6.712406 25.378312 -4.954594 25.378312 -2.782719 Z M 25.378312 -2.782719 " transform="matrix(1, 0, 0, -1, 2.192, 9.104)"/>
+</g>
+<g clip-path="url(#clip-1)">
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 12.698625 -0.00146875 C 12.698625 -2.169438 14.456437 -3.92725 16.628312 -3.92725 C 18.796281 -3.92725 20.558 -2.169438 20.558 -0.00146875 C 20.558 2.170406 18.796281 3.928219 16.628312 3.928219 C 14.456437 3.928219 12.698625 2.170406 12.698625 -0.00146875 Z M 12.698625 -0.00146875 " transform="matrix(1, 0, 0, -1, 2.192, 9.104)"/>
+</g>
+<g clip-path="url(#clip-2)">
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 25.378312 2.783687 C 25.378312 4.955562 23.6205 6.713375 21.448625 6.713375 C 19.280656 6.713375 17.522844 4.955562 17.522844 2.783687 C 17.522844 0.615719 19.280656 -1.146 21.448625 -1.146 C 23.6205 -1.146 25.378312 0.615719 25.378312 2.783687 Z M 25.378312 2.783687 " transform="matrix(1, 0, 0, -1, 2.192, 9.104)"/>
+</g>
+</svg>

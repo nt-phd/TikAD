@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="44.068" height="18.852" viewBox="0 0 44.068 18.852">
+<defs>
+<clipPath id="clip-0">
+<path clip-rule="nonzero" d="M 3 0 L 41 0 L 41 18.851562 L 3 18.851562 Z M 3 0 "/>
+</clipPath>
+<clipPath id="clip-1">
+<path clip-rule="nonzero" d="M 12 0 L 40 0 L 40 18.851562 L 12 18.851562 Z M 12 0 "/>
+</clipPath>
+</defs>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -0.00059375 0.00021875 L 12.698625 0.00021875 M 26.987687 0.00021875 L 39.686906 0.00021875 " transform="matrix(1, 0, 0, -1, 2.192, 9.426)"/>
+<g clip-path="url(#clip-0)">
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 21.081437 7.035375 C 24.968156 6.351781 27.561906 2.64475 26.878312 -1.241969 C 26.354875 -4.199 24.038469 -6.515406 21.081437 -7.034937 M 18.600969 7.035375 C 14.718156 6.351781 12.124406 2.64475 12.808 -1.241969 C 13.327531 -4.199 15.643937 -6.515406 18.600969 -7.034937 " transform="matrix(1, 0, 0, -1, 2.192, 9.426)"/>
+</g>
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 14.843156 0.00021875 L 24.128312 0.00021875 " transform="matrix(1, 0, 0, -1, 2.192, 9.426)"/>
+<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" d="M 23.871094 9.425781 L 23.871094 11.410156 L 28.085938 9.425781 L 23.871094 7.441406 Z M 23.871094 9.425781 "/>
+<g clip-path="url(#clip-1)">
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 21.679094 0.00021875 L 21.679094 -1.984156 L 25.893937 0.00021875 L 21.679094 1.984594 Z M 21.679094 0.00021875 " transform="matrix(1, 0, 0, -1, 2.192, 9.426)"/>
+</g>
+</svg>

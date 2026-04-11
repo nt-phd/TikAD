@@ -1,0 +1,22 @@
+[Unit]
+Description=CircuitikZ CAD render server
+After=network.target
+
+[Service]
+Type=simple
+User=circuitikz
+WorkingDirectory=/var/www/circuitikz-cad/current
+ExecStart=/usr/bin/node /var/www/circuitikz-cad/current/render-server/server.mjs
+Restart=always
+RestartSec=2
+Environment=NODE_ENV=production
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/tmp /var/www/circuitikz-cad/current
+MemoryMax=512M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

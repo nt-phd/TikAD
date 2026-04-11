@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="56.372" height="56.372" viewBox="0 0 56.372 56.372">
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -25.795375 25.795375 L 25.794469 25.795375 L 25.794469 -25.794469 L -25.795375 -25.794469 Z M -25.795375 25.795375 " transform="matrix(1, 0, 0, -1, 28.186, 28.186)"/>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -25.795375 12.896937 L 25.794469 12.896937 M -25.795375 -12.896031 L 25.794469 -12.896031 " transform="matrix(1, 0, 0, -1, 28.186, 28.186)"/>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -14.943812 -8.540563 L 14.942906 8.537562 " transform="matrix(1, 0, 0, -1, 28.186, 28.186)"/>
+<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" d="M 10.128906 38.503906 C 11.152344 38.148438 12.945312 37.8125 14.332031 37.824219 L 12.847656 35.230469 C 12.15625 36.429688 10.953125 37.804688 10.128906 38.503906 "/>
+<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" d="M 46.242188 17.867188 C 45.222656 18.222656 43.425781 18.558594 42.042969 18.546875 L 43.523438 21.140625 C 44.214844 19.945312 45.417969 18.566406 46.242188 17.867188 "/>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -14.943812 8.537562 L 14.942906 -8.540563 " transform="matrix(1, 0, 0, -1, 28.186, 28.186)"/>
+<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" d="M 10.128906 17.867188 C 10.953125 18.566406 12.15625 19.945312 12.847656 21.140625 L 14.332031 18.546875 C 12.945312 18.558594 11.152344 18.222656 10.128906 17.867188 "/>
+<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" d="M 46.242188 38.503906 C 45.417969 37.804688 44.214844 36.429688 43.523438 35.230469 L 42.042969 37.824219 C 43.425781 37.8125 45.222656 38.148438 46.242188 38.503906 "/>
+</svg>

@@ -1,0 +1,568 @@
+{
+  "generatedAt": "2026-04-07T09:29:17.458Z",
+  "totalCatalog": 506,
+  "totalRendered": 426,
+  "totalFailed": 80,
+  "failures": [
+    {
+      "tag": "swr",
+      "displayName": "Standing Wave Ratio (SWR) meter",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_swr"
+    },
+    {
+      "tag": "trx",
+      "displayName": "Radio tranceiver (HAM-Radio)",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_trx"
+    },
+    {
+      "tag": "iamp",
+      "displayName": "Instrumentation amplifier",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_iamp"
+    },
+    {
+      "tag": "biast",
+      "displayName": "BIAS-T circuit as block",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_biast"
+    },
+    {
+      "tag": "fiber",
+      "displayName": "Optical fiber",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_fiber"
+    },
+    {
+      "tag": "power",
+      "displayName": "Power Supply",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_power"
+    },
+    {
+      "tag": "solar",
+      "displayName": "Solar-driven battery",
+      "group": "Sources and generators",
+      "kind": "bipole",
+      "previewDefId": "path_solar"
+    },
+    {
+      "tag": "tvset",
+      "displayName": "Television (TV)",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_tvset"
+    },
+    {
+      "tag": "camera",
+      "displayName": "Videocamera",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_camera"
+    },
+    {
+      "tag": "relais",
+      "displayName": "Relais",
+      "group": "Miscellaneous",
+      "kind": "bipole",
+      "previewDefId": "path_relais"
+    },
+    {
+      "tag": "currtap",
+      "displayName": "Current tap (probe)",
+      "group": "Instruments",
+      "kind": "bipole",
+      "previewDefId": "path_currtap"
+    },
+    {
+      "tag": "sigmoid",
+      "displayName": "Sigmoid",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_sigmoid"
+    },
+    {
+      "tag": "tjumper",
+      "displayName": "Tjumper",
+      "group": "Switches, buttons and jumpers",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "oosource",
+      "displayName": "Oosource",
+      "group": "Sources and generators",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "register",
+      "displayName": "Register",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_register"
+    },
+    {
+      "tag": "sgeneric",
+      "displayName": "Slashed generic bipole",
+      "group": "Resistive bipoles",
+      "kind": "bipole",
+      "previewDefId": "path_sgeneric"
+    },
+    {
+      "tag": "sparkgap",
+      "displayName": "Spark gap (unenclosed)",
+      "group": "Miscellaneous",
+      "kind": "bipole",
+      "previewDefId": "path_sparkgap"
+    },
+    {
+      "tag": "vallpass",
+      "displayName": "Variable allpass",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_vallpass"
+    },
+    {
+      "tag": "cutechoke",
+      "displayName": "Cutechoke",
+      "group": "Inductors",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fulldiode",
+      "displayName": "Fulldiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "harmonics",
+      "displayName": "Harmonics",
+      "group": "RF components",
+      "kind": "node",
+      "previewDefId": "node_harmonics"
+    },
+    {
+      "tag": "isourceAM",
+      "displayName": "IsourceAM",
+      "group": "Sources and generators",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "ldgeneric",
+      "displayName": "Ldgeneric",
+      "group": "Resistive bipoles",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "sinetable",
+      "displayName": "Sine lookup table",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_sinetable"
+    },
+    {
+      "tag": "vresistor",
+      "displayName": "Vresistor",
+      "group": "Resistive bipoles",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "vsourceAM",
+      "displayName": "VsourceAM",
+      "group": "Sources and generators",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "bgenerator",
+      "displayName": "Block generator",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_bgenerator"
+    },
+    {
+      "tag": "ccapacitor",
+      "displayName": "Ccapacitor",
+      "group": "Capacitive and dynamic bipoles",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "cgenerator",
+      "displayName": "Clock generator",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_cgenerator"
+    },
+    {
+      "tag": "cisourceAM",
+      "displayName": "CisourceAM",
+      "group": "Sources and generators",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "cvsourceAM",
+      "displayName": "CvsourceAM",
+      "group": "Sources and generators",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptydiode",
+      "displayName": "Emptydiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fullpdiode",
+      "displayName": "Fullpdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fullsdiode",
+      "displayName": "Fullsdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fulltdiode",
+      "displayName": "Fulltdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fullvarcap",
+      "displayName": "Fullvarcap",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fullzdiode",
+      "displayName": "Fullzdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "ldresistor",
+      "displayName": "Ldresistor",
+      "group": "Resistive bipoles",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "neonlampac",
+      "displayName": "Neon lamp (anode and cathode style)",
+      "group": "Miscellaneous",
+      "kind": "bipole",
+      "previewDefId": "path_neonlampac"
+    },
+    {
+      "tag": "neonlampcc",
+      "displayName": "Neon lamp (double cathode style),",
+      "group": "Miscellaneous",
+      "kind": "bipole",
+      "previewDefId": "path_neonlampcc"
+    },
+    {
+      "tag": "ngenerator",
+      "displayName": "Generic generator",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_ngenerator"
+    },
+    {
+      "tag": "pushbutton",
+      "displayName": "Pushbutton",
+      "group": "Switches, buttons and jumpers",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "qgenerator",
+      "displayName": "Crystal generator",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_qgenerator"
+    },
+    {
+      "tag": "saturation",
+      "displayName": "Saturation",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_saturation"
+    },
+    {
+      "tag": "vcapacitor",
+      "displayName": "Vcapacitor",
+      "group": "Capacitive and dynamic bipoles",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptypdiode",
+      "displayName": "Emptypdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptysdiode",
+      "displayName": "Emptysdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptytdiode",
+      "displayName": "Emptytdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptyvarcap",
+      "displayName": "Emptyvarcap",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptyzdiode",
+      "displayName": "Emptyzdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fulllediode",
+      "displayName": "Fulllediode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fullshdiode",
+      "displayName": "Fullshdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fullzzdiode",
+      "displayName": "Fullzzdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "pushbuttonc",
+      "displayName": "Pushbuttonc",
+      "group": "Switches, buttons and jumpers",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "allornothing",
+      "displayName": "Comparison (all-or-nothing)",
+      "group": "Block diagram",
+      "kind": "bipole",
+      "previewDefId": "path_allornothing"
+    },
+    {
+      "tag": "cuteinductor",
+      "displayName": "Cuteinductor",
+      "group": "Inductors",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptylediode",
+      "displayName": "Emptylediode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptyshdiode",
+      "displayName": "Emptyshdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptyzzdiode",
+      "displayName": "Emptyzzdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fulltvsdiode",
+      "displayName": "Fulltvsdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "ncpushbutton",
+      "displayName": "Ncpushbutton",
+      "group": "Switches, buttons and jumpers",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "sfullgeneric",
+      "displayName": "Sfullgeneric",
+      "group": "Inductors",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "toggleswitch",
+      "displayName": "Toggleswitch",
+      "group": "Miscellaneous",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptytvsdiode",
+      "displayName": "Emptytvsdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "ncpushbuttono",
+      "displayName": "Ncpushbuttono",
+      "group": "Switches, buttons and jumpers",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "resistivesens",
+      "displayName": "Resistivesens",
+      "group": "Resistive bipoles",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "scuteinductor",
+      "displayName": "Scuteinductor",
+      "group": "Inductors",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "thermistorntc",
+      "displayName": "Thermistorntc",
+      "group": "Resistive bipoles",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "thermistorptc",
+      "displayName": "Thermistorptc",
+      "group": "Resistive bipoles",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "vcuteinductor",
+      "displayName": "Vcuteinductor",
+      "group": "Inductors",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "capacitivesens",
+      "displayName": "Capacitivesens",
+      "group": "Capacitive and dynamic bipoles",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fulllaserdiode",
+      "displayName": "Fulllaserdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "polarcapacitor",
+      "displayName": "Polarcapacitor",
+      "group": "Capacitive and dynamic bipoles",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptylaserdiode",
+      "displayName": "Emptylaserdiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "americaninductor",
+      "displayName": "Americaninductor",
+      "group": "Inductors",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "samericaninductor",
+      "displayName": "Samericaninductor",
+      "group": "Inductors",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "vamericaninductor",
+      "displayName": "Vamericaninductor",
+      "group": "Inductors",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "genericpotentiometer",
+      "displayName": "Genericpotentiometer",
+      "group": "Resistive bipoles",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "fullbidirectionaldiode",
+      "displayName": "Fullbidirectionaldiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    },
+    {
+      "tag": "emptybidirectionaldiode",
+      "displayName": "Emptybidirectionaldiode",
+      "group": "Diodes",
+      "kind": "bipole",
+      "previewDefId": ""
+    }
+  ]
+}

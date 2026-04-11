@@ -1,0 +1,1311 @@
+{
+  "generatedAt": "2026-04-09T20:03:28.133Z",
+  "officialSourcePaths": {
+    "pgfcirclabel.tex": "/usr/share/texlive/texmf-dist/tex/generic/circuitikz/pgfcirclabel.tex",
+    "pgfcirccurrent.tex": "/usr/share/texlive/texmf-dist/tex/generic/circuitikz/pgfcirccurrent.tex",
+    "pgfcircvoltage.tex": "/usr/share/texlive/texmf-dist/tex/generic/circuitikz/pgfcircvoltage.tex",
+    "pgfcircflow.tex": "/usr/share/texlive/texmf-dist/tex/generic/circuitikz/pgfcircflow.tex",
+    "pgfcircpath.tex": "/usr/share/texlive/texmf-dist/tex/generic/circuitikz/pgfcircpath.tex"
+  },
+  "terminalStyles": [
+    {
+      "file": "pgfcircpath.tex",
+      "left": "none",
+      "right": "rectjoinfill",
+      "token": "-."
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "none",
+      "right": "circ",
+      "token": "-*"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "none",
+      "right": "diamondpole",
+      "token": "-d"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "none",
+      "right": "ocirc",
+      "token": "-o"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "rectjoinfill",
+      "right": "none",
+      "token": ".-"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "rectjoinfill",
+      "right": "rectjoinfill",
+      "token": ".-."
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "rectjoinfill",
+      "right": "circ",
+      "token": ".-*"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "rectjoinfill",
+      "right": "diamondpole",
+      "token": ".-d"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "rectjoinfill",
+      "right": "ocirc",
+      "token": ".-o"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "circ",
+      "right": "none",
+      "token": "*-"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "circ",
+      "right": "rectjoinfill",
+      "token": "*-."
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "circ",
+      "right": "circ",
+      "token": "*-*"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "circ",
+      "right": "diamondpole",
+      "token": "*-d"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "circ",
+      "right": "ocirc",
+      "token": "*-o"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "diamondpole",
+      "right": "none",
+      "token": "d-"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "diamondpole",
+      "right": "rectjoinfill",
+      "token": "d-."
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "diamondpole",
+      "right": "circ",
+      "token": "d-*"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "diamondpole",
+      "right": "diamondpole",
+      "token": "d-d"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "diamondpole",
+      "right": "ocirc",
+      "token": "d-o"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "ocirc",
+      "right": "none",
+      "token": "o-"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "ocirc",
+      "right": "rectjoinfill",
+      "token": "o-."
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "ocirc",
+      "right": "circ",
+      "token": "o-*"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "ocirc",
+      "right": "diamondpole",
+      "token": "o-d"
+    },
+    {
+      "file": "pgfcircpath.tex",
+      "left": "ocirc",
+      "right": "ocirc",
+      "token": "o-o"
+    }
+  ],
+  "properties": [
+    {
+      "id": "annotation",
+      "label": "Annotation",
+      "tokens": [
+        {
+          "assignments": [],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "code",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "",
+            "verticalPosition": null
+          },
+          "token": "a"
+        },
+        {
+          "assignments": [
+            {
+              "key": "annotation/position",
+              "value": "-90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "_",
+            "verticalPosition": "below"
+          },
+          "token": "a_"
+        },
+        {
+          "assignments": [
+            {
+              "key": "annotation/position",
+              "value": "90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "^",
+            "verticalPosition": "above"
+          },
+          "token": "a^"
+        },
+        {
+          "assignments": [],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "nnotation",
+            "verticalPosition": null
+          },
+          "token": "annotation"
+        },
+        {
+          "assignments": [
+            {
+              "key": "annotation/position",
+              "value": "90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "code",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "nnotation above",
+            "verticalPosition": null
+          },
+          "token": "annotation above"
+        },
+        {
+          "assignments": [
+            {
+              "key": "annotation/position",
+              "value": "-90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "code",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "nnotation below",
+            "verticalPosition": null
+          },
+          "token": "annotation below"
+        }
+      ]
+    },
+    {
+      "id": "annotation2",
+      "label": "Annotation (two-line)",
+      "tokens": [
+        {
+          "assignments": [
+            {
+              "key": "annotation/position",
+              "value": "-90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "",
+            "verticalPosition": null
+          },
+          "token": "a2"
+        },
+        {
+          "assignments": [
+            {
+              "key": "annotation/position",
+              "value": "-90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": " above",
+            "verticalPosition": null
+          },
+          "token": "a2 above"
+        },
+        {
+          "assignments": [
+            {
+              "key": "annotation/position",
+              "value": "90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": " below",
+            "verticalPosition": null
+          },
+          "token": "a2 below"
+        },
+        {
+          "assignments": [
+            {
+              "key": "annotation/position",
+              "value": "90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "_",
+            "verticalPosition": "below"
+          },
+          "token": "a2_"
+        },
+        {
+          "assignments": [
+            {
+              "key": "annotation/position",
+              "value": "-90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "^",
+            "verticalPosition": "above"
+          },
+          "token": "a2^"
+        }
+      ]
+    },
+    {
+      "id": "current",
+      "label": "Current",
+      "tokens": [
+        {
+          "assignments": [
+            {
+              "key": "current/direction",
+              "value": "forward"
+            },
+            {
+              "key": "current/direction",
+              "value": "forward"
+            },
+            {
+              "key": "current/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "code",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "",
+            "verticalPosition": null
+          },
+          "token": "i"
+        },
+        {
+          "assignments": [],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "_",
+            "verticalPosition": "below"
+          },
+          "token": "i_"
+        },
+        {
+          "assignments": [
+            {
+              "key": "current/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": "after",
+            "rawSuffix": "_<",
+            "verticalPosition": "below"
+          },
+          "token": "i_<"
+        },
+        {
+          "assignments": [
+            {
+              "key": "current/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": "after",
+            "rawSuffix": "_>",
+            "verticalPosition": "below"
+          },
+          "token": "i_>"
+        },
+        {
+          "assignments": [],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "^",
+            "verticalPosition": "above"
+          },
+          "token": "i^"
+        },
+        {
+          "assignments": [
+            {
+              "key": "current/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": "after",
+            "rawSuffix": "^<",
+            "verticalPosition": "above"
+          },
+          "token": "i^<"
+        },
+        {
+          "assignments": [
+            {
+              "key": "current/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": "after",
+            "rawSuffix": "^>",
+            "verticalPosition": "above"
+          },
+          "token": "i^>"
+        },
+        {
+          "assignments": [
+            {
+              "key": "current/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": "before",
+            "rawSuffix": "<",
+            "verticalPosition": null
+          },
+          "token": "i<"
+        },
+        {
+          "assignments": [
+            {
+              "key": "current/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": "before",
+            "rawSuffix": "<_",
+            "verticalPosition": "below"
+          },
+          "token": "i<_"
+        },
+        {
+          "assignments": [
+            {
+              "key": "current/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": "before",
+            "rawSuffix": "<^",
+            "verticalPosition": "above"
+          },
+          "token": "i<^"
+        },
+        {
+          "assignments": [
+            {
+              "key": "current/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": "after",
+            "rawSuffix": ">",
+            "verticalPosition": null
+          },
+          "token": "i>"
+        },
+        {
+          "assignments": [
+            {
+              "key": "current/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": "before",
+            "rawSuffix": ">_",
+            "verticalPosition": "below"
+          },
+          "token": "i>_"
+        },
+        {
+          "assignments": [
+            {
+              "key": "current/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirccurrent.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": "before",
+            "rawSuffix": ">^",
+            "verticalPosition": "above"
+          },
+          "token": "i>^"
+        }
+      ]
+    },
+    {
+      "id": "flow",
+      "label": "Flow",
+      "tokens": [
+        {
+          "assignments": [
+            {
+              "key": "flow/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "code",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "",
+            "verticalPosition": null
+          },
+          "token": "f"
+        },
+        {
+          "assignments": [],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "_",
+            "verticalPosition": "below"
+          },
+          "token": "f_"
+        },
+        {
+          "assignments": [
+            {
+              "key": "flow/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": "after",
+            "rawSuffix": "_<",
+            "verticalPosition": "below"
+          },
+          "token": "f_<"
+        },
+        {
+          "assignments": [
+            {
+              "key": "flow/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": "after",
+            "rawSuffix": "_>",
+            "verticalPosition": "below"
+          },
+          "token": "f_>"
+        },
+        {
+          "assignments": [],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "^",
+            "verticalPosition": "above"
+          },
+          "token": "f^"
+        },
+        {
+          "assignments": [
+            {
+              "key": "flow/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": "after",
+            "rawSuffix": "^<",
+            "verticalPosition": "above"
+          },
+          "token": "f^<"
+        },
+        {
+          "assignments": [
+            {
+              "key": "flow/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": "after",
+            "rawSuffix": "^>",
+            "verticalPosition": "above"
+          },
+          "token": "f^>"
+        },
+        {
+          "assignments": [
+            {
+              "key": "flow/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": "before",
+            "rawSuffix": "<",
+            "verticalPosition": null
+          },
+          "token": "f<"
+        },
+        {
+          "assignments": [
+            {
+              "key": "flow/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": "before",
+            "rawSuffix": "<_",
+            "verticalPosition": "below"
+          },
+          "token": "f<_"
+        },
+        {
+          "assignments": [
+            {
+              "key": "flow/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": "before",
+            "rawSuffix": "<^",
+            "verticalPosition": "above"
+          },
+          "token": "f<^"
+        },
+        {
+          "assignments": [
+            {
+              "key": "flow/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": "after",
+            "rawSuffix": ">",
+            "verticalPosition": null
+          },
+          "token": "f>"
+        },
+        {
+          "assignments": [
+            {
+              "key": "flow/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": "before",
+            "rawSuffix": ">_",
+            "verticalPosition": "below"
+          },
+          "token": "f>_"
+        },
+        {
+          "assignments": [
+            {
+              "key": "flow/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircflow.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": "before",
+            "rawSuffix": ">^",
+            "verticalPosition": "above"
+          },
+          "token": "f>^"
+        }
+      ]
+    },
+    {
+      "id": "label",
+      "label": "Label",
+      "tokens": [
+        {
+          "assignments": [],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "code",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "",
+            "verticalPosition": null
+          },
+          "token": "l"
+        },
+        {
+          "assignments": [
+            {
+              "key": "label/position",
+              "value": "-90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "_",
+            "verticalPosition": "below"
+          },
+          "token": "l_"
+        },
+        {
+          "assignments": [
+            {
+              "key": "label/position",
+              "value": "90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "^",
+            "verticalPosition": "above"
+          },
+          "token": "l^"
+        },
+        {
+          "assignments": [],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "abel",
+            "verticalPosition": null
+          },
+          "token": "label"
+        },
+        {
+          "assignments": [
+            {
+              "key": "label/position",
+              "value": "90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "code",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "abel above",
+            "verticalPosition": null
+          },
+          "token": "label above"
+        },
+        {
+          "assignments": [
+            {
+              "key": "label/position",
+              "value": "-90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "code",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "abel below",
+            "verticalPosition": null
+          },
+          "token": "label below"
+        }
+      ]
+    },
+    {
+      "id": "label2",
+      "label": "Label (two-line)",
+      "tokens": [
+        {
+          "assignments": [
+            {
+              "key": "label/position",
+              "value": "90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "",
+            "verticalPosition": null
+          },
+          "token": "l2"
+        },
+        {
+          "assignments": [
+            {
+              "key": "label/position",
+              "value": "90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": " above",
+            "verticalPosition": null
+          },
+          "token": "l2 above"
+        },
+        {
+          "assignments": [
+            {
+              "key": "label/position",
+              "value": "-90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": " below",
+            "verticalPosition": null
+          },
+          "token": "l2 below"
+        },
+        {
+          "assignments": [
+            {
+              "key": "label/position",
+              "value": "-90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "_",
+            "verticalPosition": "below"
+          },
+          "token": "l2_"
+        },
+        {
+          "assignments": [
+            {
+              "key": "label/position",
+              "value": "90"
+            }
+          ],
+          "description": null,
+          "file": "pgfcirclabel.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "^",
+            "verticalPosition": "above"
+          },
+          "token": "l2^"
+        }
+      ]
+    },
+    {
+      "id": "voltage",
+      "label": "Voltage",
+      "tokens": [
+        {
+          "assignments": [
+            {
+              "key": "voltage/position",
+              "value": "above"
+            },
+            {
+              "key": "voltage/direction",
+              "value": "forward"
+            },
+            {
+              "key": "voltage/position",
+              "value": "below"
+            },
+            {
+              "key": "voltage/direction",
+              "value": "backward"
+            },
+            {
+              "key": "voltage/position",
+              "value": "below"
+            },
+            {
+              "key": "voltage/direction",
+              "value": "forward"
+            },
+            {
+              "key": "voltage/position",
+              "value": "below"
+            },
+            {
+              "key": "voltage/direction",
+              "value": "forward"
+            },
+            {
+              "key": "voltage/position",
+              "value": "below"
+            },
+            {
+              "key": "voltage/direction",
+              "value": "forward"
+            },
+            {
+              "key": "voltage/position",
+              "value": "below"
+            },
+            {
+              "key": "voltage/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircvoltage.tex",
+          "operator": "code",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "",
+            "verticalPosition": null
+          },
+          "token": "v"
+        },
+        {
+          "assignments": [
+            {
+              "key": "voltage/position",
+              "value": "below"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircvoltage.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "_",
+            "verticalPosition": "below"
+          },
+          "token": "v_"
+        },
+        {
+          "assignments": [
+            {
+              "key": "voltage/direction",
+              "value": "backward"
+            },
+            {
+              "key": "voltage/position",
+              "value": "below"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircvoltage.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": null,
+            "rawSuffix": "_<",
+            "verticalPosition": "below"
+          },
+          "token": "v_<"
+        },
+        {
+          "assignments": [
+            {
+              "key": "voltage/direction",
+              "value": "forward"
+            },
+            {
+              "key": "voltage/position",
+              "value": "below"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircvoltage.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": null,
+            "rawSuffix": "_>",
+            "verticalPosition": "below"
+          },
+          "token": "v_>"
+        },
+        {
+          "assignments": [
+            {
+              "key": "voltage/position",
+              "value": "above"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircvoltage.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": null,
+            "horizontalPosition": null,
+            "rawSuffix": "^",
+            "verticalPosition": "above"
+          },
+          "token": "v^"
+        },
+        {
+          "assignments": [
+            {
+              "key": "voltage/direction",
+              "value": "backward"
+            },
+            {
+              "key": "voltage/position",
+              "value": "above"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircvoltage.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": null,
+            "rawSuffix": "^<",
+            "verticalPosition": "above"
+          },
+          "token": "v^<"
+        },
+        {
+          "assignments": [
+            {
+              "key": "voltage/direction",
+              "value": "forward"
+            },
+            {
+              "key": "voltage/position",
+              "value": "above"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircvoltage.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": null,
+            "rawSuffix": "^>",
+            "verticalPosition": "above"
+          },
+          "token": "v^>"
+        },
+        {
+          "assignments": [
+            {
+              "key": "voltage/direction",
+              "value": "backward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircvoltage.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "backward",
+            "horizontalPosition": null,
+            "rawSuffix": "<",
+            "verticalPosition": null
+          },
+          "token": "v<"
+        },
+        {
+          "assignments": [
+            {
+              "key": "voltage/direction",
+              "value": "forward"
+            }
+          ],
+          "description": null,
+          "file": "pgfcircvoltage.tex",
+          "operator": "style",
+          "section": null,
+          "semantics": {
+            "direction": "forward",
+            "horizontalPosition": null,
+            "rawSuffix": ">",
+            "verticalPosition": null
+          },
+          "token": "v>"
+        }
+      ]
+    }
+  ]
+}

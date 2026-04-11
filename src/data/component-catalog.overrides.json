@@ -1,0 +1,43 @@
+{
+  "entries": {
+    "R": {
+      "displayName": "Resistor",
+      "group": "Resistive bipoles",
+      "previewDefId": "path_american-resistor",
+      "aliases": ["resistor"],
+      "order": 10,
+      "searchTerms": ["ohmic resistor"]
+    },
+    "C": {
+      "displayName": "Capacitor",
+      "group": "Capacitive and dynamic bipoles",
+      "previewDefId": "path_capacitor",
+      "aliases": ["capacitor"],
+      "order": 20
+    },
+    "D": {
+      "displayName": "Diode",
+      "group": "Diodes",
+      "previewDefId": "path_stroke-diode",
+      "aliases": ["diode"],
+      "order": 30
+    },
+    "american resistor": {
+      "displayName": "American resistor",
+      "group": "Resistive bipoles"
+    },
+    "resistor": {
+      "displayName": "Resistor",
+      "group": "Resistive bipoles"
+    },
+    "capacitor": {
+      "displayName": "Capacitor",
+      "group": "Capacitive and dynamic bipoles"
+    },
+    "diode": {
+      "displayName": "Diode",
+      "group": "Diodes",
+      "previewDefId": "path_stroke-diode"
+    }
+  }
+}

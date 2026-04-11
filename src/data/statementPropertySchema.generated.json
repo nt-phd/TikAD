@@ -1,0 +1,1639 @@
+{
+  "version": 2,
+  "generatedAt": "2026-04-09T20:04:32.272Z",
+  "source": {
+    "type": "generated",
+    "rawBipoleTokenDb": "./circuitikz-bipole-token-db.json",
+    "officialSourcePaths": {
+      "pgfcirclabel.tex": "/usr/share/texlive/texmf-dist/tex/generic/circuitikz/pgfcirclabel.tex",
+      "pgfcirccurrent.tex": "/usr/share/texlive/texmf-dist/tex/generic/circuitikz/pgfcirccurrent.tex",
+      "pgfcircvoltage.tex": "/usr/share/texlive/texmf-dist/tex/generic/circuitikz/pgfcircvoltage.tex",
+      "pgfcircflow.tex": "/usr/share/texlive/texmf-dist/tex/generic/circuitikz/pgfcircflow.tex",
+      "pgfcircpath.tex": "/usr/share/texlive/texmf-dist/tex/generic/circuitikz/pgfcircpath.tex"
+    }
+  },
+  "lineCommands": [
+    {
+      "value": "node",
+      "label": "\\node",
+      "description": "Create or edit a standalone node statement.",
+      "icon": "SubjectRounded"
+    },
+    {
+      "value": "draw",
+      "label": "\\draw",
+      "description": "Create or edit a drawing/path statement that renders geometry.",
+      "icon": "DrawRounded"
+    },
+    {
+      "value": "path",
+      "label": "\\path",
+      "description": "Create or edit a path statement without drawing by default.",
+      "icon": "RouteRounded"
+    },
+    {
+      "value": "ctikzset",
+      "label": "\\ctikzset",
+      "description": "Edit CircuitikZ configuration keys.",
+      "icon": "TuneRounded"
+    }
+  ],
+  "segmentKinds": {
+    "bipole": {
+      "label": "Bipole",
+      "addMenuLabel": "Add",
+      "description": "Structured CircuitikZ path component with supported official modifiers.",
+      "properties": [
+        {
+          "id": "label",
+          "icon": "LabelRounded",
+          "label": "Label",
+          "patterns": [
+            {
+              "code": "l=",
+              "description": "Component label placed along the bipole.",
+              "label": "Label"
+            },
+            {
+              "code": "l_=",
+              "description": "Component label placed along the bipole.",
+              "label": "Label Below"
+            },
+            {
+              "code": "l^=",
+              "description": "Component label placed along the bipole.",
+              "label": "Label Above"
+            },
+            {
+              "code": "label=",
+              "description": "Component label placed along the bipole.",
+              "label": "Label"
+            },
+            {
+              "code": "label above=",
+              "description": "Component label placed along the bipole.",
+              "label": "Label Above"
+            },
+            {
+              "code": "label below=",
+              "description": "Component label placed along the bipole.",
+              "label": "Label Below"
+            }
+          ],
+          "provenance": {
+            "extractedFrom": "circuitikz-bipole-token-db"
+          },
+          "storage": {
+            "kind": "prop",
+            "key": "label"
+          },
+          "valueType": "latex-text",
+          "variants": [
+            {
+              "assignments": [],
+              "code": "l=",
+              "description": "Component label placed along the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Label",
+              "operator": "code",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "",
+                "verticalPosition": null
+              },
+              "token": "l"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "label/position",
+                  "value": "-90"
+                }
+              ],
+              "code": "l_=",
+              "description": "Component label placed along the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Label Below",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "_",
+                "verticalPosition": "below"
+              },
+              "token": "l_"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "label/position",
+                  "value": "90"
+                }
+              ],
+              "code": "l^=",
+              "description": "Component label placed along the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Label Above",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "^",
+                "verticalPosition": "above"
+              },
+              "token": "l^"
+            },
+            {
+              "assignments": [],
+              "code": "label=",
+              "description": "Component label placed along the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Label",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "abel",
+                "verticalPosition": null
+              },
+              "token": "label"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "label/position",
+                  "value": "90"
+                }
+              ],
+              "code": "label above=",
+              "description": "Component label placed along the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Label Above",
+              "operator": "code",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "abel above",
+                "verticalPosition": null
+              },
+              "token": "label above"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "label/position",
+                  "value": "-90"
+                }
+              ],
+              "code": "label below=",
+              "description": "Component label placed along the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Label Below",
+              "operator": "code",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "abel below",
+                "verticalPosition": null
+              },
+              "token": "label below"
+            }
+          ]
+        },
+        {
+          "id": "annotation",
+          "icon": "SpeakerNotesRounded",
+          "label": "Annotation",
+          "patterns": [
+            {
+              "code": "a=",
+              "description": "Secondary annotation attached to the bipole.",
+              "label": "Annotation"
+            },
+            {
+              "code": "a_=",
+              "description": "Secondary annotation attached to the bipole.",
+              "label": "Annotation Below"
+            },
+            {
+              "code": "a^=",
+              "description": "Secondary annotation attached to the bipole.",
+              "label": "Annotation Above"
+            },
+            {
+              "code": "annotation=",
+              "description": "Secondary annotation attached to the bipole.",
+              "label": "Annotation"
+            },
+            {
+              "code": "annotation above=",
+              "description": "Secondary annotation attached to the bipole.",
+              "label": "Annotation Above"
+            },
+            {
+              "code": "annotation below=",
+              "description": "Secondary annotation attached to the bipole.",
+              "label": "Annotation Below"
+            }
+          ],
+          "provenance": {
+            "extractedFrom": "circuitikz-bipole-token-db"
+          },
+          "storage": {
+            "kind": "prop",
+            "key": "annotation"
+          },
+          "valueType": "latex-text",
+          "variants": [
+            {
+              "assignments": [],
+              "code": "a=",
+              "description": "Secondary annotation attached to the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Annotation",
+              "operator": "code",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "",
+                "verticalPosition": null
+              },
+              "token": "a"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "annotation/position",
+                  "value": "-90"
+                }
+              ],
+              "code": "a_=",
+              "description": "Secondary annotation attached to the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Annotation Below",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "_",
+                "verticalPosition": "below"
+              },
+              "token": "a_"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "annotation/position",
+                  "value": "90"
+                }
+              ],
+              "code": "a^=",
+              "description": "Secondary annotation attached to the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Annotation Above",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "^",
+                "verticalPosition": "above"
+              },
+              "token": "a^"
+            },
+            {
+              "assignments": [],
+              "code": "annotation=",
+              "description": "Secondary annotation attached to the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Annotation",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "nnotation",
+                "verticalPosition": null
+              },
+              "token": "annotation"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "annotation/position",
+                  "value": "90"
+                }
+              ],
+              "code": "annotation above=",
+              "description": "Secondary annotation attached to the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Annotation Above",
+              "operator": "code",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "nnotation above",
+                "verticalPosition": null
+              },
+              "token": "annotation above"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "annotation/position",
+                  "value": "-90"
+                }
+              ],
+              "code": "annotation below=",
+              "description": "Secondary annotation attached to the bipole.",
+              "file": "pgfcirclabel.tex",
+              "label": "Annotation Below",
+              "operator": "code",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "nnotation below",
+                "verticalPosition": null
+              },
+              "token": "annotation below"
+            }
+          ]
+        },
+        {
+          "id": "voltage",
+          "icon": "BoltRounded",
+          "label": "Voltage",
+          "patterns": [
+            {
+              "code": "v=",
+              "description": "Voltage annotation on the bipole.",
+              "label": "Voltage"
+            },
+            {
+              "code": "v_=",
+              "description": "Voltage annotation on the bipole.",
+              "label": "Voltage Below"
+            },
+            {
+              "code": "v_<=",
+              "description": "Voltage annotation on the bipole.",
+              "label": "Voltage Below Backward"
+            },
+            {
+              "code": "v_>=",
+              "description": "Voltage annotation on the bipole.",
+              "label": "Voltage Below Forward"
+            },
+            {
+              "code": "v^=",
+              "description": "Voltage annotation on the bipole.",
+              "label": "Voltage Above"
+            },
+            {
+              "code": "v^<=",
+              "description": "Voltage annotation on the bipole.",
+              "label": "Voltage Above Backward"
+            },
+            {
+              "code": "v^>=",
+              "description": "Voltage annotation on the bipole.",
+              "label": "Voltage Above Forward"
+            },
+            {
+              "code": "v<=",
+              "description": "Voltage annotation on the bipole.",
+              "label": "Voltage Backward"
+            },
+            {
+              "code": "v>=",
+              "description": "Voltage annotation on the bipole.",
+              "label": "Voltage Forward"
+            }
+          ],
+          "provenance": {
+            "extractedFrom": "circuitikz-bipole-token-db"
+          },
+          "storage": {
+            "kind": "prop",
+            "key": "voltage"
+          },
+          "valueType": "latex-text",
+          "variants": [
+            {
+              "assignments": [
+                {
+                  "key": "voltage/position",
+                  "value": "above"
+                },
+                {
+                  "key": "voltage/direction",
+                  "value": "forward"
+                },
+                {
+                  "key": "voltage/position",
+                  "value": "below"
+                },
+                {
+                  "key": "voltage/direction",
+                  "value": "backward"
+                },
+                {
+                  "key": "voltage/position",
+                  "value": "below"
+                },
+                {
+                  "key": "voltage/direction",
+                  "value": "forward"
+                },
+                {
+                  "key": "voltage/position",
+                  "value": "below"
+                },
+                {
+                  "key": "voltage/direction",
+                  "value": "forward"
+                },
+                {
+                  "key": "voltage/position",
+                  "value": "below"
+                },
+                {
+                  "key": "voltage/direction",
+                  "value": "forward"
+                },
+                {
+                  "key": "voltage/position",
+                  "value": "below"
+                },
+                {
+                  "key": "voltage/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "v=",
+              "description": "Voltage annotation on the bipole.",
+              "file": "pgfcircvoltage.tex",
+              "label": "Voltage",
+              "operator": "code",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "",
+                "verticalPosition": null
+              },
+              "token": "v"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "voltage/position",
+                  "value": "below"
+                }
+              ],
+              "code": "v_=",
+              "description": "Voltage annotation on the bipole.",
+              "file": "pgfcircvoltage.tex",
+              "label": "Voltage Below",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "_",
+                "verticalPosition": "below"
+              },
+              "token": "v_"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "voltage/direction",
+                  "value": "backward"
+                },
+                {
+                  "key": "voltage/position",
+                  "value": "below"
+                }
+              ],
+              "code": "v_<=",
+              "description": "Voltage annotation on the bipole.",
+              "file": "pgfcircvoltage.tex",
+              "label": "Voltage Below Backward",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": null,
+                "rawSuffix": "_<",
+                "verticalPosition": "below"
+              },
+              "token": "v_<"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "voltage/direction",
+                  "value": "forward"
+                },
+                {
+                  "key": "voltage/position",
+                  "value": "below"
+                }
+              ],
+              "code": "v_>=",
+              "description": "Voltage annotation on the bipole.",
+              "file": "pgfcircvoltage.tex",
+              "label": "Voltage Below Forward",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": null,
+                "rawSuffix": "_>",
+                "verticalPosition": "below"
+              },
+              "token": "v_>"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "voltage/position",
+                  "value": "above"
+                }
+              ],
+              "code": "v^=",
+              "description": "Voltage annotation on the bipole.",
+              "file": "pgfcircvoltage.tex",
+              "label": "Voltage Above",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "^",
+                "verticalPosition": "above"
+              },
+              "token": "v^"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "voltage/direction",
+                  "value": "backward"
+                },
+                {
+                  "key": "voltage/position",
+                  "value": "above"
+                }
+              ],
+              "code": "v^<=",
+              "description": "Voltage annotation on the bipole.",
+              "file": "pgfcircvoltage.tex",
+              "label": "Voltage Above Backward",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": null,
+                "rawSuffix": "^<",
+                "verticalPosition": "above"
+              },
+              "token": "v^<"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "voltage/direction",
+                  "value": "forward"
+                },
+                {
+                  "key": "voltage/position",
+                  "value": "above"
+                }
+              ],
+              "code": "v^>=",
+              "description": "Voltage annotation on the bipole.",
+              "file": "pgfcircvoltage.tex",
+              "label": "Voltage Above Forward",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": null,
+                "rawSuffix": "^>",
+                "verticalPosition": "above"
+              },
+              "token": "v^>"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "voltage/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "v<=",
+              "description": "Voltage annotation on the bipole.",
+              "file": "pgfcircvoltage.tex",
+              "label": "Voltage Backward",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": null,
+                "rawSuffix": "<",
+                "verticalPosition": null
+              },
+              "token": "v<"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "voltage/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "v>=",
+              "description": "Voltage annotation on the bipole.",
+              "file": "pgfcircvoltage.tex",
+              "label": "Voltage Forward",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": null,
+                "rawSuffix": ">",
+                "verticalPosition": null
+              },
+              "token": "v>"
+            }
+          ]
+        },
+        {
+          "id": "current",
+          "icon": "TrendingFlatRounded",
+          "label": "Current",
+          "patterns": [
+            {
+              "code": "i=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current"
+            },
+            {
+              "code": "i_=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Below"
+            },
+            {
+              "code": "i_<=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Below Backward After"
+            },
+            {
+              "code": "i_>=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Below Forward After"
+            },
+            {
+              "code": "i^=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Above"
+            },
+            {
+              "code": "i^<=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Above Backward After"
+            },
+            {
+              "code": "i^>=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Above Forward After"
+            },
+            {
+              "code": "i<=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Backward Before"
+            },
+            {
+              "code": "i<_=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Below Backward Before"
+            },
+            {
+              "code": "i<^=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Above Backward Before"
+            },
+            {
+              "code": "i>=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Forward After"
+            },
+            {
+              "code": "i>_=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Below Forward Before"
+            },
+            {
+              "code": "i>^=",
+              "description": "Current annotation on the bipole.",
+              "label": "Current Above Forward Before"
+            }
+          ],
+          "provenance": {
+            "extractedFrom": "circuitikz-bipole-token-db"
+          },
+          "storage": {
+            "kind": "prop",
+            "key": "current"
+          },
+          "valueType": "latex-text",
+          "variants": [
+            {
+              "assignments": [
+                {
+                  "key": "current/direction",
+                  "value": "forward"
+                },
+                {
+                  "key": "current/direction",
+                  "value": "forward"
+                },
+                {
+                  "key": "current/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "i=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current",
+              "operator": "code",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "",
+                "verticalPosition": null
+              },
+              "token": "i"
+            },
+            {
+              "assignments": [],
+              "code": "i_=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Below",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "_",
+                "verticalPosition": "below"
+              },
+              "token": "i_"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "current/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "i_<=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Below Backward After",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": "after",
+                "rawSuffix": "_<",
+                "verticalPosition": "below"
+              },
+              "token": "i_<"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "current/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "i_>=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Below Forward After",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": "after",
+                "rawSuffix": "_>",
+                "verticalPosition": "below"
+              },
+              "token": "i_>"
+            },
+            {
+              "assignments": [],
+              "code": "i^=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Above",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "^",
+                "verticalPosition": "above"
+              },
+              "token": "i^"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "current/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "i^<=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Above Backward After",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": "after",
+                "rawSuffix": "^<",
+                "verticalPosition": "above"
+              },
+              "token": "i^<"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "current/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "i^>=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Above Forward After",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": "after",
+                "rawSuffix": "^>",
+                "verticalPosition": "above"
+              },
+              "token": "i^>"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "current/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "i<=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Backward Before",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": "before",
+                "rawSuffix": "<",
+                "verticalPosition": null
+              },
+              "token": "i<"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "current/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "i<_=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Below Backward Before",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": "before",
+                "rawSuffix": "<_",
+                "verticalPosition": "below"
+              },
+              "token": "i<_"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "current/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "i<^=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Above Backward Before",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": "before",
+                "rawSuffix": "<^",
+                "verticalPosition": "above"
+              },
+              "token": "i<^"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "current/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "i>=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Forward After",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": "after",
+                "rawSuffix": ">",
+                "verticalPosition": null
+              },
+              "token": "i>"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "current/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "i>_=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Below Forward Before",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": "before",
+                "rawSuffix": ">_",
+                "verticalPosition": "below"
+              },
+              "token": "i>_"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "current/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "i>^=",
+              "description": "Current annotation on the bipole.",
+              "file": "pgfcirccurrent.tex",
+              "label": "Current Above Forward Before",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": "before",
+                "rawSuffix": ">^",
+                "verticalPosition": "above"
+              },
+              "token": "i>^"
+            }
+          ]
+        },
+        {
+          "id": "flow",
+          "icon": "AirRounded",
+          "label": "Flow",
+          "patterns": [
+            {
+              "code": "f=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow"
+            },
+            {
+              "code": "f_=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Below"
+            },
+            {
+              "code": "f_<=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Below Backward After"
+            },
+            {
+              "code": "f_>=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Below Forward After"
+            },
+            {
+              "code": "f^=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Above"
+            },
+            {
+              "code": "f^<=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Above Backward After"
+            },
+            {
+              "code": "f^>=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Above Forward After"
+            },
+            {
+              "code": "f<=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Backward Before"
+            },
+            {
+              "code": "f<_=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Below Backward Before"
+            },
+            {
+              "code": "f<^=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Above Backward Before"
+            },
+            {
+              "code": "f>=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Forward After"
+            },
+            {
+              "code": "f>_=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Below Forward Before"
+            },
+            {
+              "code": "f>^=",
+              "description": "Flow annotation on the bipole.",
+              "label": "Flow Above Forward Before"
+            }
+          ],
+          "provenance": {
+            "extractedFrom": "circuitikz-bipole-token-db"
+          },
+          "storage": {
+            "kind": "prop",
+            "key": "flow"
+          },
+          "valueType": "latex-text",
+          "variants": [
+            {
+              "assignments": [
+                {
+                  "key": "flow/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "f=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow",
+              "operator": "code",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "",
+                "verticalPosition": null
+              },
+              "token": "f"
+            },
+            {
+              "assignments": [],
+              "code": "f_=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Below",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "_",
+                "verticalPosition": "below"
+              },
+              "token": "f_"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "flow/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "f_<=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Below Backward After",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": "after",
+                "rawSuffix": "_<",
+                "verticalPosition": "below"
+              },
+              "token": "f_<"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "flow/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "f_>=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Below Forward After",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": "after",
+                "rawSuffix": "_>",
+                "verticalPosition": "below"
+              },
+              "token": "f_>"
+            },
+            {
+              "assignments": [],
+              "code": "f^=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Above",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": null,
+                "horizontalPosition": null,
+                "rawSuffix": "^",
+                "verticalPosition": "above"
+              },
+              "token": "f^"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "flow/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "f^<=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Above Backward After",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": "after",
+                "rawSuffix": "^<",
+                "verticalPosition": "above"
+              },
+              "token": "f^<"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "flow/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "f^>=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Above Forward After",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": "after",
+                "rawSuffix": "^>",
+                "verticalPosition": "above"
+              },
+              "token": "f^>"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "flow/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "f<=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Backward Before",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": "before",
+                "rawSuffix": "<",
+                "verticalPosition": null
+              },
+              "token": "f<"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "flow/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "f<_=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Below Backward Before",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": "before",
+                "rawSuffix": "<_",
+                "verticalPosition": "below"
+              },
+              "token": "f<_"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "flow/direction",
+                  "value": "backward"
+                }
+              ],
+              "code": "f<^=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Above Backward Before",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "backward",
+                "horizontalPosition": "before",
+                "rawSuffix": "<^",
+                "verticalPosition": "above"
+              },
+              "token": "f<^"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "flow/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "f>=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Forward After",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": "after",
+                "rawSuffix": ">",
+                "verticalPosition": null
+              },
+              "token": "f>"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "flow/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "f>_=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Below Forward Before",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": "before",
+                "rawSuffix": ">_",
+                "verticalPosition": "below"
+              },
+              "token": "f>_"
+            },
+            {
+              "assignments": [
+                {
+                  "key": "flow/direction",
+                  "value": "forward"
+                }
+              ],
+              "code": "f>^=",
+              "description": "Flow annotation on the bipole.",
+              "file": "pgfcircflow.tex",
+              "label": "Flow Above Forward Before",
+              "operator": "style",
+              "section": null,
+              "semantics": {
+                "direction": "forward",
+                "horizontalPosition": "before",
+                "rawSuffix": ">^",
+                "verticalPosition": "above"
+              },
+              "token": "f>^"
+            }
+          ]
+        },
+        {
+          "id": "start-node",
+          "icon": "FiberManualRecordRounded",
+          "label": "Start node",
+          "options": [
+            {
+              "label": "None",
+              "value": ""
+            },
+            {
+              "label": "Filled circle",
+              "value": "circ"
+            },
+            {
+              "label": "Open circle",
+              "value": "ocirc"
+            },
+            {
+              "label": "Diamond",
+              "value": "diamondpole"
+            },
+            {
+              "label": "Square join",
+              "value": "rectjoinfill"
+            }
+          ],
+          "patterns": [
+            {
+              "code": ".-",
+              "description": "Square join terminal mark on the start side.",
+              "label": "Square join start node"
+            },
+            {
+              "code": "*-",
+              "description": "Filled circle terminal mark on the start side.",
+              "label": "Filled circle start node"
+            },
+            {
+              "code": "d-",
+              "description": "Diamond terminal mark on the start side.",
+              "label": "Diamond start node"
+            },
+            {
+              "code": "o-",
+              "description": "Open circle terminal mark on the start side.",
+              "label": "Open circle start node"
+            }
+          ],
+          "provenance": {
+            "extractedFrom": "circuitikz-bipole-token-db"
+          },
+          "storage": {
+            "kind": "terminal",
+            "key": "startTerminal"
+          },
+          "valueType": "enum",
+          "variants": [
+            {
+              "code": ".-",
+              "description": "Square join terminal mark on the start side.",
+              "file": "pgfcircpath.tex",
+              "label": "Square join start node",
+              "token": ".-"
+            },
+            {
+              "code": "*-",
+              "description": "Filled circle terminal mark on the start side.",
+              "file": "pgfcircpath.tex",
+              "label": "Filled circle start node",
+              "token": "*-"
+            },
+            {
+              "code": "d-",
+              "description": "Diamond terminal mark on the start side.",
+              "file": "pgfcircpath.tex",
+              "label": "Diamond start node",
+              "token": "d-"
+            },
+            {
+              "code": "o-",
+              "description": "Open circle terminal mark on the start side.",
+              "file": "pgfcircpath.tex",
+              "label": "Open circle start node",
+              "token": "o-"
+            }
+          ]
+        },
+        {
+          "id": "end-node",
+          "icon": "TripOriginRounded",
+          "label": "End node",
+          "options": [
+            {
+              "label": "None",
+              "value": ""
+            },
+            {
+              "label": "Filled circle",
+              "value": "circ"
+            },
+            {
+              "label": "Open circle",
+              "value": "ocirc"
+            },
+            {
+              "label": "Diamond",
+              "value": "diamondpole"
+            },
+            {
+              "label": "Square join",
+              "value": "rectjoinfill"
+            }
+          ],
+          "patterns": [
+            {
+              "code": "-.",
+              "description": "Square join terminal mark on the end side.",
+              "label": "Square join end node"
+            },
+            {
+              "code": "-*",
+              "description": "Filled circle terminal mark on the end side.",
+              "label": "Filled circle end node"
+            },
+            {
+              "code": "-d",
+              "description": "Diamond terminal mark on the end side.",
+              "label": "Diamond end node"
+            },
+            {
+              "code": "-o",
+              "description": "Open circle terminal mark on the end side.",
+              "label": "Open circle end node"
+            }
+          ],
+          "provenance": {
+            "extractedFrom": "circuitikz-bipole-token-db"
+          },
+          "storage": {
+            "kind": "terminal",
+            "key": "endTerminal"
+          },
+          "valueType": "enum",
+          "variants": [
+            {
+              "code": "-.",
+              "description": "Square join terminal mark on the end side.",
+              "file": "pgfcircpath.tex",
+              "label": "Square join end node",
+              "token": "-."
+            },
+            {
+              "code": "-*",
+              "description": "Filled circle terminal mark on the end side.",
+              "file": "pgfcircpath.tex",
+              "label": "Filled circle end node",
+              "token": "-*"
+            },
+            {
+              "code": "-d",
+              "description": "Diamond terminal mark on the end side.",
+              "file": "pgfcircpath.tex",
+              "label": "Diamond end node",
+              "token": "-d"
+            },
+            {
+              "code": "-o",
+              "description": "Open circle terminal mark on the end side.",
+              "file": "pgfcircpath.tex",
+              "label": "Open circle end node",
+              "token": "-o"
+            }
+          ]
+        }
+      ],
+      "fallback": {
+        "id": "unparsed-options",
+        "label": "Unparsed options",
+        "description": "Residual options not yet mapped to structured properties.",
+        "storage": {
+          "kind": "segment",
+          "key": "optionsText"
+        }
+      },
+      "availableRawPropertyIds": [
+        "annotation",
+        "annotation2",
+        "current",
+        "flow",
+        "label",
+        "label2",
+        "voltage"
+      ]
+    },
+    "node": {
+      "label": "Node",
+      "addMenuLabel": "Add",
+      "description": "Structured TikZ node segment.",
+      "properties": [
+        {
+          "id": "text",
+          "label": "Text",
+          "icon": "TitleRounded",
+          "valueType": "latex-text",
+          "storage": {
+            "kind": "segment",
+            "key": "text"
+          },
+          "patterns": [
+            {
+              "code": "{...}",
+              "label": "Node text",
+              "description": "Content inside the node braces."
+            }
+          ]
+        },
+        {
+          "id": "label",
+          "label": "Label",
+          "icon": "LabelRounded",
+          "valueType": "latex-text",
+          "storage": {
+            "kind": "options-pattern",
+            "key": "label"
+          },
+          "patterns": [
+            {
+              "code": "label=",
+              "label": "Node label",
+              "description": "Standard TikZ label option."
+            }
+          ]
+        }
+      ],
+      "fallback": {
+        "id": "unparsed-options",
+        "label": "Unparsed options",
+        "description": "Residual node options not yet mapped to structured properties.",
+        "storage": {
+          "kind": "segment",
+          "key": "optionsText"
+        }
+      }
+    },
+    "connection": {
+      "label": "Connection",
+      "addMenuLabel": "Add",
+      "description": "Plain path operator segment.",
+      "properties": []
+    },
+    "raw": {
+      "label": "Raw",
+      "addMenuLabel": "Add",
+      "description": "Unstructured statement fragment.",
+      "properties": []
+    }
+  }
+}
