@@ -24,9 +24,9 @@ sudo apt-get install -y texlive-extra-utils
 ## 2. Create app directory
 
 ```bash
-sudo mkdir -p /var/www/circuitikz-cad
-sudo chown -R "$USER":"$USER" /var/www/circuitikz-cad
-cd /var/www/circuitikz-cad
+sudo mkdir -p /var/www/tikad
+sudo chown -R "$USER":"$USER" /var/www/tikad
+cd /var/www/tikad
 git clone <YOUR_REPO_URL> current
 cd current
 ```
@@ -66,7 +66,7 @@ sudo cp deploy/circuitikz-render.service /etc/systemd/system/
 If needed, edit:
 
 - `User=www-data`
-- `WorkingDirectory=/var/www/circuitikz-cad/current`
+- `WorkingDirectory=/var/www/tikad/current`
 
 Then enable and start:
 
@@ -94,7 +94,7 @@ Expected:
 Copy the template:
 
 ```bash
-sudo cp deploy/nginx.circuitikz-cad.conf /etc/nginx/sites-available/circuitikz-cad
+sudo cp deploy/nginx.tikad.conf /etc/nginx/sites-available/tikad
 ```
 
 Edit the two domains:
@@ -105,7 +105,7 @@ Edit the two domains:
 Enable it:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/circuitikz-cad /etc/nginx/sites-enabled/circuitikz-cad
+sudo ln -s /etc/nginx/sites-available/tikad /etc/nginx/sites-enabled/tikad
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -129,7 +129,7 @@ Use certificates for both:
 For each update:
 
 ```bash
-cd /var/www/circuitikz-cad/current
+cd /var/www/tikad/current
 git pull
 npm install
 npm run build
