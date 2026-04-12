@@ -72,8 +72,10 @@ function unwrapTikzOptionValue(value: string): string {
 
 function parseBipoleOptions(text: string): EditableBipoleSegment {
   const options = splitOptions(text);
-  const tikzName = options[0]?.trim() || 'R';
-  const rest = options.slice(1);
+  const firstOption = options[0]?.trim();
+  const hasInlineValue = Boolean(firstOption && firstOption.includes('='));
+  const tikzName = firstOption || 'R';
+  const rest = hasInlineValue ? options : options.slice(1);
   const terminals = extractTerminalMarks(rest);
   const props: EditableBipoleSegment['props'] = {
     endTerminal: terminals.endTerminal,

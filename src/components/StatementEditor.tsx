@@ -370,10 +370,11 @@ function getSegmentDisplayName(segment: EditableStatement['segments'][number]): 
   if (segment.kind === 'raw') return 'Raw';
   if (segment.kind === 'package') return 'Package';
   if (segment.kind === 'connection') return 'Route';
+  const baseTikzName = segment.tikzName?.split('=')[0]?.trim();
   const def = registry.getAll().find((entry) =>
-    entry.tikzName === segment.tikzName
+    entry.tikzName === baseTikzName
       && (segment.kind === 'bipole' ? entry.placementType === 'bipole' : entry.placementType !== 'bipole'));
-  return def?.displayName ?? segment.tikzName ?? 'Component';
+  return def?.displayName ?? baseTikzName ?? segment.tikzName ?? 'Component';
 }
 
 function getStatementTreeFieldSchema(schema: StatementTreeSchema, field: StatementTreeField): StatementTreeFieldSchema {
@@ -1268,9 +1269,10 @@ export function StatementEditor({
           const nodePropertyGroup = statementPropertySchema.segmentKinds.node;
           const addedIds = addedBipolePropertyIds[index] ?? [];
           const optionTokens = splitOptions(segment.optionsText ?? '');
+          const baseNodeName = segment.tikzName?.split('=')[0]?.trim();
           const nodeOptionDefs = [
             ...getCommonOptionDefinitions(),
-            ...getNodeOptionDefinitions(segment.tikzName).map((entry) => ({
+            ...getNodeOptionDefinitions(baseNodeName).map((entry) => ({
               label: entry.key,
               value: entry.key,
               description: entry.description ?? entry.section ?? undefined,

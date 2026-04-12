@@ -496,7 +496,8 @@ export function parseCircuiTikZ(
         const resolvedSequence = resolvePositionSequencePreview(nodeStmtMatch[3], doc, registry);
         const opts = splitOptions(nodeStmtMatch[1]);
         const tikzName = opts[0]?.trim();
-        const normalizedTikzName = tikzName && !tikzName.includes('=') ? normalizeTikzComponentName(tikzName) : undefined;
+        const baseTikzName = tikzName ? tikzName.split('=')[0]?.trim() : undefined;
+        const normalizedTikzName = baseTikzName ? normalizeTikzComponentName(baseTikzName) : undefined;
         const defId = normalizedTikzName ? (tikzToDefId.get(normalizedTikzName) ?? normalizedTikzName) : undefined;
         const def = defId ? registry.get(defId) : undefined;
         const textAnchorOpts = nodeStmtMatch[5] ? extractKV(splitOptions(nodeStmtMatch[5])) : {};
