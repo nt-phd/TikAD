@@ -125,15 +125,20 @@ export function populateRegistryFromSymbolsDB(
     registerAlias(source, aliasTikzName, aliasDisplayName, group);
   };
 
-  registerAliasByTikzName('american resistor', 'R', 'Resistor', 'Resistive bipoles');
-  registerAliasByTikzName('american resistor', 'resistor', 'Resistor', 'Resistive bipoles');
-  registerAliasByTikzName('capacitor', 'C', 'Capacitor', 'Capacitive and dynamic bipoles');
-
   for (const entry of componentCatalog.components) {
     if (entry.hidden) continue;
     if (defsByTikzName.has(entry.tag)) continue;
     const source = entry.previewDefId ? defsById.get(entry.previewDefId) : undefined;
     if (!source) continue;
     registerAlias(source, entry.tag, entry.displayName, entry.group || source.group);
+  }
+
+  for (const entry of componentCatalog.components) {
+    if (entry.hidden) continue;
+    const aliases = entry.aliases ?? [];
+    if (!aliases.length) continue;
+    aliases.forEach((alias) => {
+      registerAliasByTikzName(entry.tag, alias, entry.displayName, entry.group || defsByTikzName.get(entry.tag)?.group);
+    });
   }
 }
