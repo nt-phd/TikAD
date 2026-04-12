@@ -333,10 +333,10 @@ function parseDrawingStatement(body: string, drawOptions: string | undefined): D
 }
 
 function normalizeTikzComponentName(name: string): string {
-  const trimmed = name.trim();
-  if (trimmed === 'R' || trimmed === 'resistor') return 'R';
-  if (trimmed === 'C' || trimmed === 'capacitor') return 'C';
-  return trimmed;
+  const base = name.split('=')[0]?.trim() ?? '';
+  if (base === 'R' || base === 'resistor') return 'R';
+  if (base === 'C' || base === 'capacitor') return 'C';
+  return base;
 }
 
 function parseNodePlacementFragments(
