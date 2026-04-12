@@ -16,7 +16,8 @@
     "refresh:component-catalog": "/bin/bash -lc '/usr/bin/node scripts/extract-circuitikz-catalog.mjs && /usr/bin/node scripts/build-component-catalog.mjs && /usr/bin/node scripts/render-component-catalog-previews.mjs'",
     "generate:library-previews": "/usr/bin/node scripts/generate-library-previews.mjs",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
     "@codemirror/language": "^6.12.3",
@@ -33,10 +34,12 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.31.2",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^5.1.0",
     "typescript": "~5.9.3",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "wrangler": "^4.81.1"
   }
 }
