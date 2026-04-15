@@ -323,7 +323,16 @@ export class SelectTool extends BaseTool {
         (comp as BipoleInstance).startSequence = undefined;
         (comp as BipoleInstance).endSequence = undefined;
       } else if (comp && (comp.type === 'monopole' || comp.type === 'node') && orig.position) {
-        (comp as MonopoleInstance).position = { x: orig.position.x + dx, y: orig.position.y + dy };
+        const newPos = { x: orig.position.x + dx, y: orig.position.y + dy };
+        (comp as MonopoleInstance).position = newPos;
+        // Keep positionSequence in sync so the ghost corner marker doesn't
+        // render at the original position while the cross follows the new one.
+        if (comp.positionSequence) {
+          const corners = comp.positionSequence.corners;
+          const last = corners[corners.length - 1];
+          if (last) last.point = { ...newPos };
+          comp.positionSequence = { ...comp.positionSequence, point: newPos, corners };
+        }
       } else {
         const wire = doc.getWire(id);
         if (wire && orig.points) {
