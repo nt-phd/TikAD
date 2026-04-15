@@ -562,6 +562,7 @@ export interface ImperativeAppHandle {
   zoomIn: () => void;
   zoomOut: () => void;
   fitToScreen: () => void;
+  resetInitialFit: () => void;
   setTool: (tool: ToolType, defId?: string) => void;
   setGridVisible: (visible: boolean) => void;
   setGridPitch: (pitch: number) => void;
@@ -960,6 +961,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     zoomIn: () => canvas.zoomIn(),
     zoomOut: () => canvas.zoomOut(),
     fitToScreen: () => canvas.fitToScreen(),
+    resetInitialFit: () => { canvas.hasPerformedInitialFit = false; },
     setTool: (tool, defId) => toolManager.setTool(tool, defId),
     setGridVisible: (visible) => {
       gridVisible = visible;

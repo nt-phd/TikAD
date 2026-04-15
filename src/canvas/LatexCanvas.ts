@@ -52,7 +52,7 @@ export class LatexCanvas {
   private renderInFlight = false;
   private renderPending = false;
   private errorBanner: HTMLDivElement | null = null;
-  private hasPerformedInitialFit = false;
+  hasPerformedInitialFit = false;
   private renderedContentBounds: { left: number; top: number; width: number; height: number } | null = null;
 
   // Grid SVG elements

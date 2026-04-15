@@ -1280,7 +1280,10 @@ function useAppState(handle: ImperativeAppHandle | null) {
     setPreamblePackages(parsePreamblePackages(initialPreamble));
     setDocumentSettings(parsePreambleSettings(initialPreamble));
     const savedSource = localStorage.getItem('tikad-document');
-    if (savedSource) handle.loadFullLatexSource(savedSource);
+    if (savedSource) {
+      handle.resetInitialFit();
+      handle.loadFullLatexSource(savedSource);
+    }
     const initialBody = handle.getBody();
     latestEditorBodyRef.current = initialBody;
     setBody(initialBody);
