@@ -240,6 +240,16 @@ export class SelectTool extends BaseTool {
           comp.endRef = snapped?.ref;
           comp.endSequence = undefined;
         }
+        // Drop sequences on all other selected bipoles so the ghost uses
+        // raw coordinates instead of stale node-reference positions.
+        for (const id of this.selection.getSelectedIds()) {
+          if (id === this.dragBipoleEndpoint.id) continue;
+          const other = doc.getComponent(id);
+          if (other?.type === 'bipole') {
+            (other as BipoleInstance).startSequence = undefined;
+            (other as BipoleInstance).endSequence = undefined;
+          }
+        }
         this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
       }
       return;
@@ -324,6 +334,9 @@ export class SelectTool extends BaseTool {
         (comp as BipoleInstance).endSequence = undefined;
       } else if (comp && (comp.type === 'monopole' || comp.type === 'node') && orig.position) {
         (comp as MonopoleInstance).position = { x: orig.position.x + dx, y: orig.position.y + dy };
+        // Drop positionSequence during drag so the ghost uses the raw position
+        // instead of stale relative/reference corner data.
+        (comp as MonopoleInstance).positionSequence = undefined;
       } else {
         const wire = doc.getWire(id);
         if (wire && orig.points) {
