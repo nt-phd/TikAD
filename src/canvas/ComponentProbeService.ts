@@ -489,6 +489,7 @@ export class ComponentProbeService {
   private getLatexSource: LatexSourceGetter | null = null;
   private cache = new Map<string, ComponentRenderProbe | null>();
   private inflight = new Map<string, Promise<ComponentRenderProbe | null>>();
+  private inflightCallbacks = new Map<string, Set<() => void>>();
 
   configure(getLatexSource: LatexSourceGetter): void {
     this.getLatexSource = getLatexSource;
@@ -497,6 +498,7 @@ export class ComponentProbeService {
   invalidate(): void {
     this.cache.clear();
     this.inflight.clear();
+    this.inflightCallbacks.clear();
   }
 
   getSelectionProbe(id: string, comp: ComponentInstance, def: ComponentDef, onResolved: () => void): ComponentRenderProbe | null {
@@ -555,28 +557,36 @@ export class ComponentProbeService {
         return persisted;
       }
     }
-    const existingTask = this.inflight.get(request.cacheKey);
-    if (existingTask) {
-      existingTask.finally(() => onResolved());
-      return null;
+    // Register the callback — deduplicated per cacheKey so repeated calls during
+    // the same in-flight request don't accumulate O(N*M) .finally() chains.
+    if (!this.inflightCallbacks.has(request.cacheKey)) {
+      this.inflightCallbacks.set(request.cacheKey, new Set());
     }
-    if (!this.inflight.has(request.cacheKey)) {
-      const task = this.fetchProbe(request)
-        .then((probe) => {
-          this.cache.set(request.cacheKey, probe);
-          if (request.persist) writePersistedProbe(request.cacheKey, probe);
-          this.inflight.delete(request.cacheKey);
-          onResolved();
-          return probe;
-        })
-        .catch(() => {
-          this.cache.set(request.cacheKey, null);
-          this.inflight.delete(request.cacheKey);
-          onResolved();
-          return null;
-        });
-      this.inflight.set(request.cacheKey, task);
-    }
+    this.inflightCallbacks.get(request.cacheKey)!.add(onResolved);
+
+    if (this.inflight.has(request.cacheKey)) return null;
+
+    const notify = () => {
+      const callbacks = this.inflightCallbacks.get(request.cacheKey);
+      this.inflightCallbacks.delete(request.cacheKey);
+      if (callbacks) for (const cb of callbacks) cb();
+    };
+
+    const task = this.fetchProbe(request)
+      .then((probe) => {
+        this.cache.set(request.cacheKey, probe);
+        if (request.persist) writePersistedProbe(request.cacheKey, probe);
+        this.inflight.delete(request.cacheKey);
+        notify();
+        return probe;
+      })
+      .catch(() => {
+        this.cache.set(request.cacheKey, null);
+        this.inflight.delete(request.cacheKey);
+        notify();
+        return null;
+      });
+    this.inflight.set(request.cacheKey, task);
     return null;
   }
 
