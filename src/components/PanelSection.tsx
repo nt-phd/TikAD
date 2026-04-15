@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Box, Button, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 
 export function PanelSection({
@@ -33,21 +33,22 @@ export function PanelSection({
         width: '100%',
       }}
     >
-      <Button
-        fullWidth
+      <Box
+        component="div"
         onClick={onChange}
         sx={{
+          alignItems: 'center',
           borderBottom: expanded ? 1 : 0,
           borderColor: 'divider',
-          borderRadius: 0,
-          color: 'text.primary',
+          cursor: 'pointer',
+          display: 'flex',
           justifyContent: 'space-between',
           minHeight: 44,
           px: 1.5,
           py: 0.5,
-          textTransform: 'none',
+          userSelect: 'none',
+          width: '100%',
         }}
-        variant="text"
       >
         <Stack alignItems="center" direction="row" spacing={1} sx={{ minWidth: 0, flex: 1 }}>
           {typeof title === 'string' || typeof title === 'number' ? (
@@ -89,7 +90,7 @@ export function PanelSection({
             transition: 'transform 160ms ease',
           }}
         />
-      </Button>
+      </Box>
       {expanded ? (
         <Box sx={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
           {children}
