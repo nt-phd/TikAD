@@ -1279,6 +1279,8 @@ function useAppState(handle: ImperativeAppHandle | null) {
     const initialPreamble = handle.getPreamble();
     setPreamblePackages(parsePreamblePackages(initialPreamble));
     setDocumentSettings(parsePreambleSettings(initialPreamble));
+    const savedSource = localStorage.getItem('tikad-document');
+    if (savedSource) handle.loadFullLatexSource(savedSource);
     const initialBody = handle.getBody();
     latestEditorBodyRef.current = initialBody;
     setBody(initialBody);
@@ -1295,6 +1297,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
       const nextBody = handle.getBody();
       latestEditorBodyRef.current = nextBody;
       setBody(nextBody);
+      localStorage.setItem('tikad-document', handle.getFullLatexSource());
       const nextEnvironment = parseEnvironmentSettings(nextBody);
       setEnvironmentType(nextEnvironment.type);
       setEnvironmentOptions(nextEnvironment.options);
