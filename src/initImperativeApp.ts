@@ -33,10 +33,9 @@ import type { ClipboardEntry } from './tools/SelectionClipboard';
 import { materializeClipboardAt } from './tools/SelectionClipboard';
 import { getEditableStatementModel } from './codegen/StatementEditorModel';
 import type { EditableStatement } from './types';
-import { emitStructuredNodeStatement, emitStructuredStatementBody, parseStructuredStatementBody, splitStructuredStatementParts } from './codegen/TikzStructuredStatement';
+import { emitStructuredNodeStatement, emitStructuredStatementBody, parseStructuredStatementBody } from './codegen/TikzStructuredStatement';
 import { scanTikzPoint, scanTikzPointSequence, skipTikzWhitespace } from './codegen/TikzPointParser';
 import { splitOptions } from './codegen/TikzStatementSyntax';
-import { getDefaultBipoleVariantToken, type BipoleValuePropertyId } from './data/statementPropertySchema';
 
 let initialized = false;
 let initPromise: Promise<ImperativeAppHandle> | null = null;
@@ -471,214 +470,65 @@ function translateSourceCoordinates(body: string, sourceTranslations: SourceCoor
   return lines.join('\n');
 }
 
-/**
- * Apply patchBipoleOptionTokens to the N-th bipole segment within a full statement body string.
- * This preserves the original token order and custom options for every segment, while avoiding
- * the position-duplication bug that occurs when joining splitStructuredStatementParts results.
- */
-function patchSegmentTokensInStatementBody(statementBody: string, segmentIndex: number, statement: EditableStatement): string | null {
-  const intent = statement.editIntent;
-  if (!intent || statement.segments.length !== 1 || statement.segments[0]?.kind !== 'bipole') return null;
-  // Find the Nth `to[...]` occurrence in the statement body (0-based)
-  let occurrences = 0;
-  let searchFrom = 0;
-  while (true) {
-    const toIdx = statementBody.indexOf('to[', searchFrom);
-    if (toIdx < 0) return null;
-    // Check it's a word boundary (not inside another word like "auto[")
-    const charBefore = toIdx > 0 ? statementBody[toIdx - 1] : ' ';
-    if (/\s|;|]/.test(charBefore)) {
-      if (occurrences === segmentIndex) {
-        // Build a fake "part" from this point so patchBipoleOptionTokens can operate on it
-        const partFromHere = statementBody.slice(toIdx);
-        const patched = patchBipoleOptionTokens(partFromHere, statement);
-        if (!patched) return null;
-        return statementBody.slice(0, toIdx) + patched;
-      }
-      occurrences += 1;
-    }
-    searchFrom = toIdx + 1;
-  }
-}
-
-function patchBipoleOptionTokens(existingPart: string, statement: EditableStatement): string | null {
-  const intent = statement.editIntent;
-  if (!intent || statement.segments.length !== 1 || statement.segments[0]?.kind !== 'bipole') return null;
-  const segment = statement.segments[0];
-  const match = existingPart.match(/^(.*?\bto\s*\[)([\s\S]*?)(\]\s*[\s\S]*)$/);
-  if (!match) return null;
-  const tokens = splitOptions(match[2]);
-  if (tokens.length === 0) return null;
-
-  const replaceByProperty = (propertyId: BipoleValuePropertyId, nextValue: string | undefined) => {
-    const variantToken = segment.variantTokens?.[propertyId] ?? getDefaultBipoleVariantToken(propertyId);
-    const propertyPrefix = propertyId === 'current' ? 'i' : propertyId[0];
-    const regex = propertyId === 'label'
-      ? /^(?:l(?:[<>_^]+)?|label(?: above| below)?)\s*=/
-      : propertyId === 'annotation'
-        ? /^(?:a(?:[<>_^]+)?|annotation(?: above| below)?)\s*=/
-        : new RegExp(`^${propertyPrefix}(?:[<>_^]+)?\\s*=`);
-    const indices = tokens.map((token, index) => regex.test(token.trim()) ? index : -1).filter((index) => index >= 0);
-    if (indices.length === 0) {
-      if (nextValue) tokens.push(`${variantToken}=${nextValue}`);
-      return;
-    }
-    const firstIndex = indices[0];
-    if (!nextValue) {
-      for (let i = indices.length - 1; i >= 0; i -= 1) tokens.splice(indices[i], 1);
-      return;
-    }
-    tokens[firstIndex] = `${variantToken}=${nextValue}`;
-    for (let i = indices.length - 1; i >= 1; i -= 1) tokens.splice(indices[i], 1);
-  };
-
-  const replaceTerminalToken = () => {
-    const terminalIndex = tokens.findIndex((token) => /^([*od.]?)-([*od.]?)\/?$/.test(token.trim()));
-    const left =
-      segment.props.startTerminal === 'circ' ? '*' :
-        segment.props.startTerminal === 'ocirc' ? 'o' :
-        segment.props.startTerminal === 'diamondpole' ? 'd' :
-        segment.props.startTerminal === 'rectjoinfill' ? '.' :
-        '';
-    const right =
-      segment.props.endTerminal === 'circ' ? '*' :
-        segment.props.endTerminal === 'ocirc' ? 'o' :
-        segment.props.endTerminal === 'diamondpole' ? 'd' :
-        segment.props.endTerminal === 'rectjoinfill' ? '.' :
-        '';
-    const nextToken = left || right ? `${left}-${right}` : '';
-    if (!nextToken && terminalIndex >= 0) {
-      tokens.splice(terminalIndex, 1);
-      return;
-    }
-    if (nextToken && terminalIndex >= 0) {
-      tokens[terminalIndex] = nextToken;
-      return;
-    }
-    if (nextToken) tokens.splice(1, 0, nextToken);
-  };
-
-  if (intent.field === 'object') {
-    tokens[0] = segment.tikzName;
-  } else if (intent.field === 'label') {
-    replaceByProperty('label', segment.props.label);
-  } else if (intent.field === 'label-style') {
-    replaceByProperty('label', segment.props.label);
-  } else if (intent.field === 'annotation') {
-    replaceByProperty('annotation', segment.props.annotation);
-  } else if (intent.field === 'annotation-style') {
-    replaceByProperty('annotation', segment.props.annotation);
-  } else if (intent.field === 'voltage') {
-    replaceByProperty('voltage', segment.props.voltage);
-  } else if (intent.field === 'voltage-style') {
-    replaceByProperty('voltage', segment.props.voltage);
-  } else if (intent.field === 'current') {
-    replaceByProperty('current', segment.props.current);
-  } else if (intent.field === 'current-style') {
-    replaceByProperty('current', segment.props.current);
-  } else if (intent.field === 'flow') {
-    replaceByProperty('flow', segment.props.flow);
-  } else if (intent.field === 'flow-style') {
-    replaceByProperty('flow', segment.props.flow);
-  } else if (intent.field === 'start-node' || intent.field === 'end-node') {
-    replaceTerminalToken();
-  } else {
-    return null;
-  }
-
-  return `${match[1]}${tokens.join(', ')}${match[3]}`;
-}
 
 function applyEditableStatementToBody(body: string, statement: EditableStatement): string {
-  const replacement = emitEditableStatement(statement);
-  if (!replacement) return body;
-  if (statement.sourceSubIndex == null) {
-    const line = body.split('\n')[statement.sourceLineIndex];
-    const segmentIndex = statement.editIntent?.segmentIndex;
-    if (line && segmentIndex != null) {
-      const indent = line.match(/^\s*/)?.[0] ?? '';
-      const trimmed = line.trim().replace(/;$/, '');
-      const commandMatch = trimmed.match(/^\\(draw|path)(?:\[([\s\S]*?)\])?\s+([\s\S]+)$/);
-      if (commandMatch) {
-        const currentStructured = parseStructuredStatementBody(commandMatch[3].trim());
-        const currentParts = currentStructured ? splitStructuredStatementParts(currentStructured) : null;
-        const desiredParts = splitStructuredStatementParts({
-          positionTexts: statement.positionTexts,
-          segments: statement.segments,
-        });
-        if (currentStructured && currentParts && desiredParts && currentParts[segmentIndex] && desiredParts[segmentIndex]) {
-          const targetSegment = statement.segments[segmentIndex];
-          const statementBodyText = commandMatch[3].trim();
-          // Try to patch in-place to preserve token order; fall back to full re-emit
-          const patchedBody = patchSegmentTokensInStatementBody(statementBodyText, segmentIndex, {
-            ...statement,
-            editIntent: statement.editIntent ? { ...statement.editIntent, segmentIndex: 0 } : undefined,
-            segments: targetSegment ? [targetSegment] : statement.segments,
-          });
-          const nextStatementBody = patchedBody ?? (() => {
-            const nextStructured = targetSegment && segmentIndex < currentStructured.segments.length
-              ? {
-                  positionTexts: currentStructured.positionTexts,
-                  segments: currentStructured.segments.map((seg, i) =>
-                    i === segmentIndex ? targetSegment : seg,
-                  ),
-                }
-              : currentStructured;
-            return emitStructuredStatementBody(nextStructured);
-          })();
-          const commandOptions = commandMatch[2]?.trim();
-          const nextLine = `${indent}\\${commandMatch[1]}${commandOptions ? `[${commandOptions}]` : ''} ${nextStatementBody};`;
-          return updateBodyLinePreservingStructure(body, statement.sourceLineIndex, nextLine);
-        }
+  const lines = body.split('\n');
+  const sourceLine = lines[statement.sourceLineIndex];
+  if (!sourceLine) return body;
+  const indent = sourceLine.match(/^\s*/)?.[0] ?? '';
+
+  // Case C: grouped statement — `\draw` alone on one line, segments on following lines.
+  // Only modify the specific target line, leave all other lines untouched.
+  if (statement.sourceSubIndex != null) {
+    const sourceLineTrimmed = sourceLine.trim();
+    if (/^\\(draw|path)(?:\[([\s\S]*?)\])?\s*$/.test(sourceLineTrimmed)) {
+      const targetLineIndex = findGroupedEntityLineIndex(body, statement.sourceLineIndex, statement.sourceSubIndex);
+      if (targetLineIndex >= 0) {
+        const targetLine = lines[targetLineIndex];
+        if (!targetLine) return body;
+        const targetIndent = targetLine.match(/^\s*/)?.[0] ?? '';
+        const nextSegmentText = emitEditableStatement({
+          ...statement,
+          command: 'draw',
+          commandOptionsText: undefined,
+        })?.replace(/^\\(?:draw|path)(?:\[[^\]]*\])?\s+/, '').replace(/;$/, '');
+        if (!nextSegmentText) return body;
+        lines[targetLineIndex] = `${targetIndent}${nextSegmentText}`;
+        return lines.join('\n');
       }
     }
-    return updateBodyLinePreservingStructure(body, statement.sourceLineIndex, replacement);
   }
 
-  const lines = body.split('\n');
-  if (/^\\(draw|path)(?:\[([\s\S]*?)\])?\s*$/.test(lines[statement.sourceLineIndex]?.trim() ?? '')) {
-    const targetLineIndex = findGroupedEntityLineIndex(body, statement.sourceLineIndex, statement.sourceSubIndex);
-    if (targetLineIndex >= 0) {
-      const targetLine = lines[targetLineIndex];
-      if (!targetLine) return body;
-      const indent = targetLine.match(/^\s*/)?.[0] ?? '';
-      const existingPart = targetLine.trim();
-      const partReplacement = patchBipoleOptionTokens(existingPart, statement)
-        ?? replacement.replace(/^\\(?:draw|path)(?:\[([\s\S]*?)\])?\s+/, '').replace(/;$/, '');
-      lines[targetLineIndex] = `${indent}${partReplacement}`;
-      return lines.join('\n');
+  // Case B: multi-segment inline — `\draw (A) to[R] (B) to[C] (D);` on one line,
+  // parsed into multiple sub-statements with IDs like `line:N:0`, `line:N:1`.
+  // Modify only the target segment inside the structured body, re-emit the whole line.
+  const segmentIndex = statement.sourceSubIndex ?? statement.editIntent?.segmentIndex;
+  if (segmentIndex != null) {
+    const commandMatch = sourceLine.trim().replace(/;$/, '').match(/^\\(draw|path)(?:\[([\s\S]*?)\])?\s+([\s\S]+)$/);
+    if (commandMatch) {
+      const currentStructured = parseStructuredStatementBody(commandMatch[3].trim());
+      if (currentStructured && segmentIndex < currentStructured.segments.length) {
+        const targetSegment = statement.segments[0] ?? statement.segments[segmentIndex];
+        const nextStructured = {
+          positionTexts: statement.positionTexts.length > 0
+            ? statement.positionTexts
+            : currentStructured.positionTexts,
+          segments: currentStructured.segments.map((seg, i) =>
+            i === segmentIndex ? (targetSegment ?? seg) : seg,
+          ),
+        };
+        const nextBody = emitStructuredStatementBody(nextStructured);
+        const commandOptions = commandMatch[2]?.trim();
+        lines[statement.sourceLineIndex] = `${indent}\\${commandMatch[1]}${commandOptions ? `[${commandOptions}]` : ''} ${nextBody};`;
+        return lines.join('\n');
+      }
     }
   }
 
-  const line = lines[statement.sourceLineIndex];
-  if (!line) return body;
-  const indent = line.match(/^\s*/)?.[0] ?? '';
-  const trimmed = line.trim().replace(/;$/, '');
-  const commandMatch = trimmed.match(/^\\(draw|path)(?:\[([\s\S]*?)\])?\s+([\s\S]+)$/);
-  if (!commandMatch) return updateBodyLinePreservingStructure(body, statement.sourceLineIndex, replacement);
-  const structured = parseStructuredStatementBody(commandMatch[3].trim());
-  if (!structured) return updateBodyLinePreservingStructure(body, statement.sourceLineIndex, replacement);
-  const parts = splitStructuredStatementParts(structured);
-  if (!parts || !parts[statement.sourceSubIndex]) return updateBodyLinePreservingStructure(body, statement.sourceLineIndex, replacement);
-  const segmentIndex = statement.sourceSubIndex;
-  const targetSegment = statement.segments[0];
-  const statementBodyText = commandMatch[3].trim();
-  // Try to patch in-place to preserve token order; fall back to full re-emit
-  const patchedBody = patchSegmentTokensInStatementBody(statementBodyText, segmentIndex, statement);
-  const nextStatementBody = patchedBody ?? (() => {
-    const nextStructured = targetSegment && segmentIndex < structured.segments.length
-      ? {
-          positionTexts: structured.positionTexts,
-          segments: structured.segments.map((seg, i) =>
-            i === segmentIndex ? targetSegment : seg,
-          ),
-        }
-      : structured;
-    return emitStructuredStatementBody(nextStructured);
-  })();
-  const commandOptions = commandMatch[2]?.trim();
-  lines[statement.sourceLineIndex] = `${indent}\\${commandMatch[1]}${commandOptions ? `[${commandOptions}]` : ''} ${nextStatementBody};`;
-  return lines.join('\n');
+  // Case A: single statement on one line — replace the whole line.
+  const replacement = emitEditableStatement(statement);
+  if (!replacement) return body;
+  return updateBodyLinePreservingStructure(body, statement.sourceLineIndex, replacement);
 }
 
 export interface ImperativeAppHandle {
