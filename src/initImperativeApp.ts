@@ -471,6 +471,36 @@ function translateSourceCoordinates(body: string, sourceTranslations: SourceCoor
   return lines.join('\n');
 }
 
+/**
+ * Apply patchBipoleOptionTokens to the N-th bipole segment within a full statement body string.
+ * This preserves the original token order and custom options for every segment, while avoiding
+ * the position-duplication bug that occurs when joining splitStructuredStatementParts results.
+ */
+function patchSegmentTokensInStatementBody(statementBody: string, segmentIndex: number, statement: EditableStatement): string | null {
+  const intent = statement.editIntent;
+  if (!intent || statement.segments.length !== 1 || statement.segments[0]?.kind !== 'bipole') return null;
+  // Find the Nth `to[...]` occurrence in the statement body (0-based)
+  let occurrences = 0;
+  let searchFrom = 0;
+  while (true) {
+    const toIdx = statementBody.indexOf('to[', searchFrom);
+    if (toIdx < 0) return null;
+    // Check it's a word boundary (not inside another word like "auto[")
+    const charBefore = toIdx > 0 ? statementBody[toIdx - 1] : ' ';
+    if (/\s|;|]/.test(charBefore)) {
+      if (occurrences === segmentIndex) {
+        // Build a fake "part" from this point so patchBipoleOptionTokens can operate on it
+        const partFromHere = statementBody.slice(toIdx);
+        const patched = patchBipoleOptionTokens(partFromHere, statement);
+        if (!patched) return null;
+        return statementBody.slice(0, toIdx) + patched;
+      }
+      occurrences += 1;
+    }
+    searchFrom = toIdx + 1;
+  }
+}
+
 function patchBipoleOptionTokens(existingPart: string, statement: EditableStatement): string | null {
   const intent = statement.editIntent;
   if (!intent || statement.segments.length !== 1 || statement.segments[0]?.kind !== 'bipole') return null;
@@ -576,22 +606,28 @@ function applyEditableStatementToBody(body: string, statement: EditableStatement
           positionTexts: statement.positionTexts,
           segments: statement.segments,
         });
-        if (currentParts && desiredParts && currentParts[segmentIndex] && desiredParts[segmentIndex]) {
+        if (currentStructured && currentParts && desiredParts && currentParts[segmentIndex] && desiredParts[segmentIndex]) {
           const targetSegment = statement.segments[segmentIndex];
-          const targetedStatement: EditableStatement = {
+          const statementBodyText = commandMatch[3].trim();
+          // Try to patch in-place to preserve token order; fall back to full re-emit
+          const patchedBody = patchSegmentTokensInStatementBody(statementBodyText, segmentIndex, {
             ...statement,
             editIntent: statement.editIntent ? { ...statement.editIntent, segmentIndex: 0 } : undefined,
-            positionTexts: targetSegment?.kind === 'bipole' || targetSegment?.kind === 'connection'
-              ? [statement.positionTexts[segmentIndex] ?? '', statement.positionTexts[segmentIndex + 1] ?? '']
-              : [statement.positionTexts[segmentIndex] ?? statement.positionTexts[0] ?? ''],
-            rawStatementText: desiredParts[segmentIndex],
-            segments: targetSegment ? [targetSegment] : [],
-            sourceSubIndex: 0,
-          };
-          currentParts[segmentIndex] = patchBipoleOptionTokens(currentParts[segmentIndex], targetedStatement)
-            ?? desiredParts[segmentIndex];
+            segments: targetSegment ? [targetSegment] : statement.segments,
+          });
+          const nextStatementBody = patchedBody ?? (() => {
+            const nextStructured = targetSegment && segmentIndex < currentStructured.segments.length
+              ? {
+                  positionTexts: currentStructured.positionTexts,
+                  segments: currentStructured.segments.map((seg, i) =>
+                    i === segmentIndex ? targetSegment : seg,
+                  ),
+                }
+              : currentStructured;
+            return emitStructuredStatementBody(nextStructured);
+          })();
           const commandOptions = commandMatch[2]?.trim();
-          const nextLine = `${indent}\\${commandMatch[1]}${commandOptions ? `[${commandOptions}]` : ''} ${currentParts.join(' ')};`;
+          const nextLine = `${indent}\\${commandMatch[1]}${commandOptions ? `[${commandOptions}]` : ''} ${nextStatementBody};`;
           return updateBodyLinePreservingStructure(body, statement.sourceLineIndex, nextLine);
         }
       }
@@ -621,14 +657,27 @@ function applyEditableStatementToBody(body: string, statement: EditableStatement
   const commandMatch = trimmed.match(/^\\(draw|path)(?:\[([\s\S]*?)\])?\s+([\s\S]+)$/);
   if (!commandMatch) return updateBodyLinePreservingStructure(body, statement.sourceLineIndex, replacement);
   const structured = parseStructuredStatementBody(commandMatch[3].trim());
-  const parts = structured ? splitStructuredStatementParts(structured) : null;
+  if (!structured) return updateBodyLinePreservingStructure(body, statement.sourceLineIndex, replacement);
+  const parts = splitStructuredStatementParts(structured);
   if (!parts || !parts[statement.sourceSubIndex]) return updateBodyLinePreservingStructure(body, statement.sourceLineIndex, replacement);
-  const existingPart = parts[statement.sourceSubIndex];
-  const partReplacement = patchBipoleOptionTokens(existingPart, statement)
-    ?? replacement.replace(/^\\(?:draw|path)(?:\[([\s\S]*?)\])?\s+/, '').replace(/;$/, '');
-  parts[statement.sourceSubIndex] = partReplacement;
+  const segmentIndex = statement.sourceSubIndex;
+  const targetSegment = statement.segments[0];
+  const statementBodyText = commandMatch[3].trim();
+  // Try to patch in-place to preserve token order; fall back to full re-emit
+  const patchedBody = patchSegmentTokensInStatementBody(statementBodyText, segmentIndex, statement);
+  const nextStatementBody = patchedBody ?? (() => {
+    const nextStructured = targetSegment && segmentIndex < structured.segments.length
+      ? {
+          positionTexts: structured.positionTexts,
+          segments: structured.segments.map((seg, i) =>
+            i === segmentIndex ? targetSegment : seg,
+          ),
+        }
+      : structured;
+    return emitStructuredStatementBody(nextStructured);
+  })();
   const commandOptions = commandMatch[2]?.trim();
-  lines[statement.sourceLineIndex] = `${indent}\\${commandMatch[1]}${commandOptions ? `[${commandOptions}]` : ''} ${parts.join(' ')};`;
+  lines[statement.sourceLineIndex] = `${indent}\\${commandMatch[1]}${commandOptions ? `[${commandOptions}]` : ''} ${nextStatementBody};`;
   return lines.join('\n');
 }
 
