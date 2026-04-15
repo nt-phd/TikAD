@@ -30,6 +30,44 @@ const MAX_TIKZ_TOKENS = 300;
 const PDFLATEX_TIMEOUT_MS = 12_000;
 const PDF2SVG_TIMEOUT_MS = 8_000;
 
+// Rate limiting: grace period on first visit, then sliding window
+const RATE_GRACE_MS = 2 * 60 * 1000;   // 2 minutes free on first request
+const RATE_WINDOW_MS = 60 * 1000;       // sliding window duration
+const RATE_MAX = 30;                     // max renders per window after grace
+
+/** @type {Map<string, { firstSeen: number, windowStart: number, count: number }>} */
+const ipRateMap = new Map();
+
+// Periodically evict stale entries to avoid unbounded growth
+setInterval(() => {
+  const cutoff = Date.now() - Math.max(RATE_GRACE_MS, RATE_WINDOW_MS) * 2;
+  for (const [ip, state] of ipRateMap) {
+    if (state.firstSeen < cutoff) ipRateMap.delete(ip);
+  }
+}, 5 * 60 * 1000);
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  let state = ipRateMap.get(ip);
+  if (!state) {
+    state = { firstSeen: now, windowStart: now, count: 0 };
+    ipRateMap.set(ip, state);
+  }
+  // Still within grace period — allow freely
+  if (now - state.firstSeen < RATE_GRACE_MS) return null;
+  // Reset sliding window if it has expired
+  if (now - state.windowStart >= RATE_WINDOW_MS) {
+    state.windowStart = now;
+    state.count = 0;
+  }
+  if (state.count >= RATE_MAX) {
+    const retryAfter = Math.ceil((state.windowStart + RATE_WINDOW_MS - now) / 1000);
+    return retryAfter;
+  }
+  state.count += 1;
+  return null;
+}
+
 const inflight = new Map();
 const resultCache = new Map();
 const queue = [];
@@ -260,6 +298,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'POST' && req.url === '/render') {
     metrics.totalRequests += 1;
+    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() ?? req.socket.remoteAddress ?? 'unknown';
     let body = '';
     let tooLarge = false;
     for await (const chunk of req) {
@@ -282,6 +321,16 @@ const server = http.createServer(async (req, res) => {
       if (complexityError) {
         sendJson(res, 422, { error: complexityError });
         return;
+      }
+
+      // Cache hits are free — check rate limit only for real renders
+      if (!getCached(latex) && !inflight.has(latex)) {
+        const retryAfter = checkRateLimit(ip);
+        if (retryAfter !== null) {
+          res.setHeader('Retry-After', String(retryAfter));
+          sendJson(res, 429, { error: 'rate limit exceeded, retry later' });
+          return;
+        }
       }
 
       const result = await enqueueRender(latex, latex);
