@@ -592,7 +592,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
   initialized = true;
   canvasContainer.replaceChildren();
 
-  await symbolsDB.load('/src/data/symbols.svg');
+  await symbolsDB.load('/symbols.svg');
   populateRegistryFromSymbolsDB(registry, symbolsDB);
 
   const latexDoc = new LatexDocument();
