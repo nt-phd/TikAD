@@ -37,9 +37,11 @@ import DataObjectRoundedIcon from '@mui/icons-material/DataObjectRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import SubjectRoundedIcon from '@mui/icons-material/SubjectRounded';
 import CropOriginalRoundedIcon from '@mui/icons-material/CropOriginalRounded';
+import RestoreRoundedIcon from '@mui/icons-material/RestoreRounded';
 import CodeMirror from '@uiw/react-codemirror';
 import type { EditorView } from '@codemirror/view';
 import { lineNumbers } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
 import type { ImperativeAppHandle } from './initImperativeApp';
 import { initImperativeApp } from './initImperativeApp';
 import { lineIndexFromId } from './codegen/CircuiTikZParser';
@@ -62,6 +64,8 @@ import type {
 import type { WireRoutingMode } from './types';
 import { componentCatalog } from './data/componentCatalog';
 import statementEditorSchemaJson from './data/statementEditorSchema.json';
+type HistoryEntry = { ts: number; source: string };
+
 const GROUP_ORDER = [
   'Resistive bipoles',
   'Capacitive and dynamic bipoles',
@@ -1261,6 +1265,10 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const [majorGridEvery, setMajorGridEvery] = useState(5);
   const [pinSnapEnabled, setPinSnapEnabled] = useState(true);
   const [wireRoutingMode, setWireRoutingMode] = useState<WireRoutingMode>('auto');
+  const [history, setHistory] = useState<HistoryEntry[]>(() => {
+    const raw = localStorage.getItem('tikad-history');
+    return raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
+  });
   const documentEditorRef = useRef<EditorView | null>(null);
   const texUploadInputRef = useRef<HTMLInputElement | null>(null);
   const pendingLatexCommitRef = useRef(false);
@@ -1306,7 +1314,15 @@ function useAppState(handle: ImperativeAppHandle | null) {
       setDocumentVersion((version) => version + 1);
     });
     const unsubLatex = handle.onLatexEdited(() => {
-      localStorage.setItem('tikad-document', handle.getFullLatexSource());
+      const source = handle.getFullLatexSource();
+      localStorage.setItem('tikad-document', source);
+      setHistory((prev) => {
+        const entry: HistoryEntry = { ts: Date.now(), source };
+        const next = [...prev, entry];
+        if (next.length > 30) next.shift();
+        localStorage.setItem('tikad-history', JSON.stringify(next));
+        return next;
+      });
     });
     const unsubTool = handle.onToolChange((tool, defId) => {
       setCurrentTool(tool);
@@ -1539,6 +1555,19 @@ function useAppState(handle: ImperativeAppHandle | null) {
     handle?.clearDocument();
   };
 
+  const onRestoreHistory = (source: string) => {
+    if (!handle) return;
+    handle.loadFullLatexSource(source);
+    setSelectedIds(handle.getSelectedIds());
+    setDocumentSettings(parsePreambleSettings(handle.getPreamble()));
+    const nextBody = handle.getBody();
+    setBody(nextBody);
+    const nextEnvironment = parseEnvironmentSettings(nextBody);
+    setEnvironmentType(nextEnvironment.type);
+    setEnvironmentOptions(nextEnvironment.options);
+    setDocumentVersion((version) => version + 1);
+  };
+
   const markLatexDirty = () => {
     pendingLatexCommitRef.current = true;
   };
@@ -1565,9 +1594,11 @@ function useAppState(handle: ImperativeAppHandle | null) {
     emitCaretSelection,
     gridVisible,
     gridPitch,
+    history,
     majorGridEvery,
     markLatexDirty,
     onClear,
+    onRestoreHistory,
     onCopyCommands,
     onCopyPreamble,
     onCopyDocument,
@@ -1645,6 +1676,177 @@ function PreambleView({
   );
 }
 
+function formatHistoryTimestamp(ts: number): string {
+  const now = new Date();
+  const date = new Date(ts);
+  const isToday =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday =
+    date.getFullYear() === yesterday.getFullYear() &&
+    date.getMonth() === yesterday.getMonth() &&
+    date.getDate() === yesterday.getDate();
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (isToday) return `Today ${timeStr}`;
+  if (isYesterday) return `Yesterday ${timeStr}`;
+  return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${timeStr}`;
+}
+
+function extractDocumentBody(source: string): string {
+  const match = /\\begin\{document\}([\s\S]*?)\\end\{document\}/.exec(source);
+  return match ? match[1].trim() : source.trim();
+}
+
+// Shared sx for each read-only CodeMirror panel in HistoryView — mirrors DocumentEditor's box
+const HISTORY_PANEL_SX = {
+  backgroundColor: 'background.paper',
+  border: 1,
+  borderColor: 'divider',
+  borderRadius: 1,
+  flex: '0 0 calc(50% - 4px)',
+  minHeight: 0,
+  minWidth: 0,
+  overflow: 'hidden',
+  '& > .cm-theme': { height: '100%', minWidth: 0 },
+  '& .cm-editor': {
+    backgroundColor: 'background.paper',
+    color: 'text.primary',
+    fontFamily: '"Roboto Mono", monospace',
+    fontSize: 12,
+    height: '100%',
+    minWidth: 0,
+  },
+  '& .cm-focused': { outline: 'none' },
+  '& .cm-scroller': {
+    fontFamily: '"Roboto Mono", monospace',
+    height: '100%',
+    minWidth: 0,
+    lineHeight: 1.5,
+    overflowX: 'auto',
+    overflowY: 'auto',
+    width: '100%',
+  },
+  '& .cm-gutters': {
+    backgroundColor: 'background.paper',
+    borderRightColor: 'divider',
+  },
+  '& .cm-content': {
+    minHeight: '100%',
+    whiteSpace: 'pre',
+    width: 'max-content',
+    minWidth: '100%',
+  },
+  '& .cm-line': { whiteSpace: 'pre' },
+} as const;
+
+function HistoryView({
+  history,
+  onRestore,
+}: {
+  history: HistoryEntry[];
+  onRestore: (source: string) => void;
+}) {
+  const theme = useTheme();
+  const codeMirrorTheme = useMemo(() => createCodeMirrorTheme(theme), [theme]);
+  const entries = useMemo(() => [...history].reverse(), [history]);
+  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+
+  // Keep selectedIndex within bounds when history grows
+  useEffect(() => {
+    if (selectedIndex >= entries.length) {
+      setSelectedIndex(Math.max(0, entries.length - 1));
+    }
+  }, [entries.length, selectedIndex]);
+
+  const selected = entries[selectedIndex];
+  const prev = entries[selectedIndex + 1];
+  const bodyA = prev ? extractDocumentBody(prev.source) : '';
+  const bodyB = selected ? extractDocumentBody(selected.source) : '';
+
+  const readOnlyExtensions = useMemo(
+    () => [lineNumbers(), latexLanguage, EditorState.readOnly.of(true), ...codeMirrorTheme],
+    [codeMirrorTheme],
+  );
+
+  if (entries.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'text.secondary' }}>
+        <Typography variant="body2">No history yet. Edit the document to create entries.</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
+      {/* Left: version list */}
+      <Box
+        sx={{
+          width: 180,
+          flexShrink: 0,
+          overflowY: 'auto',
+          borderRight: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {entries.map((entry, i) => (
+          <Box
+            key={entry.ts}
+            onClick={() => setSelectedIndex(i)}
+            sx={{
+              px: 1.5,
+              py: 1,
+              cursor: 'pointer',
+              bgcolor: i === selectedIndex ? 'action.selected' : 'transparent',
+              '&:hover': { bgcolor: i === selectedIndex ? 'action.selected' : 'action.hover' },
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.5,
+            }}
+          >
+            <Typography variant="caption" sx={{ fontWeight: i === 0 ? 700 : 400, lineHeight: 1.3, flex: 1 }}>
+              {formatHistoryTimestamp(entry.ts)}
+              {i === 0 ? ' (latest)' : ''}
+            </Typography>
+            {i === selectedIndex && (
+              <Tooltip title="Restore this version">
+                <RestoreRoundedIcon
+                  onClick={(e) => { e.stopPropagation(); onRestore(entry.source); }}
+                  sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0, cursor: 'pointer' }}
+                />
+              </Tooltip>
+            )}
+          </Box>
+        ))}
+      </Box>
+
+      {/* Right: two independent CodeMirror panels side by side */}
+      <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', p: 2, display: 'flex', gap: 1 }}>
+        <Box sx={HISTORY_PANEL_SX}>
+          <CodeMirror
+            extensions={readOnlyExtensions}
+            height="100%"
+            style={{ height: '100%' }}
+            value={bodyA}
+          />
+        </Box>
+        <Box sx={HISTORY_PANEL_SX}>
+          <CodeMirror
+            extensions={readOnlyExtensions}
+            height="100%"
+            style={{ height: '100%' }}
+            value={bodyB}
+          />
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
 function EnvironmentTabs({
   appState,
   collapsed,
@@ -1654,7 +1856,7 @@ function EnvironmentTabs({
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<'document' | 'preamble'>('document');
+  const [activeTab, setActiveTab] = useState<'document' | 'preamble' | 'history'>('document');
   const tabHeader = (
     <Box
       onClick={(event) => event.stopPropagation()}
@@ -1696,6 +1898,18 @@ function EnvironmentTabs({
           }}
           value="document"
         />
+        <Tab
+          label="History"
+          sx={{
+            color: 'text.secondary',
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: '0.08em',
+            minHeight: 36,
+            textTransform: 'uppercase',
+          }}
+          value="history"
+        />
       </Tabs>
     </Box>
   );
@@ -1729,6 +1943,8 @@ function EnvironmentTabs({
           markLatexDirty={appState.markLatexDirty}
           setBody={appState.setEditorBody}
         />
+      ) : activeTab === 'history' ? (
+        <HistoryView history={appState.history} onRestore={appState.onRestoreHistory} />
       ) : (
         <PreambleView preamble={appState.preamble} />
       )}
