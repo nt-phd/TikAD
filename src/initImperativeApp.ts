@@ -675,9 +675,13 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     canvas.refresh();
   };
 
+  const MAX_UNDO_STACK = 100;
   const pushUndoSnapshot = () => {
     const current = latexDoc.toFullSource();
-    if (undoStack[undoStack.length - 1] !== current) undoStack.push(current);
+    if (undoStack[undoStack.length - 1] !== current) {
+      undoStack.push(current);
+      if (undoStack.length > MAX_UNDO_STACK) undoStack.shift();
+    }
   };
 
   syncTikzScale();
