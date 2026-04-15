@@ -253,12 +253,17 @@ export function emitStructuredStatementBody(structured: StructuredStatementBody)
   if (structured.positionTexts[0]) parts.push(structured.positionTexts[0]);
   for (const segment of structured.segments) {
     if (segment.kind === 'connection') {
-      parts.push(`${segment.operator} ${segment.endPositionText}`.trim());
+      const endPos = structured.positionTexts[positionIndex + 1] ?? segment.endPositionText;
+      parts.push(`${segment.operator} ${endPos}`.trim());
       positionIndex += 1;
       continue;
     }
     if (segment.kind === 'bipole') {
-      parts.push(serializeBipoleSegment(segment));
+      const endPos = structured.positionTexts[positionIndex + 1] ?? segment.endPositionText;
+      const patched: EditableBipoleSegment = endPos !== segment.endPositionText
+        ? { ...segment, endPositionText: endPos }
+        : segment;
+      parts.push(serializeBipoleSegment(patched));
       positionIndex += 1;
       continue;
     }
