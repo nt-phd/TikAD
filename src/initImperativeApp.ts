@@ -768,20 +768,12 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
 
   eventBus.on('selection-changed', (e) => {
     if (e.type !== 'selection-changed') return;
-    // Expand to the full row so that "active line = active canvas chain" holds.
-    // Skip expansion if the incoming IDs are identical to the current selection —
-    // this happens during drag (onMouseMove re-emits to trigger a ghost refresh)
-    // and we must not alter the selection in that case.
-    const current = selection.getSelectedIds();
-    const incoming = e.selectedIds;
-    const sameSelection = current.length === incoming.length
-      && incoming.every((id) => current.includes(id));
-    if (!sameSelection) {
-      const representativeId = incoming[0];
-      const lineIndex = representativeId ? lineIndexFromId(representativeId) : -1;
-      const expandedIds = lineIndex >= 0 ? idsAtLineIndex(circuitDoc, lineIndex) : [];
-      selection.setSelectedIds(expandedIds.length > 0 ? expandedIds : incoming);
-    }
+    // Always expand to the full row so that "active line = active canvas chain" holds
+    // regardless of whether the selection came from a canvas click or the code editor.
+    const representativeId = e.selectedIds[0];
+    const lineIndex = representativeId ? lineIndexFromId(representativeId) : -1;
+    const expandedIds = lineIndex >= 0 ? idsAtLineIndex(circuitDoc, lineIndex) : [];
+    selection.setSelectedIds(expandedIds.length > 0 ? expandedIds : e.selectedIds);
     canvas.refresh();
   });
 
