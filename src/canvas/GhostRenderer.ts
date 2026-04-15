@@ -424,9 +424,11 @@ export class GhostRenderer {
 
   private sameSequenceEndpoint(a: PositionSequencePreview, b: PositionSequencePreview): boolean {
     if (a.ref?.nodeName && b.ref?.nodeName) {
-      return a.ref.nodeName === b.ref.nodeName && a.ref.anchor === b.ref.anchor;
+      if (a.ref.nodeName === b.ref.nodeName && a.ref.anchor === b.ref.anchor) return true;
     }
-    return a.point.x === b.point.x && a.point.y === b.point.y;
+    const aDisplay = this.resolveDisplayedSequencePoint(a);
+    const bDisplay = this.resolveDisplayedSequencePoint(b);
+    return aDisplay.x === bDisplay.x && aDisplay.y === bDisplay.y;
   }
 
   private singleSequence(point: GridPoint, ref?: ConnectionRef): PositionSequencePreview {
