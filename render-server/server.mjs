@@ -31,7 +31,7 @@ const PDFLATEX_TIMEOUT_MS = 12_000;
 const PDF2SVG_TIMEOUT_MS = 8_000;
 
 // Rate limiting: grace period on first visit, then sliding window
-const RATE_GRACE_MS = 2 * 60 * 1000;   // 2 minutes free on first request
+const RATE_GRACE_MS = 30 * 1000;        // 30 seconds free on first request
 const RATE_WINDOW_MS = 60 * 1000;       // sliding window duration
 const RATE_MAX = 30;                     // max renders per window after grace
 
