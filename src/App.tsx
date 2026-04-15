@@ -1297,11 +1297,13 @@ function useAppState(handle: ImperativeAppHandle | null) {
       const nextBody = handle.getBody();
       latestEditorBodyRef.current = nextBody;
       setBody(nextBody);
-      localStorage.setItem('tikad-document', handle.getFullLatexSource());
       const nextEnvironment = parseEnvironmentSettings(nextBody);
       setEnvironmentType(nextEnvironment.type);
       setEnvironmentOptions(nextEnvironment.options);
       setDocumentVersion((version) => version + 1);
+    });
+    const unsubLatex = handle.onLatexEdited(() => {
+      localStorage.setItem('tikad-document', handle.getFullLatexSource());
     });
     const unsubTool = handle.onToolChange((tool, defId) => {
       setCurrentTool(tool);
@@ -1313,6 +1315,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
 
     return () => {
       unsubBody();
+      unsubLatex();
       unsubTool();
       unsubSelection();
     };
