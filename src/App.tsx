@@ -892,12 +892,10 @@ function LibraryView({
     return map;
   }, [defsByTikzName]);
   const inUseItems = useMemo(() => {
-    console.log('[InUse] inUseDefs:', inUseDefs.map(d => ({ id: d.id, tikzName: d.tikzName, placementType: d.placementType })));
     const seen = new Set<string>();
     const resolved: Array<{ entry: typeof componentCatalog.components[number]; def: ComponentDef }> = [];
     for (const def of inUseDefs) {
       const item = allCatalogItemsByDefId.get(def.id);
-      console.log('[InUse] lookup', def.id, '->', item?.entry.tag ?? 'NOT FOUND');
       if (!item || seen.has(item.entry.tag)) continue;
       seen.add(item.entry.tag);
       resolved.push(item);
