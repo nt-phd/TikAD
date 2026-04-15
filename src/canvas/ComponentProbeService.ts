@@ -282,8 +282,8 @@ function buildPlacedProbeFromSource(source: { body: string; preamble: string }, 
   if (nodeStmt) {
     probeLine = `${nodeStmt[1]}[${nodeStmt[2]}](${nodeName}) at (0,0) {};`;
   } else {
-    const pathNodeStmt = sourceLine.match(/^(\s*\\(?:draw|path)\s*)\([^)]+\)\s+node\[([^\]]+)\](\s*\{[\s\S]*\}\s*;?)$/);
-    if (pathNodeStmt) probeLine = `${pathNodeStmt[1]}(0,0) node[${pathNodeStmt[2]}](${nodeName})${pathNodeStmt[3]}`;
+    const pathNodeStmt = sourceLine.match(/^(\s*\\(?:draw|path)\s*)\([^)]+\)\s+node\[([^\]]+)\](\s*\{[\s\S]*?\}\s*);?$/);
+    if (pathNodeStmt) probeLine = `${pathNodeStmt[1]}(0,0) node[${pathNodeStmt[2]}](${nodeName})${pathNodeStmt[3]};`;
   }
   if (!probeLine) return null;
 
@@ -311,7 +311,7 @@ function buildPlacedProbeFromSource(source: { body: string; preamble: string }, 
   ].join('\n');
 
   return {
-    cacheKey: `placed:${source.preamble}\n@@\n${source.body}\n@@\n${sourceLine}\n@@\n${def.id}`,
+    cacheKey: `placed:${source.preamble}\n@@\n${tikzOptions}\n@@\n${probeLine}\n@@\n${def.id}`,
     displayLatex,
     markers,
     latex: [
@@ -389,7 +389,7 @@ function buildPlacedGhostProbe(source: { body: string; preamble: string }, def: 
   ].join('\n');
 
   return {
-    cacheKey: `ghost-placed:${source.preamble}\n@@\n${source.body}\n@@\n${def.id}\n@@\n${rotation}`,
+    cacheKey: `ghost-placed:${source.preamble}\n@@\n${tikzOptions}\n@@\n${def.id}\n@@\n${rotation}`,
     displayLatex,
     markers,
     latex: [
@@ -430,7 +430,7 @@ function buildBipoleProbeLatex(source: { body: string; preamble: string }, sourc
   ].join('\n');
 
   return {
-    cacheKey: `bipole:${source.preamble}\n@@\n${source.body}\n@@\n${sourceLine}`,
+    cacheKey: `bipole:${source.preamble}\n@@\n${tikzOptions}\n@@\n${bipoleStmt[3]}\n@@\n${dist}`,
     displayLatex,
     markers,
     latex: [
@@ -467,7 +467,7 @@ function buildBipoleGhostProbe(source: { body: string; preamble: string }, def: 
   ].join('\n');
 
   return {
-    cacheKey: `ghost-bipole:${source.preamble}\n@@\n${source.body}\n@@\n${def.id}\n@@\n${dist}`,
+    cacheKey: `ghost-bipole:${source.preamble}\n@@\n${tikzOptions}\n@@\n${def.id}\n@@\n${dist}`,
     displayLatex,
     markers,
     latex: [
@@ -512,6 +512,7 @@ export class ComponentProbeService {
       ? buildBipoleProbeLatex(source, sourceLine)
       : buildPlacedProbeRequest(source, sourceLine, lineIndex, def);
     if (!request) return null;
+    request.persist = true;
     return this.getOrQueueProbe(request, onResolved);
   }
 

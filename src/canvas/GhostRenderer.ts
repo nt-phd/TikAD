@@ -72,10 +72,7 @@ export class GhostRenderer {
   setGhostElement(el: SVGElement | null): void {
     this.ghostGroup.innerHTML = '';
     if (!el) this.setLatexGhostPreview(null);
-    if (el) {
-      el.setAttribute('opacity', String(GHOST_OPACITY));
-      this.ghostGroup.appendChild(el);
-    }
+    if (el) this.ghostGroup.appendChild(el);
   }
 
   buildMarqueeGhost(start: GridPoint, end: GridPoint): SVGGElement {
@@ -333,12 +330,12 @@ export class GhostRenderer {
         false,
         comp.id,
         color,
-        !comp.positionSequence,
+        true,
       );
       if (comp.positionSequence) {
         const group = createGroup('sel-component-group');
         group.appendChild(bodyGroup);
-        this.appendPositionSequencePreview(group, comp.positionSequence, color, 1);
+        this.appendPositionSequencePreview(group, comp.positionSequence, color, 1, true);
         return group;
       }
       return bodyGroup;
@@ -704,8 +701,10 @@ export class GhostRenderer {
     sequence: PositionSequencePreview,
     color: string,
     opacity: number,
+    skipLastCorner = false,
   ): void {
     const gs = this.gs;
+    const lastIndex = sequence.corners.length - 1;
     const relativeOriginIndexes = new Set<number>();
     for (const corner of sequence.corners) {
       if (corner.kind === 'relative' && corner.relativeFromIndex !== undefined) {
@@ -713,6 +712,9 @@ export class GhostRenderer {
       }
     }
     for (let index = 0; index < sequence.corners.length; index++) {
+      // The last corner is the node's own position — already drawn as a cross
+      // by buildProbeSelectionGroup (tied to comp.position, moves during drag).
+      if (skipLastCorner && index === lastIndex) continue;
       const corner = sequence.corners[index];
       const displayPoint = this.resolveDisplayedCornerPoint(sequence, index);
       if (corner.kind === 'relative' && corner.relativeFromIndex !== undefined) {

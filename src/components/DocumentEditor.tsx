@@ -102,11 +102,14 @@ export function DocumentEditor({
             if (!(update.selectionSet || update.docChanged || update.focusChanged)) return;
             const lineIndex = update.state.doc.lineAt(update.state.selection.main.head).number - 1;
             const previousLineIndex = activeLineRef.current;
-            const lineChanged = previousLineIndex !== null && previousLineIndex !== lineIndex;
-            const lostFocus = update.focusChanged && !update.view.hasFocus;
+            const hasFocus = update.view.hasFocus;
+            // Commit only on user-driven line changes (editor has focus) or on focus loss.
+            // Programmatic selection changes from canvas drag must not trigger a commit.
+            const lineChanged = hasFocus && previousLineIndex !== null && previousLineIndex !== lineIndex;
+            const lostFocus = update.focusChanged && !hasFocus;
             if (lineChanged || lostFocus) commitPendingLatexEdits();
             activeLineRef.current = lineIndex;
-            if (!update.view.hasFocus) return;
+            if (!hasFocus) return;
             emitCaretSelection(lineIndex);
           }}
           style={{ height: '100%' }}

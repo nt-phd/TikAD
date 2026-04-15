@@ -1245,6 +1245,9 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const documentEditorRef = useRef<EditorView | null>(null);
   const texUploadInputRef = useRef<HTMLInputElement | null>(null);
   const pendingLatexCommitRef = useRef(false);
+  // Tracks the latest body text typed in the editor without triggering
+  // a render on every keystroke. Only committed when commitPendingLatexEdits fires.
+  const latestEditorBodyRef = useRef(body);
 
   const preamble = useMemo(() => buildPreambleFromPackages(preamblePackages), [preamblePackages]);
 
@@ -1257,7 +1260,9 @@ function useAppState(handle: ImperativeAppHandle | null) {
     const initialPreamble = handle.getPreamble();
     setPreamblePackages(parsePreamblePackages(initialPreamble));
     setDocumentSettings(parsePreambleSettings(initialPreamble));
-    setBody(handle.getBody());
+    const initialBody = handle.getBody();
+    latestEditorBodyRef.current = initialBody;
+    setBody(initialBody);
     const initialEnvironment = parseEnvironmentSettings(handle.getBody());
     setEnvironmentType(initialEnvironment.type);
     setEnvironmentOptions(initialEnvironment.options);
@@ -1269,6 +1274,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
 
     const unsubBody = handle.onBodyChange(() => {
       const nextBody = handle.getBody();
+      latestEditorBodyRef.current = nextBody;
       setBody(nextBody);
       const nextEnvironment = parseEnvironmentSettings(nextBody);
       setEnvironmentType(nextEnvironment.type);
@@ -1344,11 +1350,6 @@ function useAppState(handle: ImperativeAppHandle | null) {
     handle.setPreamble(preamble);
   }, [handle, preamble]);
 
-  useEffect(() => {
-    if (!handle) return;
-    handle.setBody(body);
-  }, [body, handle]);
-
   const stopShortcutPropagation = (event: ReactKeyboardEvent<HTMLElement>) => {
     event.stopPropagation();
   };
@@ -1364,6 +1365,9 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const commitPendingLatexEdits = () => {
     if (!handle || !pendingLatexCommitRef.current) return;
     pendingLatexCommitRef.current = false;
+    // Push the latest typed content to latexDoc.body before committing so that
+    // commitLatexEdits operates on the current editor state, not a stale value.
+    handle.setBody(latestEditorBodyRef.current);
     handle.commitLatexEdits();
   };
 
@@ -1461,12 +1465,20 @@ function useAppState(handle: ImperativeAppHandle | null) {
 
   const onEnvironmentTypeChange = (value: EnvironmentType) => {
     setEnvironmentType(value);
-    setBody((current) => applyEnvironmentSettingsToBody(current, value, environmentOptions));
+    const nextBody = applyEnvironmentSettingsToBody(latestEditorBodyRef.current, value, environmentOptions);
+    latestEditorBodyRef.current = nextBody;
+    setBody(nextBody);
+    handle?.setBody(nextBody);
+    handle?.commitLatexEdits();
   };
 
   const onEnvironmentOptionsChange = (value: string) => {
     setEnvironmentOptions(value);
-    setBody((current) => applyEnvironmentSettingsToBody(current, environmentType, value));
+    const nextBody = applyEnvironmentSettingsToBody(latestEditorBodyRef.current, environmentType, value);
+    latestEditorBodyRef.current = nextBody;
+    setBody(nextBody);
+    handle?.setBody(nextBody);
+    handle?.commitLatexEdits();
   };
 
   const onMajorGridEveryChange = (value: number) => {
@@ -1501,6 +1513,14 @@ function useAppState(handle: ImperativeAppHandle | null) {
 
   const markLatexDirty = () => {
     pendingLatexCommitRef.current = true;
+  };
+
+  // Called by the code editor's onChange; keeps the ref in sync so that
+  // commitPendingLatexEdits can write the latest content without rendering on
+  // every keystroke.
+  const setEditorBody = (value: string) => {
+    latestEditorBodyRef.current = value;
+    setBody(value);
   };
 
   return {
@@ -1543,7 +1563,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     preamblePackages,
     preamble,
     selectedIds,
-    setBody,
+    setEditorBody,
     setDocumentSettings,
     setPreamblePackages,
     stopShortcutPropagation,
@@ -1679,7 +1699,7 @@ function EnvironmentTabs({
           documentEditorRef={appState.documentEditorRef}
           emitCaretSelection={appState.emitCaretSelection}
           markLatexDirty={appState.markLatexDirty}
-          setBody={appState.setBody}
+          setBody={appState.setEditorBody}
         />
       ) : (
         <PreambleView preamble={appState.preamble} />
