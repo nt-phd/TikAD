@@ -640,8 +640,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       parseCircuiTikZ(latexDoc.body, circuitDoc, registry);
       primeNodeAnchorProbes();
       reconcileSelection('programmatic');
-      canvas.refresh();
-      canvas.scheduleRender();
+      canvas.refresh(); // overlay only — body has not changed, no re-render needed
     });
   };
 
@@ -673,7 +672,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     reconcileSelection('programmatic');
     eventBus.emit({ type: 'body-changed' });
     canvas.refresh();
-    canvas.scheduleRender();
   };
 
   const pushUndoSnapshot = () => {
@@ -698,7 +696,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       parseCurrentBody();
       eventBus.emit({ type: 'body-changed' });
       canvas.refresh();
-      canvas.scheduleRender();
     },
     deleteElements: (ids: string[]) => {
       if (ids.length === 0) return;
@@ -717,7 +714,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       eventBus.emit({ type: 'selection-changed', selectedIds: [], source: 'canvas' });
       eventBus.emit({ type: 'body-changed' });
       canvas.refresh();
-      canvas.scheduleRender();
     },
     placeClipboard: (payload, target) => {
       pushUndoSnapshot();
@@ -735,9 +731,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       selection.setSelectedIds(selectedIds);
       eventBus.emit({ type: 'selection-changed', selectedIds, source: 'canvas' });
       eventBus.emit({ type: 'body-changed' });
-      eventBus.emit({ type: 'user-edited-latex' });
       canvas.refresh();
-      canvas.scheduleRender();
     },
     undo: () => {
       const previous = undoStack.pop();
@@ -766,6 +760,11 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     }
     return sequences;
   };
+
+  // Single place where a LaTeX render is triggered: whenever the body changes.
+  eventBus.on('body-changed', () => {
+    canvas.scheduleRender();
+  });
 
   eventBus.on('selection-changed', (e) => {
     if (e.type !== 'selection-changed') return;
@@ -799,7 +798,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       componentProbeService.invalidate();
       eventBus.emit({ type: 'body-changed' });
       canvas.refresh();
-      canvas.scheduleRender();
       return;
     }
     let nextBody = latexDoc.body;
@@ -827,7 +825,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       reconcileSelection('programmatic');
       eventBus.emit({ type: 'body-changed' });
       canvas.refresh();
-      canvas.scheduleRender();
       return;
     }
 
@@ -855,7 +852,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     componentProbeService.invalidate();
     eventBus.emit({ type: 'body-changed' });
     canvas.refresh();
-    canvas.scheduleRender();
   });
 
   eventBus.on('user-edited-latex', () => {
@@ -868,7 +864,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     reconcileSelection('programmatic');
     eventBus.emit({ type: 'body-changed' });
     canvas.refresh();
-    canvas.scheduleRender();
   });
 
   syncTikzScale();
@@ -950,7 +945,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       reconcileSelection('programmatic');
       eventBus.emit({ type: 'body-changed' });
       canvas.refresh();
-      canvas.scheduleRender();
     },
     getDef: (defId) => registry.get(defId),
     getGridVisible: () => gridVisible,
