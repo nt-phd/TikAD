@@ -1330,7 +1330,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     if (!handle) return;
     const unsub = handle.onSelectionChange((nextSelectedIds, source) => {
       if (source === 'code') return;
-      if (nextSelectedIds.length !== 1) return;
+      if (nextSelectedIds.length === 0) return;
       const lineIndex = lineIndexFromId(nextSelectedIds[0]);
       if (lineIndex < 0) return;
       const view = documentEditorRef.current;

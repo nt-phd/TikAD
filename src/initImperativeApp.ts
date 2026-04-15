@@ -768,7 +768,12 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
 
   eventBus.on('selection-changed', (e) => {
     if (e.type !== 'selection-changed') return;
-    selection.setSelectedIds(e.selectedIds);
+    // Always expand to the full row so that "active line = active canvas chain" holds
+    // regardless of whether the selection came from a canvas click or the code editor.
+    const representativeId = e.selectedIds[0];
+    const lineIndex = representativeId ? lineIndexFromId(representativeId) : -1;
+    const expandedIds = lineIndex >= 0 ? idsAtLineIndex(circuitDoc, lineIndex) : [];
+    selection.setSelectedIds(expandedIds.length > 0 ? expandedIds : e.selectedIds);
     canvas.refresh();
   });
 
