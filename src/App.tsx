@@ -1017,7 +1017,29 @@ function LibraryView({
 }
 
 
-function PropertiesView({
+function PropertiesView(props: {
+  documentSettings: CircuitikzDocumentSettings;
+  documentVersion: number;
+  environmentOptions: string;
+  environmentType: EnvironmentType;
+  gridPitch: number;
+  majorGridEvery: number;
+  handle: ImperativeAppHandle | null;
+  preamble: string;
+  preamblePackages: PreamblePackage[];
+  selectedIds: string[];
+  setEnvironmentOptions: (value: string) => void;
+  setEnvironmentType: (value: EnvironmentType) => void;
+  setGridPitch: (value: number) => void;
+  setMajorGridEvery: (value: number) => void;
+  setPreamblePackages: (value: PreamblePackage[] | ((prev: PreamblePackage[]) => PreamblePackage[])) => void;
+  stopShortcutPropagation: (e: ReactKeyboardEvent<HTMLElement>) => void;
+}) {
+  if (!props.handle) return <Box id="props" sx={{ flex: 1 }} />;
+  return <PropertiesViewInner {...props} handle={props.handle} />;
+}
+
+function PropertiesViewInner({
   documentSettings,
   documentVersion,
   environmentOptions,
@@ -1041,7 +1063,7 @@ function PropertiesView({
   environmentType: EnvironmentType;
   gridPitch: number;
   majorGridEvery: number;
-  handle: ImperativeAppHandle | null;
+  handle: ImperativeAppHandle;
   preamble: string;
   preamblePackages: PreamblePackage[];
   selectedIds: string[];
@@ -1052,7 +1074,6 @@ function PropertiesView({
   setPreamblePackages: (value: PreamblePackage[] | ((prev: PreamblePackage[]) => PreamblePackage[])) => void;
   stopShortcutPropagation: (e: ReactKeyboardEvent<HTMLElement>) => void;
 }) {
-  if (!handle) return <Box id="props" sx={{ flex: 1 }} />;
 
   const selectionId = selectedIds[0];
   const selectionCount = selectedIds.length;
