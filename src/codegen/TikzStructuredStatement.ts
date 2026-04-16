@@ -297,39 +297,6 @@ export function emitStructuredNodeStatement(structured: StructuredStatementBody)
   return `node${options.length > 0 ? `[${options.join(', ')}]` : ''} ${buildNodePlacementText(nodeName, placement.positionText)} {${segment.text ?? ''}}`;
 }
 
-export function splitStructuredStatementParts(structured: StructuredStatementBody): string[] | null {
-  if (structured.segments.length <= 1) return null;
-  // A path made entirely of connection operators (--/-|/|-) is parsed as a
-  // single wire with multiple pathPoints. No need to split it into sub-wires.
-  if (structured.segments.every((s) => s.kind === 'connection')) return null;
-  const parts: string[] = [];
-  let positionIndex = 0;
-  for (const segment of structured.segments) {
-    const startPosition = structured.positionTexts[positionIndex];
-    if (!startPosition) return null;
-    if (segment.kind === 'connection') {
-      parts.push(`${startPosition} ${segment.operator} ${segment.endPositionText}`.trim());
-      positionIndex += 1;
-      continue;
-    }
-    if (segment.kind === 'bipole') {
-      parts.push(`${startPosition} ${serializeBipoleSegment(segment)}`.trim());
-      positionIndex += 1;
-      continue;
-    }
-    if (segment.kind === 'node') {
-      parts.push(serializeNodeSegment(segment).trim());
-      continue;
-    }
-    if (segment.kind === 'raw') {
-      parts.push(segment.rawText.trim());
-      continue;
-    }
-    return null;
-  }
-  return parts.length > 1 ? parts : null;
-}
-
 export function parseStructuredStatementBody(body: string): StructuredStatementBody | null {
   const start = scanTikzPointSequence(body, 0);
   if (!start) return null;

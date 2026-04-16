@@ -2,19 +2,16 @@ import type {
   EditableStatement,
 } from '../types';
 import { lineIndexFromId } from './CircuiTikZParser';
-import { parseStructuredNodeStatement, parseStructuredStatementBody, splitStructuredStatementParts } from './TikzStructuredStatement';
+import { parseStructuredNodeStatement, parseStructuredStatementBody } from './TikzStructuredStatement';
 
-function lineIdParts(id: string): { lineIndex: number; subIndex: number | null } {
-  const m = id.match(/^line:(\d+)(?::(\d+))?$/);
-  return {
-    lineIndex: m ? Number.parseInt(m[1], 10) : -1,
-    subIndex: m?.[2] ? Number.parseInt(m[2], 10) : null,
-  };
+function lineIndexFromLineId(id: string): number {
+  const m = id.match(/^line:(\d+)$/);
+  return m ? Number.parseInt(m[1], 10) : -1;
 }
 
 function extractStatementSource(body: string, id: string): { sourceLineIndex: number; sourceSubIndex: number | null; text: string } | null {
-  const idParts = lineIdParts(id);
-  const sourceLineIndex = idParts.lineIndex >= 0 ? idParts.lineIndex : lineIndexFromId(id);
+  const lineIndex = lineIndexFromLineId(id);
+  const sourceLineIndex = lineIndex >= 0 ? lineIndex : lineIndexFromId(id);
   if (sourceLineIndex < 0) return null;
   const lines = body.split('\n');
   if (sourceLineIndex >= lines.length) return null;
@@ -66,41 +63,6 @@ function extractStatementSource(body: string, id: string): { sourceLineIndex: nu
   }
   const statementText = collected.split(';')[0]?.trim() ?? '';
   if (!statementText) return null;
-  if (idParts.subIndex != null) {
-    const commandLineMatch = lines[sourceLineIndex]?.trim().match(/^\\(draw|path)(?:\[([\s\S]*?)\])?\s*$/);
-    if (commandLineMatch) {
-      const entityLines: string[] = [];
-      for (let i = sourceLineIndex + 1; i < lines.length; i++) {
-        const stripped = lines[i].replace(/%.*$/, '').trim();
-        if (!stripped) continue;
-        if (stripped === ';') break;
-        entityLines.push(stripped);
-      }
-      const selectedEntity = entityLines[idParts.subIndex];
-      if (selectedEntity) {
-        const commandPrefix = `\\${commandLineMatch[1]}${commandLineMatch[2]?.trim() ? `[${commandLineMatch[2].trim()}]` : ''}`;
-        return {
-          sourceLineIndex,
-          sourceSubIndex: idParts.subIndex,
-          text: `${commandPrefix} ${selectedEntity}`,
-        };
-      }
-    }
-    const commandMatch = statementText.match(/^\\(draw|path)(?:\[([\s\S]*?)\])?\s+([\s\S]+)$/);
-    if (commandMatch) {
-      const structured = parseStructuredStatementBody(commandMatch[3].trim());
-      const split = structured ? splitStructuredStatementParts(structured) : null;
-      if (split?.[idParts.subIndex]) {
-        const commandOptions = commandMatch[2]?.trim();
-        const commandPrefix = `\\${commandMatch[1]}${commandOptions ? `[${commandOptions}]` : ''}`;
-        return {
-          sourceLineIndex,
-          sourceSubIndex: idParts.subIndex,
-          text: `${commandPrefix} ${split[idParts.subIndex]}`,
-        };
-      }
-    }
-  }
   return { sourceLineIndex, sourceSubIndex: null, text: statementText };
 }
 
