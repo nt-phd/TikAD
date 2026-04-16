@@ -74,7 +74,7 @@ function parseBipoleOptions(text: string): EditableBipoleSegment {
   const options = splitOptions(text);
   const firstOption = options[0]?.trim();
   const hasInlineValue = Boolean(firstOption && firstOption.includes('='));
-  const tikzName = firstOption || 'R';
+  const tikzName = hasInlineValue ? firstOption.split('=')[0].trim() : (firstOption || 'R');
   const rest = hasInlineValue ? options : options.slice(1);
   const terminals = extractTerminalMarks(rest);
   const props: EditableBipoleSegment['props'] = {
