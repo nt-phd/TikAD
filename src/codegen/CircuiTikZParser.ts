@@ -23,11 +23,14 @@ import type {
   MonopoleInstance,
   NodeInstance,
   WireInstance,
+  DrawPathInstance,
+  DrawPathSegment,
   ComponentProps,
   DrawingInstance,
   PositionSequencePreview,
   PathCornerPreview,
   EditableConnectionSegment,
+  EditableBipoleSegment,
 } from '../types';
 import type { CircuitDocument } from '../model/CircuitDocument';
 import type { ComponentRegistry } from '../definitions/ComponentRegistry';
@@ -39,7 +42,7 @@ import {
   type TikzPointSpec,
 } from './TikzPointParser';
 import { extractKV, splitOptions } from './TikzStatementSyntax';
-import { parseStructuredStatementBody, splitNodePlacementText, splitStructuredStatementParts } from './TikzStructuredStatement';
+import { parseStructuredStatementBody, splitNodePlacementText } from './TikzStructuredStatement';
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -265,6 +268,26 @@ function resolveStructuredPositionTexts(
     currentRef = resolved.ref;
   }
   return sequences;
+}
+
+function expandDrawPath(
+  positionSequences: PositionSequencePreview[],
+  segments: DrawPathSegment[],
+): GridPoint[] {
+  if (positionSequences.length === 0) return [];
+  const expanded: GridPoint[] = [positionSequences[0].point];
+  for (let i = 0; i < segments.length; i++) {
+    const a = positionSequences[i].point;
+    const b = positionSequences[i + 1].point;
+    const op = segments[i].kind === 'connection' ? (segments[i].operator ?? '--') : '--';
+    if (op === '|-') {
+      expanded.push({ x: a.x, y: b.y });
+    } else if (op === '-|') {
+      expanded.push({ x: b.x, y: a.y });
+    }
+    expanded.push(b);
+  }
+  return expanded;
 }
 
 function parseDrawingStatement(body: string, drawOptions: string | undefined): DrawingInstance | null {
@@ -605,78 +628,55 @@ export function parseCircuiTikZ(
       }
 
       const structured = parseStructuredStatementBody(body);
-      const split = structured ? splitStructuredStatementParts(structured) : null;
-      if (split) {
-        split.forEach((part, index) => {
-          parseSingleStatement(`\\${command} ${part}`, `${id}:${index}`);
-        });
+
+      // Handle single \node placement
+      if (structured && structured.segments.length === 1 && structured.segments[0].kind === 'node') {
+        const segment = structured.segments[0];
+        const resolvedPosition = structured.positionTexts[0]
+          ? resolvePositionSequencePreview(splitNodePlacementText(structured.positionTexts[0]).positionText, doc, registry)
+          : null;
+        const tikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
+        if (!tikzName || !resolvedPosition) return true;
+        const props: ComponentProps = {
+          options: segment.optionsText?.trim() || undefined,
+          text: segment.text?.trim() || undefined,
+          textAnchor: undefined,
+        };
+        addPlacedComponent(doc, registry, tikzToDefId, id, tikzName, resolvedPosition.point, segment.nodeName, props, resolvedPosition);
         return true;
       }
- 
-      if (structured) {
-        const connectionSegments = structured.segments.filter(
-          (segment): segment is EditableConnectionSegment => segment.kind === 'connection',
+
+      // All \draw paths with connection/bipole segments → single DrawPathInstance
+      if (structured && structured.segments.length > 0) {
+        const onlyConnectionsAndBipoles = structured.segments.every(
+          (s) => s.kind === 'connection' || s.kind === 'bipole',
         );
-        const allConnections = connectionSegments.length === structured.segments.length;
-        if (allConnections) {
+        if (onlyConnectionsAndBipoles) {
           const positionSequences = resolveStructuredPositionTexts(structured.positionTexts, doc, registry);
           if (!positionSequences) return true;
-          const operators = connectionSegments.map((segment) => segment.operator);
-          const expanded = expandWirePath(positionSequences, operators);
-          const wire: WireInstance = {
+
+          const segments: DrawPathSegment[] = structured.segments.map((s) => {
+            if (s.kind === 'connection') {
+              return { kind: 'connection', operator: s.operator };
+            }
+            // bipole
+            const bipSeg = s as EditableBipoleSegment;
+            const tikzName = bipSeg.tikzName ? normalizeTikzComponentName(bipSeg.tikzName) : undefined;
+            const defId = tikzName ? (tikzToDefId.get(tikzName) ?? tikzName) : undefined;
+            return { kind: 'bipole', defId, props: { ...bipSeg.props } };
+          });
+
+          const points = expandDrawPath(positionSequences, segments);
+          const drawPath: DrawPathInstance = {
             id,
-            points: operators.length > 0
-              ? expanded.points
-              : positionSequences.map((sequence) => ({ ...sequence.point })),
-            pathPoints: positionSequences.map((sequence) => sequence.point),
-            pathSequences: positionSequences,
-            startRef: expanded.startRef,
-            endRef: expanded.endRef,
-            operators,
+            positionSequences,
+            segments,
+            points,
+            startRef: positionSequences[0]?.ref,
+            endRef: positionSequences[positionSequences.length - 1]?.ref,
             junctions: new Map(),
           };
-          doc.addWire(wire);
-          return true;
-        }
-      }
-
-      if (structured && structured.segments.length === 1) {
-        const [segment] = structured.segments;
-        if (segment.kind === 'node') {
-          const resolvedPosition = structured.positionTexts[0]
-            ? resolvePositionSequencePreview(splitNodePlacementText(structured.positionTexts[0]).positionText, doc, registry)
-            : null;
-          const tikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
-          if (!tikzName || !resolvedPosition) return true;
-          const props: ComponentProps = {
-            options: segment.optionsText?.trim() || undefined,
-            text: segment.text?.trim() || undefined,
-            textAnchor: undefined,
-          };
-          addPlacedComponent(doc, registry, tikzToDefId, id, tikzName, resolvedPosition.point, segment.nodeName, props, resolvedPosition);
-          return true;
-        }
-        if (segment.kind === 'bipole') {
-          const positionSequences = resolveStructuredPositionTexts(structured.positionTexts, doc, registry);
-          const startEndpoint = positionSequences?.[0] ?? null;
-          const endEndpoint = positionSequences?.[1] ?? null;
-          if (!startEndpoint || !endEndpoint) return true;
-          const tikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
-          if (!tikzName) return true;
-          const defId = tikzToDefId.get(tikzName) ?? tikzName;
-          const comp: BipoleInstance = {
-            id,
-            defId,
-            type: 'bipole',
-            start: startEndpoint.point,
-            end: endEndpoint.point,
-            startRef: startEndpoint.ref,
-            endRef: endEndpoint.ref,
-            startSequence: startEndpoint,
-            endSequence: endEndpoint,
-            props: { ...segment.props },
-          };
-          doc.addComponent(comp);
+          doc.addDrawPath(drawPath);
           return true;
         }
       }

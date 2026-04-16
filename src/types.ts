@@ -162,6 +162,36 @@ export interface WireInstance {
 export type WireRoutingMode = 'auto' | '--' | '|-' | '-|';
 
 // ============================================================
+// DRAW PATHS (unified entity for \draw statements)
+// ============================================================
+
+export interface DrawPathSegment {
+  kind: 'connection' | 'bipole';
+  // for connection segments:
+  operator?: '--' | '|-' | '-|';
+  // for bipole segments:
+  defId?: string;
+  props?: ComponentProps;
+}
+
+/**
+ * Represents a full \draw statement as a single entity.
+ * positionSequences[i] are the N explicit positions (crosshairs).
+ * segments[i] is the segment between positionSequences[i] and positionSequences[i+1].
+ * points[] is the expanded point list for physical rendering (includes intermediate
+ * corner points for -| and |- operators).
+ */
+export interface DrawPathInstance {
+  id: string;
+  positionSequences: PositionSequencePreview[];
+  segments: DrawPathSegment[];
+  points: GridPoint[];
+  startRef?: ConnectionRef;
+  endRef?: ConnectionRef;
+  junctions: Map<number, TerminalMark>;
+}
+
+// ============================================================
 // DRAWINGS
 // ============================================================
 

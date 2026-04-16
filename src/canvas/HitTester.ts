@@ -2,7 +2,7 @@
  * Model-based hit testing — no DOM queries needed.
  * Works in grid coordinates (integer TikZ units).
  */
-import type { ConnectionRef, DrawingInstance, GridPoint } from '../types';
+import type { ConnectionRef, DrawingInstance, DrawPathInstance, GridPoint } from '../types';
 import type { CircuitDocument } from '../model/CircuitDocument';
 import type { ComponentRegistry } from '../definitions/ComponentRegistry';
 import { getBipoleBodyMetrics, getPlacedComponentMetrics } from './ComponentGeometry';
@@ -194,6 +194,12 @@ export class HitTester {
       consider(wire.points[wire.points.length - 1], wire.endRef);
     }
 
+    for (const dp of this.doc.drawPaths) {
+      if (dp.positionSequences.length === 0) continue;
+      consider(dp.positionSequences[0].point, dp.startRef);
+      consider(dp.positionSequences[dp.positionSequences.length - 1].point, dp.endRef);
+    }
+
     return best;
   }
 
@@ -265,6 +271,16 @@ export class HitTester {
         const b = wire.points[i + 1];
         const d = distPointToSegment(gridPt.x, gridPt.y, a.x, a.y, b.x, b.y);
         if (d < bestDist) { bestDist = d; best = wire.id; }
+      }
+    }
+
+    for (const dp of this.doc.drawPaths) {
+      if (allowedIds && !allowedIds.has(dp.id)) continue;
+      for (let i = 0; i < dp.points.length - 1; i++) {
+        const a = dp.points[i];
+        const b = dp.points[i + 1];
+        const d = distPointToSegment(gridPt.x, gridPt.y, a.x, a.y, b.x, b.y);
+        if (d < bestDist) { bestDist = d; best = dp.id; }
       }
     }
 
@@ -342,6 +358,17 @@ export class HitTester {
         const p2 = wire.points[i + 1];
         if (segmentIntersectsRect(p1.x, p1.y, p2.x, p2.y, left, top, right, bottom)) {
           ids.push(wire.id);
+          break;
+        }
+      }
+    }
+
+    for (const dp of this.doc.drawPaths) {
+      for (let i = 0; i < dp.points.length - 1; i++) {
+        const p1 = dp.points[i];
+        const p2 = dp.points[i + 1];
+        if (segmentIntersectsRect(p1.x, p1.y, p2.x, p2.y, left, top, right, bottom)) {
+          ids.push(dp.id);
           break;
         }
       }

@@ -296,6 +296,9 @@ export function emitStructuredNodeStatement(structured: StructuredStatementBody)
 
 export function splitStructuredStatementParts(structured: StructuredStatementBody): string[] | null {
   if (structured.segments.length <= 1) return null;
+  // A path made entirely of connection operators (--/-|/|-) is parsed as a
+  // single wire with multiple pathPoints. No need to split it into sub-wires.
+  if (structured.segments.every((s) => s.kind === 'connection')) return null;
   const parts: string[] = [];
   let positionIndex = 0;
   for (const segment of structured.segments) {

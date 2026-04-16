@@ -8,6 +8,7 @@ import type {
   BipoleInstance,
   ComponentDef,
   DrawingInstance,
+  DrawPathInstance,
   ConnectionRef,
   PositionSequencePreview,
 } from '../types';
@@ -288,14 +289,15 @@ export class GhostRenderer {
     if (ordered.length === 0) return null;
     const sequences: PositionSequencePreview[] = [];
     const operators: Array<'--' | '|-' | '-|'> = [];
-    for (const entry of ordered) {
+    for (let i = 0; i < ordered.length; i++) {
+      const entry = ordered[i];
       const extracted = this.extractSelectionSequences(entry.id);
       if (!extracted || extracted.sequences.length === 0) continue;
-      const startsAtSameCorner = sequences.length > 0 && this.sameSequenceEndpoint(
-        sequences[sequences.length - 1],
-        extracted.sequences[0],
-      );
-      if (startsAtSameCorner) {
+      // Sub-wires on the same line are connected in series: the first point of each
+      // sub-wire (after the first) is the same shared endpoint as the last point of
+      // the previous sub-wire. Skip it unconditionally to avoid a duplicate crosshair.
+      const isConsecutiveSubWire = i > 0 && sequences.length > 0;
+      if (isConsecutiveSubWire) {
         sequences.push(...extracted.sequences.slice(1));
       } else {
         sequences.push(...extracted.sequences);
@@ -346,6 +348,8 @@ export class GhostRenderer {
       if (!extracted) return null;
       return this.buildSequenceSelection(extracted.sequences, extracted.operators, color);
     }
+    const drawPath = this.doc.getDrawPath(id);
+    if (drawPath) return this.buildDrawPathSelection(drawPath, color);
     const drawing = this.doc.getDrawing(id);
     if (drawing) return this.buildDrawingSelection(drawing, color);
     return null;
@@ -477,6 +481,11 @@ export class GhostRenderer {
       if (wireGroup) this.deletePreviewGroup.appendChild(wireGroup);
       return;
     }
+    const drawPath = this.doc.getDrawPath(id);
+    if (drawPath) {
+      this.deletePreviewGroup.appendChild(this.buildDrawPathSelection(drawPath, DELETE_PREVIEW_COLOR));
+      return;
+    }
     const drawing = this.doc.getDrawing(id);
     if (drawing) this.deletePreviewGroup.appendChild(this.buildDrawingSelection(drawing, DELETE_PREVIEW_COLOR));
   }
@@ -566,6 +575,48 @@ export class GhostRenderer {
     );
     this.appendBipoleBody(group, comp, def, color);
     return group;
+  }
+
+  private buildDrawPathSelection(path: DrawPathInstance, color: string): SVGGElement {
+    const gs = this.gs;
+    const g = createGroup('sel-draw-path');
+    // Connection lines between consecutive positions
+    const operators = path.segments.map((s) => (s.kind === 'connection' ? (s.operator ?? '--') : '--') as '--' | '|-' | '-|');
+    const handlePoints = path.positionSequences.map((s) => this.resolveDisplayedSequencePoint(s));
+    const displayPoints = this.expandDisplayedWirePoints(handlePoints, operators);
+    for (let i = 0; i < displayPoints.length - 1; i++) {
+      const a = displayPoints[i];
+      const b = displayPoints[i + 1];
+      g.appendChild(this.createOverlayLine(a.x * gs, a.y * gs, b.x * gs, b.y * gs, { opacity: CONNECTION_LINE_OPACITY }, color));
+    }
+    // Crosshairs on each position
+    for (const seq of path.positionSequences) {
+      this.appendPositionSequencePreview(g, seq, color, 1);
+    }
+    // Bipole bodies
+    for (let i = 0; i < path.segments.length; i++) {
+      const seg = path.segments[i];
+      if (seg.kind !== 'bipole' || !seg.defId) continue;
+      const def = this.registry.get(seg.defId);
+      if (!def) continue;
+      const startPt = handlePoints[i];
+      const endPt = handlePoints[i + 1];
+      if (!startPt || !endPt) continue;
+      const sx = startPt.x * gs;
+      const sy = startPt.y * gs;
+      const ex = endPt.x * gs;
+      const ey = endPt.y * gs;
+      const dx = ex - sx;
+      const dy = ey - sy;
+      const dist = Math.hypot(dx, dy);
+      const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+      const { bodyWidth, bodyHeight, bodyX, bodyY } = getBipoleBodyMetrics(def, gs, dist);
+      const body = createGroup('sel-bipole-body');
+      body.setAttribute('transform', `translate(${sx}, ${sy}) rotate(${angleDeg})`);
+      body.appendChild(createRect(bodyX, bodyY, bodyWidth, bodyHeight, { fill: color, opacity: OVERLAY_FILL_OPACITY }));
+      g.appendChild(body);
+    }
+    return g;
   }
 
   private appendBipoleBody(group: SVGGElement, comp: BipoleInstance, def: ComponentDef, color: string): void {

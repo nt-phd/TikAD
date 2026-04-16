@@ -222,6 +222,7 @@ function idsAtLineIndex(doc: CircuitDocument, lineIndex: number): string[] {
   const matches = [
     ...doc.components.map((component) => component.id),
     ...doc.wires.map((wire) => wire.id),
+    ...doc.drawPaths.map((dp) => dp.id),
     ...doc.drawings.map((drawing) => drawing.id),
   ].filter((id) => lineIdParts(id).lineIndex === lineIndex);
   return [...new Set(matches)];
@@ -709,6 +710,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       for (const id of ids) {
         circuitDoc.removeComponent(id);
         circuitDoc.removeWire(id);
+        circuitDoc.removeDrawPath(id);
         circuitDoc.removeDrawing(id);
       }
       latexDoc.body = removeBodyLines(latexDoc.body, lineIndices);
@@ -758,11 +760,54 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       }
       if (comp.positionSequence) sequences.push(comp.positionSequence);
     }
+    // Group wires by logical line index so shared endpoints between
+    // consecutive sub-wires of the same draw statement are deduplicated.
+    const wiresByLine = new Map<number, typeof circuitDoc.wires>();
+    const ungroupedWires: typeof circuitDoc.wires = [];
     for (const wire of circuitDoc.wires) {
+      const { lineIndex, subIndex } = lineIdParts(wire.id);
+      if (lineIndex >= 0 && subIndex !== null) {
+        const bucket = wiresByLine.get(lineIndex) ?? [];
+        bucket.push(wire);
+        wiresByLine.set(lineIndex, bucket);
+      } else {
+        ungroupedWires.push(wire);
+      }
+    }
+
+    for (const bucket of wiresByLine.values()) {
+      const sorted = [...bucket].sort((a, b) => {
+        const { subIndex: ai } = lineIdParts(a.id);
+        const { subIndex: bi } = lineIdParts(b.id);
+        return (ai ?? 0) - (bi ?? 0);
+      });
+      let lastPoint: { x: number; y: number } | null = null;
+      for (const wire of sorted) {
+        if (!wire.pathSequences || wire.pathSequences.length === 0) continue;
+        for (let i = 0; i < wire.pathSequences.length; i++) {
+          const seq = wire.pathSequences[i];
+          // Skip the first sequence of a subsequent sub-wire if it duplicates
+          // the last sequence already added (shared endpoint between sub-wires).
+          if (i === 0 && lastPoint !== null &&
+              seq.point.x === lastPoint.x && seq.point.y === lastPoint.y) {
+            continue;
+          }
+          sequences.push(seq);
+          lastPoint = seq.point;
+        }
+      }
+    }
+
+    for (const wire of ungroupedWires) {
       if (wire.pathSequences && wire.pathSequences.length > 0) {
         sequences.push(...wire.pathSequences);
       }
     }
+
+    for (const dp of circuitDoc.drawPaths) {
+      sequences.push(...dp.positionSequences);
+    }
+
     return sequences;
   };
 

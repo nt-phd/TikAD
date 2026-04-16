@@ -1,4 +1,4 @@
-import type { GridPoint, BipoleInstance, MonopoleInstance, SourceCoordinateTranslation, WireInstance } from '../types';
+import type { GridPoint, BipoleInstance, MonopoleInstance, SourceCoordinateTranslation, WireInstance, DrawPathInstance } from '../types';
 import { BaseTool } from './BaseTool';
 import type { SelectionState } from '../model/SelectionState';
 
@@ -15,12 +15,14 @@ export class SelectTool extends BaseTool {
   private dragBipoleEndpoint: { id: string; endpoint: 'start' | 'end' } | null = null;
   private dragDrawingHandle: { id: string; handle: 'start' | 'end' | 'position' | 'center' | 'control1' | 'control2' } | null = null;
   private dragWireHandle: { id: string; index: number } | null = null;
+  private dragDrawPathHandle: { id: string; index: number } | null = null;
   private dragOriginalPositions = new Map<string, {
     start?: GridPoint;
     end?: GridPoint;
     position?: GridPoint;
     points?: GridPoint[];
     pathPoints?: GridPoint[];
+    drawPathPositions?: GridPoint[];
     center?: GridPoint;
     control1?: GridPoint;
     control2?: GridPoint;
@@ -115,6 +117,28 @@ export class SelectTool extends BaseTool {
       }
     }
 
+    const drawPathHandleTarget = this.findSelectedDrawPathHandle(gridPt);
+    if (drawPathHandleTarget) {
+      const dp = this.ctx.getDocument().getDrawPath(drawPathHandleTarget.id);
+      if (dp) {
+        this.isMarqueeSelecting = false;
+        this.isDragging = true;
+        this.hasDragged = false;
+        this.dragStartGrid = gridPt;
+        this.dragDelta = { x: 0, y: 0 };
+        this.dragBipoleEndpoint = null;
+        this.dragDrawingHandle = null;
+        this.dragWireHandle = null;
+        this.dragDrawPathHandle = drawPathHandleTarget;
+        this.dragOriginalPositions.clear();
+        this.dragOriginalPositions.set(dp.id, {
+          drawPathPositions: dp.positionSequences.map((s) => ({ ...s.point })),
+        });
+        this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+        return;
+      }
+    }
+
     const selectedIds = this.selection.getSelectedIds();
     const selectedHitId = selectedIds.length > 0
       ? this.ctx.hitTester.hitTestAmong(gridPt, new Set(selectedIds))
@@ -152,6 +176,13 @@ export class SelectTool extends BaseTool {
           this.dragOriginalPositions.set(id, {
             points: wire.points.map((point) => ({ ...point })),
             pathPoints: wire.pathPoints?.map((point) => ({ ...point })),
+          });
+          continue;
+        }
+        const drawPath = this.ctx.getDocument().getDrawPath(id);
+        if (drawPath) {
+          this.dragOriginalPositions.set(id, {
+            drawPathPositions: drawPath.positionSequences.map((s) => ({ ...s.point })),
           });
           continue;
         }
@@ -234,11 +265,13 @@ export class SelectTool extends BaseTool {
           comp.end = { ...orig.end };
           comp.startRef = snapped?.ref;
           comp.startSequence = undefined;
+          this.propagateSharedEndpoint(this.dragBipoleEndpoint.id, 'start', targetPoint);
         } else {
           comp.start = { ...orig.start };
           comp.end = { x: targetPoint.x, y: targetPoint.y };
           comp.endRef = snapped?.ref;
           comp.endSequence = undefined;
+          this.propagateSharedEndpoint(this.dragBipoleEndpoint.id, 'end', targetPoint);
         }
         this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
       }
@@ -306,10 +339,35 @@ export class SelectTool extends BaseTool {
             wire.operators = undefined;
           }
           wire.pathSequences = undefined;
-          if (this.dragWireHandle.index === 0) wire.startRef = snapped?.ref;
-          if (this.dragWireHandle.index === sourcePoints.length - 1) wire.endRef = snapped?.ref;
+          if (this.dragWireHandle.index === 0) {
+            wire.startRef = snapped?.ref;
+          }
+          if (this.dragWireHandle.index === sourcePoints.length - 1) {
+            wire.endRef = snapped?.ref;
+          }
           this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
         }
+      }
+      return;
+    }
+    if (this.dragDrawPathHandle) {
+      const dp = doc.getDrawPath(this.dragDrawPathHandle.id);
+      const orig = this.dragOriginalPositions.get(this.dragDrawPathHandle.id);
+      if (dp && orig?.drawPathPositions) {
+        const snapped = this.ctx.hitTester.connectionSnapEnabled
+          ? this.ctx.hitTester.findNearestConnectionTarget(gridPt, 0.5)
+          : null;
+        const targetPoint = snapped?.point ?? gridPt;
+        const idx = this.dragDrawPathHandle.index;
+        const seq = dp.positionSequences[idx];
+        const updatedCorners = seq.corners.map((c, ci) =>
+          ci === seq.corners.length - 1 ? { ...c, point: targetPoint } : c,
+        );
+        dp.positionSequences[idx] = { ...seq, point: targetPoint, corners: updatedCorners };
+        if (idx === 0) dp.startRef = snapped?.ref;
+        if (idx === dp.positionSequences.length - 1) dp.endRef = snapped?.ref;
+        dp.points = this.rebuildDrawPathPoints(dp);
+        this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
       }
       return;
     }
@@ -332,6 +390,23 @@ export class SelectTool extends BaseTool {
             (wire as WireInstance).pathPoints = orig.pathPoints.map((point) => ({ x: point.x + dx, y: point.y + dy }));
           }
           (wire as WireInstance).pathSequences = undefined;
+          continue;
+        }
+        const drawPath = doc.getDrawPath(id);
+        if (drawPath && orig.drawPathPositions) {
+          for (let i = 0; i < drawPath.positionSequences.length; i++) {
+            const origPt = orig.drawPathPositions[i];
+            if (!origPt) continue;
+            const newPt = { x: origPt.x + dx, y: origPt.y + dy };
+            const seq = drawPath.positionSequences[i];
+            const updatedCorners = seq.corners.map((c, ci) =>
+              ci === seq.corners.length - 1 ? { ...c, point: newPt } : c,
+            );
+            drawPath.positionSequences[i] = { ...seq, point: newPt, corners: updatedCorners };
+          }
+          drawPath.startRef = undefined;
+          drawPath.endRef = undefined;
+          drawPath.points = this.rebuildDrawPathPoints(drawPath);
           continue;
         }
         const drawing = doc.getDrawing(id);
@@ -398,6 +473,7 @@ export class SelectTool extends BaseTool {
     this.dragBipoleEndpoint = null;
     this.dragDrawingHandle = null;
     this.dragWireHandle = null;
+    this.dragDrawPathHandle = null;
     this.dragOriginalPositions.clear();
   }
 
@@ -478,6 +554,46 @@ export class SelectTool extends BaseTool {
     return expanded;
   }
 
+  // When a shared endpoint between consecutive sub-elements on the same LaTeX line
+  // is moved, propagate the new position to the adjacent element so both stay in sync.
+  // 'end' of line:N:M → 'start' of line:N:M+1
+  // 'start' of line:N:M → 'end' of line:N:M-1
+  private propagateSharedEndpoint(id: string, movedEndpoint: 'start' | 'end', pt: GridPoint): void {
+    const m = id.match(/^(line:\d+):(\d+)$/);
+    if (!m) return;
+    const prefix = m[1];
+    const sub = parseInt(m[2], 10);
+    const adjacentId = movedEndpoint === 'end' ? `${prefix}:${sub + 1}` : `${prefix}:${sub - 1}`;
+    const adjacentEndpoint = movedEndpoint === 'end' ? 'start' : 'end';
+    const doc = this.ctx.getDocument();
+
+    const adjComp = doc.getComponent(adjacentId);
+    if (adjComp?.type === 'bipole') {
+      if (adjacentEndpoint === 'start') {
+        adjComp.start = { x: pt.x, y: pt.y };
+        adjComp.startSequence = undefined;
+      } else {
+        adjComp.end = { x: pt.x, y: pt.y };
+        adjComp.endSequence = undefined;
+      }
+      return;
+    }
+
+    const adjWire = doc.getWire(adjacentId);
+    if (adjWire) {
+      const pts = adjWire.pathPoints ?? adjWire.points;
+      const idx = adjacentEndpoint === 'start' ? 0 : pts.length - 1;
+      pts[idx] = { x: pt.x, y: pt.y };
+      if (adjWire.pathPoints) {
+        adjWire.pathPoints = pts;
+        adjWire.points = this.rebuildExpandedWirePoints(pts, adjWire.operators);
+      } else {
+        adjWire.points = pts;
+      }
+      adjWire.pathSequences = undefined;
+    }
+  }
+
   private findSelectedWireHandle(gridPt: GridPoint): { id: string; index: number } | null {
     const radius = SelectTool.WIRE_HANDLE_HIT_RADIUS;
     for (const id of this.selection.getSelectedIds()) {
@@ -494,8 +610,38 @@ export class SelectTool extends BaseTool {
     return null;
   }
 
+  private findSelectedDrawPathHandle(gridPt: GridPoint): { id: string; index: number } | null {
+    const radius = SelectTool.WIRE_HANDLE_HIT_RADIUS;
+    for (const id of this.selection.getSelectedIds()) {
+      const dp = this.ctx.getDocument().getDrawPath(id);
+      if (!dp) continue;
+      for (let index = 0; index < dp.positionSequences.length; index++) {
+        const pt = dp.positionSequences[index].point;
+        if (Math.hypot(gridPt.x - pt.x, gridPt.y - pt.y) <= radius) {
+          return { id, index };
+        }
+      }
+    }
+    return null;
+  }
+
+  private rebuildDrawPathPoints(dp: DrawPathInstance): GridPoint[] {
+    if (dp.positionSequences.length === 0) return [];
+    const expanded: GridPoint[] = [{ ...dp.positionSequences[0].point }];
+    for (let i = 0; i < dp.segments.length; i++) {
+      const a = dp.positionSequences[i].point;
+      const b = dp.positionSequences[i + 1]?.point;
+      if (!b) break;
+      const op = dp.segments[i].kind === 'connection' ? (dp.segments[i].operator ?? '--') : '--';
+      if (op === '|-') { expanded.push({ x: a.x, y: b.y }); }
+      else if (op === '-|') { expanded.push({ x: b.x, y: a.y }); }
+      expanded.push({ ...b });
+    }
+    return expanded;
+  }
+
   private buildSourceTranslations(): SourceCoordinateTranslation[] {
-    if (!this.dragBipoleEndpoint && !this.dragDrawingHandle && !this.dragWireHandle) {
+    if (!this.dragBipoleEndpoint && !this.dragDrawingHandle && !this.dragWireHandle && !this.dragDrawPathHandle) {
       return this.selection.getSelectedIds().map((id) => ({
         id,
         dx: this.dragDelta.x,
@@ -545,6 +691,22 @@ export class SelectTool extends BaseTool {
       if (!from || !to) return [];
       return [{
         id: wire.id,
+        matchPoint: from,
+        dx: to.x - from.x,
+        dy: to.y - from.y,
+      }];
+    }
+
+    if (this.dragDrawPathHandle) {
+      const dp = doc.getDrawPath(this.dragDrawPathHandle.id);
+      const orig = this.dragOriginalPositions.get(this.dragDrawPathHandle.id);
+      if (!dp || !orig?.drawPathPositions) return [];
+      const idx = this.dragDrawPathHandle.index;
+      const from = orig.drawPathPositions[idx];
+      const to = dp.positionSequences[idx]?.point;
+      if (!from || !to) return [];
+      return [{
+        id: dp.id,
         matchPoint: from,
         dx: to.x - from.x,
         dy: to.y - from.y,

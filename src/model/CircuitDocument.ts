@@ -1,10 +1,11 @@
-import type { ComponentInstance, DrawingInstance, WireInstance, DocumentMetadata } from '../types';
+import type { ComponentInstance, DrawingInstance, WireInstance, DrawPathInstance, DocumentMetadata } from '../types';
 import { GRID_SIZE, SNAP_GRID, DEFAULT_STYLE } from '../constants';
 
 export class CircuitDocument {
   components: ComponentInstance[] = [];
   drawings: DrawingInstance[] = [];
   wires: WireInstance[] = [];
+  drawPaths: DrawPathInstance[] = [];
   metadata: DocumentMetadata;
 
   constructor(style: 'european' | 'american' = DEFAULT_STYLE) {
@@ -55,6 +56,18 @@ export class CircuitDocument {
     return this.wires.find(w => w.id === id);
   }
 
+  addDrawPath(d: DrawPathInstance): void {
+    this.drawPaths.push(d);
+  }
+
+  removeDrawPath(id: string): void {
+    this.drawPaths = this.drawPaths.filter((d) => d.id !== id);
+  }
+
+  getDrawPath(id: string): DrawPathInstance | undefined {
+    return this.drawPaths.find((d) => d.id === id);
+  }
+
   addDrawing(d: DrawingInstance): void {
     this.drawings.push(d);
   }
@@ -71,5 +84,6 @@ export class CircuitDocument {
     this.components = [];
     this.drawings = [];
     this.wires = [];
+    this.drawPaths = [];
   }
 }

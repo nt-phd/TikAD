@@ -1,4 +1,4 @@
-import type { BipoleInstance, MonopoleInstance, NodeInstance, WireInstance, TerminalMark, DrawingInstance } from '../types';
+import type { BipoleInstance, MonopoleInstance, NodeInstance, WireInstance, TerminalMark, DrawingInstance, DrawPathInstance } from '../types';
 import type { CircuitDocument } from '../model/CircuitDocument';
 import type { ComponentRegistry } from '../definitions/ComponentRegistry';
 import { formatCoord } from './CoordFormatter';
@@ -30,6 +30,11 @@ export class CircuiTikZEmitter {
   /** Emit only the inner \draw lines (no begin/end wrapper). */
   emitLines(doc: CircuitDocument): string[] {
     const lines: string[] = [];
+
+    for (const dp of doc.drawPaths) {
+      const l = this.emitDrawPath(dp);
+      if (l) lines.push(l);
+    }
 
     for (const w of doc.wires) {
       const l = this.emitWire(w);
@@ -113,6 +118,38 @@ export class CircuiTikZEmitter {
       case 'bezier':
         return `\\draw[${drawing.props.options || 'thin'}] ${formatCoord(drawing.start)} .. controls ${formatCoord(drawing.control1)} and ${formatCoord(drawing.control2)} .. ${formatCoord(drawing.end)};`;
     }
+  }
+
+  private emitDrawPath(path: DrawPathInstance): string {
+    if (path.positionSequences.length < 2) return '';
+    const parts: string[] = [];
+    const firstSeq = path.positionSequences[0];
+    parts.push(formatEndpoint(firstSeq.point, firstSeq.ref));
+    for (let i = 0; i < path.segments.length; i++) {
+      const seg = path.segments[i];
+      const nextSeq = path.positionSequences[i + 1];
+      if (!nextSeq) break;
+      const endPos = formatEndpoint(nextSeq.point, nextSeq.ref);
+      if (seg.kind === 'connection') {
+        parts.push(`${seg.operator ?? '--'} ${endPos}`);
+      } else {
+        const def = seg.defId ? this.registry.get(seg.defId) : undefined;
+        const tikzName = def?.tikzName ?? seg.defId ?? 'R';
+        const options: string[] = [tikzName];
+        const props = seg.props;
+        if (props) {
+          const termStr = this.terminalString(props.startTerminal, props.endTerminal);
+          if (termStr !== '-') options.push(termStr);
+          if (props.annotation) options.push(`a=${formatLabel(props.annotation)}`);
+          if (props.label) options.push(`l=${formatLabel(props.label)}`);
+          if (props.voltage) options.push(`v=${formatLabel(props.voltage)}`);
+          if (props.current) options.push(`i=${formatLabel(props.current)}`);
+          if (props.flow) options.push(`f=${formatLabel(props.flow)}`);
+        }
+        parts.push(`to[${options.join(', ')}] ${endPos}`);
+      }
+    }
+    return `\\draw ${parts.join(' ')};`;
   }
 
   private emitTextNode(drawing: DrawingInstance): string {
