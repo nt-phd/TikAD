@@ -370,11 +370,10 @@ function getSegmentDisplayName(segment: EditableStatement['segments'][number]): 
   if (segment.kind === 'raw') return 'Raw';
   if (segment.kind === 'package') return 'Package';
   if (segment.kind === 'connection') return 'Route';
-  const baseTikzName = segment.tikzName?.split('=')[0]?.trim();
   const def = registry.getAll().find((entry) =>
-    entry.tikzName === baseTikzName
+    entry.tikzName === segment.tikzName
       && (segment.kind === 'bipole' ? entry.placementType === 'bipole' : entry.placementType !== 'bipole'));
-  return def?.displayName ?? baseTikzName ?? segment.tikzName ?? 'Component';
+  return def?.displayName ?? segment.tikzName ?? 'Component';
 }
 
 function getStatementTreeFieldSchema(schema: StatementTreeSchema, field: StatementTreeField): StatementTreeFieldSchema {
@@ -1269,10 +1268,9 @@ export function StatementEditor({
           const nodePropertyGroup = statementPropertySchema.segmentKinds.node;
           const addedIds = addedBipolePropertyIds[index] ?? [];
           const optionTokens = splitOptions(segment.optionsText ?? '');
-          const baseNodeName = segment.tikzName?.split('=')[0]?.trim();
           const nodeOptionDefs = [
             ...getCommonOptionDefinitions(),
-            ...getNodeOptionDefinitions(baseNodeName).map((entry) => ({
+            ...getNodeOptionDefinitions(segment.tikzName).map((entry) => ({
               label: entry.key,
               value: entry.key,
               description: entry.description ?? entry.section ?? undefined,
@@ -1499,7 +1497,7 @@ export function StatementEditor({
                 ? segment.operator
                 : segment.kind === 'package'
                   ? segment.name
-                  : segment.tikzName ?? '',
+                  : (segment.kind === 'bipole' && segment.tikzValue !== undefined ? `${segment.tikzName}=${segment.tikzValue}` : segment.tikzName) ?? '',
           ),
           options: segment.kind === 'connection' && routeOptions.length > 0 ? routeOptions : objectField.options,
           propertyId: segment.kind === 'package' ? `package:${segment.name}` : undefined,
@@ -1511,7 +1509,7 @@ export function StatementEditor({
                 ? segment.operator
                 : segment.kind === 'package'
                   ? segment.name
-                  : segment.tikzName ?? '',
+                  : (segment.kind === 'bipole' && segment.tikzValue !== undefined ? `${segment.tikzName}=${segment.tikzValue}` : segment.tikzName) ?? '',
           segmentIndex: index,
         });
       }
@@ -1889,7 +1887,12 @@ export function StatementEditor({
             if (value !== '--' && value !== '|-' && value !== '-|') return prev;
             next.segments[item.segmentIndex] = { ...segment, operator: value };
           }
-          if (segment.kind === 'bipole') next.segments[item.segmentIndex] = { ...segment, tikzName: value };
+          if (segment.kind === 'bipole') {
+            const eqIdx = value.indexOf('=');
+            const newTikzName = eqIdx >= 0 ? value.slice(0, eqIdx).trim() : value;
+            const newTikzValue = eqIdx >= 0 ? value.slice(eqIdx + 1).trim() : undefined;
+            next.segments[item.segmentIndex] = { ...segment, tikzName: newTikzName, tikzValue: newTikzValue };
+          }
           if (segment.kind === 'node') next.segments[item.segmentIndex] = { ...segment, tikzName: value || undefined };
           next.editIntent = { field: 'object', segmentIndex: item.segmentIndex };
         }
