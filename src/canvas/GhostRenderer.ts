@@ -240,26 +240,8 @@ export class GhostRenderer {
   renderSelection(): void {
     this.selectionGroup.innerHTML = '';
     this.renderedAnchorMap = this.buildRenderedAnchorMap();
-    const selectedIds = this.selection.getSelectedIds();
-    const groupedByLine = new Map<number, string[]>();
-    for (const id of selectedIds) {
-      const parts = this.lineIdParts(id);
-      if (parts.subIndex === null || parts.lineIndex < 0) continue;
-      const group = groupedByLine.get(parts.lineIndex) ?? [];
-      group.push(id);
-      groupedByLine.set(parts.lineIndex, group);
-    }
-    const handledIds = new Set<string>();
-    for (const ids of groupedByLine.values()) {
-      if (ids.length < 2) continue;
-      const group = this.buildSelectionGroup(ids, SELECTION_COLOR);
-      if (!group) continue;
-      this.selectionGroup.appendChild(group);
-      ids.forEach((id) => handledIds.add(id));
-    }
-    for (const id of selectedIds) {
-      if (handledIds.has(id)) continue;
-      const group = this.buildSelectionGroup([id], SELECTION_COLOR);
+    for (const id of this.selection.getSelectedIds()) {
+      const group = this.buildSingleSelectionGroup(id, SELECTION_COLOR);
       if (group) this.selectionGroup.appendChild(group);
     }
   }
@@ -277,44 +259,7 @@ export class GhostRenderer {
     }
   }
 
-  private buildSelectionGroup(ids: string[], color: string): SVGGElement | null {
-    if (ids.length === 1) {
-      const single = this.buildSingleSelectionGroup(ids[0], color);
-      if (single) return single;
-    }
-    const ordered = [...ids]
-      .map((id) => ({ id, ...this.lineIdParts(id) }))
-      .filter((entry) => entry.subIndex !== null)
-      .sort((a, b) => (a.subIndex ?? 0) - (b.subIndex ?? 0));
-    if (ordered.length === 0) return null;
-    const sequences: PositionSequencePreview[] = [];
-    const operators: Array<'--' | '|-' | '-|'> = [];
-    for (let i = 0; i < ordered.length; i++) {
-      const entry = ordered[i];
-      const extracted = this.extractSelectionSequences(entry.id);
-      if (!extracted || extracted.sequences.length === 0) continue;
-      // Sub-wires on the same line are connected in series: the first point of each
-      // sub-wire (after the first) is the same shared endpoint as the last point of
-      // the previous sub-wire. Skip it unconditionally to avoid a duplicate crosshair.
-      const isConsecutiveSubWire = i > 0 && sequences.length > 0;
-      if (isConsecutiveSubWire) {
-        sequences.push(...extracted.sequences.slice(1));
-      } else {
-        sequences.push(...extracted.sequences);
-      }
-      operators.push(...extracted.operators);
-    }
-    if (sequences.length === 0) return null;
-    const group = this.buildSequenceSelection(sequences, operators, color);
-    for (const entry of ordered) {
-      const comp = this.doc.getComponent(entry.id);
-      if (!comp || comp.type !== 'bipole') continue;
-      const def = this.registry.get(comp.defId);
-      if (!def) continue;
-      this.appendBipoleBody(group, comp, def, color);
-    }
-    return group;
-  }
+
 
   private buildSingleSelectionGroup(id: string, color: string): SVGGElement | null {
     const comp = this.doc.getComponent(id);
@@ -426,13 +371,6 @@ export class GhostRenderer {
     return g;
   }
 
-  private sameSequenceEndpoint(a: PositionSequencePreview, b: PositionSequencePreview): boolean {
-    if (a.ref?.nodeName && b.ref?.nodeName) {
-      return a.ref.nodeName === b.ref.nodeName && a.ref.anchor === b.ref.anchor;
-    }
-    return a.point.x === b.point.x && a.point.y === b.point.y;
-  }
-
   private singleSequence(point: GridPoint, ref?: ConnectionRef): PositionSequencePreview {
     return {
       corners: [{
@@ -442,14 +380,6 @@ export class GhostRenderer {
       }],
       point,
       ref,
-    };
-  }
-
-  private lineIdParts(id: string): { lineIndex: number; subIndex: number | null } {
-    const match = id.match(/^line:(\d+)(?::(\d+))?$/);
-    return {
-      lineIndex: match ? Number.parseInt(match[1], 10) : -1,
-      subIndex: match?.[2] ? Number.parseInt(match[2], 10) : null,
     };
   }
 

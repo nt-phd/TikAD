@@ -265,13 +265,11 @@ export class SelectTool extends BaseTool {
           comp.end = { ...orig.end };
           comp.startRef = snapped?.ref;
           comp.startSequence = undefined;
-          this.propagateSharedEndpoint(this.dragBipoleEndpoint.id, 'start', targetPoint);
         } else {
           comp.start = { ...orig.start };
           comp.end = { x: targetPoint.x, y: targetPoint.y };
           comp.endRef = snapped?.ref;
           comp.endSequence = undefined;
-          this.propagateSharedEndpoint(this.dragBipoleEndpoint.id, 'end', targetPoint);
         }
         this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
       }
@@ -339,12 +337,8 @@ export class SelectTool extends BaseTool {
             wire.operators = undefined;
           }
           wire.pathSequences = undefined;
-          if (this.dragWireHandle.index === 0) {
-            wire.startRef = snapped?.ref;
-          }
-          if (this.dragWireHandle.index === sourcePoints.length - 1) {
-            wire.endRef = snapped?.ref;
-          }
+          if (this.dragWireHandle.index === 0) wire.startRef = snapped?.ref;
+          if (this.dragWireHandle.index === sourcePoints.length - 1) wire.endRef = snapped?.ref;
           this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
         }
       }
@@ -552,46 +546,6 @@ export class SelectTool extends BaseTool {
       }
     }
     return expanded;
-  }
-
-  // When a shared endpoint between consecutive sub-elements on the same LaTeX line
-  // is moved, propagate the new position to the adjacent element so both stay in sync.
-  // 'end' of line:N:M → 'start' of line:N:M+1
-  // 'start' of line:N:M → 'end' of line:N:M-1
-  private propagateSharedEndpoint(id: string, movedEndpoint: 'start' | 'end', pt: GridPoint): void {
-    const m = id.match(/^(line:\d+):(\d+)$/);
-    if (!m) return;
-    const prefix = m[1];
-    const sub = parseInt(m[2], 10);
-    const adjacentId = movedEndpoint === 'end' ? `${prefix}:${sub + 1}` : `${prefix}:${sub - 1}`;
-    const adjacentEndpoint = movedEndpoint === 'end' ? 'start' : 'end';
-    const doc = this.ctx.getDocument();
-
-    const adjComp = doc.getComponent(adjacentId);
-    if (adjComp?.type === 'bipole') {
-      if (adjacentEndpoint === 'start') {
-        adjComp.start = { x: pt.x, y: pt.y };
-        adjComp.startSequence = undefined;
-      } else {
-        adjComp.end = { x: pt.x, y: pt.y };
-        adjComp.endSequence = undefined;
-      }
-      return;
-    }
-
-    const adjWire = doc.getWire(adjacentId);
-    if (adjWire) {
-      const pts = adjWire.pathPoints ?? adjWire.points;
-      const idx = adjacentEndpoint === 'start' ? 0 : pts.length - 1;
-      pts[idx] = { x: pt.x, y: pt.y };
-      if (adjWire.pathPoints) {
-        adjWire.pathPoints = pts;
-        adjWire.points = this.rebuildExpandedWirePoints(pts, adjWire.operators);
-      } else {
-        adjWire.points = pts;
-      }
-      adjWire.pathSequences = undefined;
-    }
   }
 
   private findSelectedWireHandle(gridPt: GridPoint): { id: string; index: number } | null {
