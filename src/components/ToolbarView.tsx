@@ -23,7 +23,7 @@ import Grid4x4RoundedIcon from '@mui/icons-material/Grid4x4Rounded';
 import ArrowDropDownRoundedIcon from '@mui/icons-material/ArrowDropDownRounded';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
-import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded';
+import AdsClickRoundedIcon from '@mui/icons-material/AdsClickRounded';
 import OpenWithRoundedIcon from '@mui/icons-material/OpenWithRounded';
 import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepRounded';
 import NavigationRoundedIcon from '@mui/icons-material/NavigationRounded';
@@ -303,7 +303,7 @@ export function ToolbarView({
             sx={toolbarToggleSx}
             value="pin-snap"
           >
-            <AccountTreeRoundedIcon fontSize="small" />
+            <AdsClickRoundedIcon fontSize="small" />
           </ToggleButton>
         </Tooltip>
         <ButtonGroup

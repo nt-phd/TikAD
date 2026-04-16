@@ -420,6 +420,12 @@ function formatGridCoord(value: number, pitch: number): string {
   return snapped.toFixed(decimals).replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
 }
 
+function formatStatusCoord(value: number, pitch: number): string {
+  const snapped = Math.round(value / pitch) * pitch;
+  const decimals = Number.isInteger(pitch) ? 0 : (String(pitch).split('.')[1]?.length ?? 0);
+  return snapped.toFixed(decimals);
+}
+
 function namespaceInlineSvg(markup: string, prefix: string): string {
   try {
     const parser = new DOMParser();
@@ -1984,16 +1990,17 @@ function StatusBarView({
   handle: ImperativeAppHandle | null;
   pinSnapEnabled: boolean;
 }) {
-  const [coords, setCoords] = useState({ x: 0, y: 0 });
+  const [coords, setCoords] = useState<{ x: number; y: number } | null>(null);
   const [zoomPercent, setZoomPercent] = useState(100);
 
   useEffect(() => {
     if (!handle) return;
-    const unsub = handle.onCursorGridChange((gridPt, nextZoomPercent) => {
+    const unsubMove = handle.onCursorGridChange((gridPt, nextZoomPercent) => {
       setCoords({ x: gridPt.x, y: -gridPt.y });
       setZoomPercent(nextZoomPercent);
     });
-    return unsub;
+    const unsubLeave = handle.onCanvasMouseLeave(() => setCoords(null));
+    return () => { unsubMove(); unsubLeave(); };
   }, [handle]);
 
   const toolLabel = currentTool === 'select'
@@ -2028,9 +2035,11 @@ function StatusBarView({
         whiteSpace: 'nowrap',
       }}
     >
-      <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">
-        {`X: ${formatGridCoord(coords.x, gridPitch)}  Y: ${formatGridCoord(coords.y, gridPitch)}`}
-      </Typography>
+      {coords ? (
+        <Typography noWrap sx={{ flex: '0 0 auto', fontFamily: 'monospace' }} variant="caption">
+          {`(x,y) = (${formatStatusCoord(coords.x, gridPitch)},${formatStatusCoord(coords.y, gridPitch)})`}
+        </Typography>
+      ) : null}
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{`Grid: ${formatGridCoord(gridPitch, gridPitch)} ${gridVisible ? '' : '(hidden)'}`}</Typography>
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{`Pin snap: ${pinSnapEnabled ? 'On' : 'Off'}`}</Typography>
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{`Zoom: ${zoomPercent}%`}</Typography>

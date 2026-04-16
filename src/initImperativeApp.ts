@@ -585,6 +585,7 @@ export interface ImperativeAppHandle {
   onDocumentChange: (fn: () => void) => () => void;
   onLatexEdited: (fn: () => void) => () => void;
   onCursorGridChange: (fn: (gridPt: { x: number; y: number }, zoomPercent: number) => void) => () => void;
+  onCanvasMouseLeave: (fn: () => void) => () => void;
   onCanvasClick: (fn: (gridPt: { x: number; y: number }) => void) => () => void;
   clearDocument: () => void;
 }
@@ -938,6 +939,11 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     });
   });
 
+  const canvasMouseLeaveListeners: Array<() => void> = [];
+  canvas.overlaySvg.addEventListener('mouseleave', () => {
+    for (const fn of canvasMouseLeaveListeners) fn();
+  });
+
   window.addEventListener('resize', () => canvas.refresh());
   canvas.scheduleRender();
 
@@ -1093,6 +1099,13 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       if (event.type !== 'cursor-grid-changed') return;
       fn(event.gridPt, event.zoomPercent);
     }),
+    onCanvasMouseLeave: (fn) => {
+      canvasMouseLeaveListeners.push(fn);
+      return () => {
+        const idx = canvasMouseLeaveListeners.indexOf(fn);
+        if (idx >= 0) canvasMouseLeaveListeners.splice(idx, 1);
+      };
+    },
     onCanvasClick: (fn) => eventBus.on('canvas-clicked', (event) => {
       if (event.type !== 'canvas-clicked') return;
       fn(event.gridPt);
