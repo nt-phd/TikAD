@@ -1259,10 +1259,17 @@ export function StatementEditor({
             title: bipolePropertyGroup.addMenuLabel,
             value: '',
           } : null;
+          const bipoleFallbackItem = segment.optionsText ? createFieldItem({
+            field: 'unparsed-options',
+            id: `segment-${index}-unparsed-options`,
+            segmentIndex: index,
+            value: segment.optionsText,
+          }) : null;
           children = [
             ...structuredChildren,
             ...commonOptionItems,
             ...(addItem ? [addItem] : []),
+            ...(bipoleFallbackItem ? [bipoleFallbackItem] : []),
           ];
         } else if (segment.kind === 'node') {
           const nodePropertyGroup = statementPropertySchema.segmentKinds.node;

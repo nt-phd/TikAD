@@ -2119,7 +2119,6 @@ function AppShell({
         onToggleGridVisible={appState.onToggleGridVisible}
         onTogglePinSnap={appState.onTogglePinSnap}
         onToggleThemeMode={onToggleThemeMode}
-        onUndo={appState.onUndo}
         onWireRoutingModeChange={appState.onWireRoutingModeChange}
         onZoomIn={appState.onZoomIn}
         onZoomOut={appState.onZoomOut}

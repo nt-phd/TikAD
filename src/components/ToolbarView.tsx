@@ -21,7 +21,6 @@ import RouteSharpIcon from '@mui/icons-material/RouteSharp';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import Grid4x4RoundedIcon from '@mui/icons-material/Grid4x4Rounded';
 import ArrowDropDownRoundedIcon from '@mui/icons-material/ArrowDropDownRounded';
-import UndoRoundedIcon from '@mui/icons-material/UndoRounded';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
 import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded';
@@ -62,7 +61,6 @@ export function ToolbarView({
   onFitToScreen,
   onOpenTexUpload,
   onSelectTool,
-  onUndo,
   onZoomIn,
   onZoomOut,
   themeMode,
@@ -82,7 +80,6 @@ export function ToolbarView({
   onFitToScreen: () => void;
   onOpenTexUpload: () => void;
   onSelectTool: (tool: ToolType) => void;
-  onUndo: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   themeMode: 'light' | 'dark';
@@ -180,11 +177,6 @@ export function ToolbarView({
             </Tooltip>
           ))}
         </ToggleButtonGroup>
-        <Tooltip title="Undo last change">
-          <Button aria-label="Undo" onClick={onUndo} size="small" sx={toolbarButtonSx} variant="outlined">
-            <UndoRoundedIcon fontSize="small" />
-          </Button>
-        </Tooltip>
         <Divider flexItem orientation="vertical" />
         {isEditTool(currentTool) ? (
           <>
@@ -251,18 +243,6 @@ export function ToolbarView({
                 </Tooltip>
               ))}
             </ToggleButtonGroup>
-            <Tooltip title="Snap wire to pins">
-              <ToggleButton
-                aria-label="Pin snap"
-                onClick={() => onTogglePinSnap(!pinSnapEnabled)}
-                selected={pinSnapEnabled}
-                size="small"
-                sx={toolbarToggleSx}
-                value="pin-snap"
-              >
-                <AccountTreeRoundedIcon fontSize="small" />
-              </ToggleButton>
-            </Tooltip>
             <Divider flexItem orientation="vertical" />
           </>
         ) : null}
@@ -314,6 +294,18 @@ export function ToolbarView({
             </Button>
           </Tooltip>
         </ButtonGroup>
+        <Tooltip title="Snap wire to pins">
+          <ToggleButton
+            aria-label="Pin snap"
+            onClick={() => onTogglePinSnap(!pinSnapEnabled)}
+            selected={pinSnapEnabled}
+            size="small"
+            sx={toolbarToggleSx}
+            value="pin-snap"
+          >
+            <AccountTreeRoundedIcon fontSize="small" />
+          </ToggleButton>
+        </Tooltip>
         <ButtonGroup
           size="small"
           sx={{ alignSelf: 'center', '& .MuiButton-root': toolbarButtonSx }}

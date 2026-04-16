@@ -617,6 +617,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
   const existingSelectableIds = (): Set<string> => new Set([
     ...circuitDoc.components.map((comp) => comp.id),
     ...circuitDoc.wires.map((wire) => wire.id),
+    ...circuitDoc.drawPaths.map((dp) => dp.id),
     ...circuitDoc.drawings.map((drawing) => drawing.id),
   ]);
 
@@ -820,11 +821,16 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     if (e.type !== 'selection-changed') return;
     // Always expand to the full row so that "active line = active canvas chain" holds
     // regardless of whether the selection came from a canvas click or the code editor.
-    const representativeId = e.selectedIds[0];
+    const representativeId = e.selectedIds[0] ?? null;
     const lineIndex = representativeId ? lineIndexFromId(representativeId) : -1;
     const expandedIds = lineIndex >= 0 ? idsAtLineIndex(circuitDoc, lineIndex) : [];
-    selection.setSelectedIds(expandedIds.length > 0 ? expandedIds : e.selectedIds);
+    const nextIds = expandedIds.length > 0 ? expandedIds : e.selectedIds;
+    selection.setSelectedIds(nextIds);
     canvas.refresh();
+    // If expansion changed the list, re-emit so React observers see the complete set.
+    if (nextIds.length !== e.selectedIds.length || nextIds.some((id, i) => id !== e.selectedIds[i])) {
+      eventBus.emit({ type: 'selection-changed', selectedIds: nextIds, source: e.source });
+    }
   });
 
   eventBus.on('code-caret-changed', (e) => {
@@ -876,7 +882,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       componentProbeService.invalidate();
       parseCurrentBody();
       const nextSelectedIds = selection.getSelectedIds().map((id) => replaced.idMap.get(id) ?? id);
-      selection.setSelectedIds(nextSelectedIds);
+      selection.setSelectedIds(nextSelectedIds);  // remap IDs before reconcile reads them
       reconcileSelection('programmatic');
       eventBus.emit({ type: 'body-changed' });
       canvas.refresh();
@@ -993,7 +999,9 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       syncTikzScale();
       componentProbeService.invalidate();
       parseCurrentBody();
-      const nextSelectedIds = statement.sourceSubIndex != null
+      const nextSelectedIds = statement.selectedId != null
+        ? [statement.selectedId]
+        : statement.sourceSubIndex != null
         ? [`line:${statement.sourceLineIndex}:${statement.sourceSubIndex}`]
         : idsAtLineIndex(circuitDoc, statement.sourceLineIndex);
       selection.setSelectedIds(nextSelectedIds);

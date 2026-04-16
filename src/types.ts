@@ -354,6 +354,8 @@ export interface EditableStatement {
   segments: EditableSegment[];
   sourceLineIndex: number;
   sourceSubIndex?: number;
+  /** The ID that was selected when this statement was opened — used to restore selection after edit. */
+  selectedId?: string;
 }
 
 export interface SourceCoordinateTranslation {

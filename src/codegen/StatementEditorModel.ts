@@ -85,6 +85,7 @@ export function getEditableStatementModel(body: string, id: string): EditableSta
         segments: structured.segments,
         sourceLineIndex: extracted.sourceLineIndex,
         sourceSubIndex: extracted.sourceSubIndex ?? undefined,
+        selectedId: id,
       };
     }
 
@@ -96,6 +97,7 @@ export function getEditableStatementModel(body: string, id: string): EditableSta
       segments: [{ kind: 'raw', rawText: statementBody }],
       sourceLineIndex: extracted.sourceLineIndex,
       sourceSubIndex: extracted.sourceSubIndex ?? undefined,
+      selectedId: id,
     };
   }
 
@@ -111,6 +113,7 @@ export function getEditableStatementModel(body: string, id: string): EditableSta
       segments: structured.segments,
       sourceLineIndex: extracted.sourceLineIndex,
       sourceSubIndex: extracted.sourceSubIndex ?? undefined,
+      selectedId: id,
     };
   }
   return null;
