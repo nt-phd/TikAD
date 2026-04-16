@@ -282,6 +282,8 @@ export interface EditableBipoleSegment {
   endPositionText: string;
   optionsText?: string;
   tikzName: string;
+  /** Inline value attached to the component name, e.g. "=$D_1$" in "empty Zener diode=$D_1$" */
+  tikzValue?: string;
   props: Pick<ComponentProps, 'annotation' | 'current' | 'endTerminal' | 'flow' | 'label' | 'startTerminal' | 'voltage'>;
   variantTokens?: Partial<Record<'annotation' | 'current' | 'flow' | 'label' | 'voltage', string>>;
 }

@@ -73,9 +73,11 @@ function unwrapTikzOptionValue(value: string): string {
 function parseBipoleOptions(text: string): EditableBipoleSegment {
   const options = splitOptions(text);
   const firstOption = options[0]?.trim();
-  const hasInlineValue = Boolean(firstOption && firstOption.includes('='));
-  const tikzName = hasInlineValue ? firstOption.split('=')[0].trim() : (firstOption || 'R');
-  const rest = hasInlineValue ? options : options.slice(1);
+  const eqIndex = firstOption ? firstOption.indexOf('=') : -1;
+  const hasInlineValue = eqIndex >= 0;
+  const tikzName = hasInlineValue ? firstOption.slice(0, eqIndex).trim() : (firstOption || 'R');
+  const tikzValue = hasInlineValue ? firstOption.slice(eqIndex + 1).trim() : undefined;
+  const rest = options.slice(1);
   const terminals = extractTerminalMarks(rest);
   const props: EditableBipoleSegment['props'] = {
     endTerminal: terminals.endTerminal,
@@ -104,6 +106,7 @@ function parseBipoleOptions(text: string): EditableBipoleSegment {
     endPositionText: '',
     optionsText: unparsedOptions.join(', ').trim() || undefined,
     tikzName,
+    tikzValue,
     props,
     variantTokens,
   };
@@ -188,7 +191,7 @@ function parseBipoleSegment(source: string, index: number): { end: number; segme
 }
 
 function serializeBipoleSegment(segment: EditableBipoleSegment): string {
-  const options = [segment.tikzName];
+  const options = [segment.tikzValue !== undefined ? `${segment.tikzName}=${segment.tikzValue}` : segment.tikzName];
   const terminalMarks = serializeTerminalMarks(segment.props.startTerminal, segment.props.endTerminal);
   if (terminalMarks) options.push(terminalMarks);
   if (segment.props.annotation) options.push(`${segment.variantTokens?.annotation ?? getDefaultBipoleVariantToken('annotation')}=${segment.props.annotation}`);
