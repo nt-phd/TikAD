@@ -509,7 +509,7 @@ function applyEditableStatementToBody(body: string, statement: EditableStatement
     if (commandMatch) {
       const currentStructured = parseStructuredStatementBody(commandMatch[3].trim());
       if (currentStructured && segmentIndex < currentStructured.segments.length) {
-        const targetSegment = statement.segments[0] ?? statement.segments[segmentIndex];
+        const targetSegment = statement.segments[segmentIndex] ?? statement.segments[0];
         const nextStructured = {
           positionTexts: statement.positionTexts.length > 0
             ? statement.positionTexts
