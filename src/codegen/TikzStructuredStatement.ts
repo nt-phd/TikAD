@@ -142,6 +142,14 @@ function parseNodeSegmentFromKeyword(source: string, nodeStart: number, position
     cursor = nameGroup.end;
   }
   cursor = skipTikzWhitespace(source, cursor);
+  const atEnd = readKeyword(source, cursor, 'at');
+  if (atEnd != null) {
+    const position = scanTikzPointSequence(source, atEnd);
+    if (!position) return null;
+    positionText = buildNodePlacementText(nodeName, position.text);
+    cursor = position.end;
+  }
+  cursor = skipTikzWhitespace(source, cursor);
   const textGroup = readTikzBalanced(source, cursor, '{', '}');
   if (!textGroup) return null;
   const optionParts = optionsText ? splitOptions(optionsText) : [];
@@ -208,6 +216,13 @@ function serializeNodeSegment(segment: EditableNodeSegment): string {
   if (segment.tikzName) options.push(segment.tikzName);
   if (segment.optionsText) options.push(segment.optionsText);
   return `${segment.positionText ? `${segment.positionText} ` : ''}node${options.length > 0 ? `[${options.join(', ')}]` : ''}${segment.nodeName ? ` (${segment.nodeName})` : ''} {${segment.text ?? ''}}`;
+}
+
+function serializeTopLevelNodeSegment(segment: EditableNodeSegment, positionText: string): string {
+  const options: string[] = [];
+  if (segment.tikzName) options.push(segment.tikzName);
+  if (segment.optionsText) options.push(segment.optionsText);
+  return `node${options.length > 0 ? `[${options.join(', ')}]` : ''} ${positionText.trim()} {${segment.text ?? ''}}`;
 }
 
 function buildNodePlacementText(nodeName: string | undefined, positionText: string): string {
@@ -286,12 +301,17 @@ export function emitStructuredStatementBody(structured: StructuredStatementBody)
 }
 
 export function emitStructuredNodeStatement(structured: StructuredStatementBody): string | null {
-  if (structured.segments.length !== 1 || structured.segments[0].kind !== 'node' || !structured.positionTexts[0]) return null;
-  const segment = structured.segments[0];
-  const options: string[] = [];
-  if (segment.tikzName) options.push(segment.tikzName);
-  if (segment.optionsText) options.push(segment.optionsText);
-  return `node${options.length > 0 ? `[${options.join(', ')}]` : ''} ${structured.positionTexts[0].trim()} {${segment.text ?? ''}}`;
+  if (structured.segments.length === 0 || structured.segments.some((segment) => segment.kind !== 'node')) return null;
+  if (structured.positionTexts.length < structured.segments.length) return null;
+  const parts: string[] = [];
+  for (let index = 0; index < structured.segments.length; index += 1) {
+    const segment = structured.segments[index];
+    if (segment.kind !== 'node') return null;
+    const positionText = structured.positionTexts[index]?.trim();
+    if (!positionText) return null;
+    parts.push(serializeTopLevelNodeSegment(segment, positionText));
+  }
+  return parts.join(' ');
 }
 
 export function parseStructuredStatementBody(body: string): StructuredStatementBody | null {
@@ -337,32 +357,18 @@ export function parseStructuredStatementBody(body: string): StructuredStatementB
 export function parseStructuredNodeStatement(source: string): StructuredStatementBody | null {
   const nodeStart = readKeyword(source, 0, 'node');
   if (nodeStart == null) return null;
-  let cursor = skipTikzWhitespace(source, nodeStart);
-  let optionsText = '';
-  if (source[cursor] === '[') {
-    const options = readTikzBalanced(source, cursor, '[', ']');
-    if (!options) return null;
-    optionsText = options.text.slice(1, -1).trim();
-    cursor = options.end;
+  const segments: EditableSegment[] = [];
+  const positionTexts: string[] = [];
+  let cursor = 0;
+  while (true) {
+    cursor = skipTikzWhitespace(source, cursor);
+    if (cursor >= source.length) break;
+    const node = parseNodeSegment(source, cursor, true);
+    if (!node || node.segment.kind !== 'node' || !node.segment.positionText) return null;
+    segments.push(node.segment);
+    positionTexts.push(node.segment.positionText);
+    cursor = node.end;
   }
-  const placement = parseNodePlacementText(source, cursor);
-  if (!placement) return null;
-  cursor = skipTikzWhitespace(source, placement.end);
-  const textGroup = readTikzBalanced(source, cursor, '{', '}');
-  if (!textGroup) return null;
-  if (skipTikzWhitespace(source, textGroup.end) !== source.length) return null;
-  const optionParts = optionsText ? splitOptions(optionsText) : [];
-  const firstOption = optionParts[0]?.trim();
-  const hasComponentName = Boolean(firstOption && !firstOption.includes('='));
-  return {
-    positionTexts: [placement.placement.text],
-    segments: [{
-      kind: 'node',
-      nodeName: placement.placement.nodeName,
-      optionsText: hasComponentName ? optionParts.slice(1).join(', ').trim() || undefined : optionsText || undefined,
-      positionText: placement.placement.text,
-      text: textGroup.text.slice(1, -1).trim() || undefined,
-      tikzName: hasComponentName ? firstOption : undefined,
-    }],
-  };
+  if (segments.length === 0) return null;
+  return { positionTexts, segments };
 }

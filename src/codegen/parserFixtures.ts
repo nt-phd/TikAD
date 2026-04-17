@@ -40,6 +40,12 @@ export const PARSER_FIXTURES: ParserFixture[] = [
     source: String.raw`\path (N3) node[anchor=west] {$v_o$};`,
   },
   {
+    id: 'node-chain-with-text-anchor',
+    note: 'Top-level node statements may chain additional node operations with explicit at-placement.',
+    expectation: { components: 1, drawings: 1, wires: 0 },
+    source: String.raw`\node[ocirc](N3) at (7,0.5){} node[anchor=west] at (N3.text){$v_o$};`,
+  },
+  {
     id: 'draw-bipole-with-symbolic-endpoint',
     note: 'Bipole endpoints may resolve against symbolic anchors like (N1.D).',
     expectation: { components: 1, drawings: 0, wires: 0 },

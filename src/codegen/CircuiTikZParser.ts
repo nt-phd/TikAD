@@ -37,9 +37,6 @@ import {
 } from './TikzPointParser';
 import { extractKV, splitOptions } from './TikzStatementSyntax';
 import { parseStructuredNodeStatement, parseStructuredStatementBody } from './TikzStructuredStatement';
-import {
-  resolveEndpointToken,
-} from './TikzPositionResolver';
 import { TikzGeometryEngine } from './TikzGeometryEngine';
 import type { StructuredStatementBody } from './TikzStructuredStatement';
 
@@ -49,18 +46,6 @@ function parseCoord(s: string): GridPoint | null {
   const m = s.match(/\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
   if (!m) return null;
   return { x: parseFloat(m[1]), y: -parseFloat(m[2]) };
-}
-
-function buildSinglePointPreview(point: GridPoint, ref?: ConnectionRef): PositionSequencePreview {
-  return {
-    corners: [{
-      kind: ref ? 'reference' : 'absolute',
-      point,
-      ref,
-    }],
-    point,
-    ref,
-  };
 }
 
 function expandWirePath(points: Array<{ point: GridPoint; ref?: ConnectionRef }>, operators: Array<'--' | '|-' | '-|'>): {
@@ -418,65 +403,18 @@ export function parseCircuiTikZ(
       const structuredNode = stmtText.startsWith('\\node')
         ? parseStructuredNodeStatement(stmtText.slice('\\'.length))
         : null;
-      if (structuredNode && structuredNode.segments.length === 1 && structuredNode.segments[0].kind === 'node') {
-        const segment = structuredNode.segments[0];
-        const placementText = structuredNode.positionTexts[0];
-        const resolvedPosition = geometry.rememberNodePlacement(id, placementText);
-        if (!resolvedPosition) return true;
-        const tikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
-        if (!tikzName) {
-          geometry.registerNamedReference(segment.nodeName, resolvedPosition);
-          return true;
-        }
-        const props: ComponentProps = {
-          options: segment.optionsText?.trim() || undefined,
-          text: segment.text?.trim() || undefined,
-          textAnchor: undefined,
-        };
-        addPlacedComponent(doc, geometry, registry, tikzToDefId, id, tikzName, resolvedPosition.point, segment.nodeName, props, resolvedPosition);
-        return true;
-      }
-
-      const nodeStmtMatch = stmtText.match(/^\\node\s*\[([^\]]+)\]\s*(?:\(([^)]+)\))?\s+at\s+(\([^)]+\))\s*\{([\s\S]*?)\}(?:\s+node\[(.*?)\]\s+at\s+\(([^)]+)\)\s*\{([\s\S]*?)\})?$/);
-      if (nodeStmtMatch && (nodeStmtMatch[5] || nodeStmtMatch[6] || nodeStmtMatch[7])) {
-        const resolvedPosition = resolveEndpointToken(nodeStmtMatch[3], doc, registry);
-        const resolvedSequence = geometry.rememberPositionSequence(id, nodeStmtMatch[3]);
-        const opts = splitOptions(nodeStmtMatch[1]);
-        const tikzName = opts[0]?.trim();
-        const baseTikzName = tikzName ? tikzName.split('=')[0]?.trim() : undefined;
-        const normalizedTikzName = baseTikzName ? normalizeTikzComponentName(baseTikzName) : undefined;
-        const defId = normalizedTikzName ? (tikzToDefId.get(normalizedTikzName) ?? normalizedTikzName) : undefined;
-        const def = defId ? registry.get(defId) : undefined;
-        const textAnchorOpts = nodeStmtMatch[5] ? extractKV(splitOptions(nodeStmtMatch[5])) : {};
-        const textTarget = nodeStmtMatch[6]?.trim();
-        const inlineText = nodeStmtMatch[4]?.trim();
-        const trailingText = nodeStmtMatch[7];
-        if (resolvedPosition && normalizedTikzName && def) {
-          const { filtered, rotation } = extractRotationOption(opts.slice(1));
-          const extraOptions = filtered.join(', ').trim() || undefined;
-          const props: ComponentProps = {
-            options: extraOptions,
-            text: textTarget?.endsWith('.text') ? trailingText : (inlineText || undefined),
-            textAnchor: textTarget?.endsWith('.text') ? (textAnchorOpts.anchor ?? undefined) : undefined,
-          };
-          addPlacedComponent(
-            doc,
-            geometry,
-            registry,
-            tikzToDefId,
-            id,
-            normalizedTikzName,
-            resolvedPosition.point,
-            nodeStmtMatch[2]?.trim(),
-            props,
-            resolvedSequence ?? buildSinglePointPreview(resolvedPosition.point, resolvedPosition.ref),
-          );
-          const comp = doc.getComponent(id);
-          if (comp && comp.type !== 'bipole') {
-            comp.rotation = rotation;
-            geometry.registerComponentGeometry(comp, def);
-          }
-        }
+      if (structuredNode) {
+        const structuredResolution = geometry.resolveStructuredStatement(id, structuredNode);
+        rememberResolvedPositions(structuredResolution.positionSequences);
+        materializeStructuredNodeSegments(
+          structuredNode,
+          id,
+          doc,
+          geometry,
+          registry,
+          tikzToDefId,
+          structuredResolution.nodeSequences,
+        );
         return true;
       }
 
