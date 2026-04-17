@@ -29,20 +29,19 @@ import type {
   DrawingInstance,
   PositionSequencePreview,
   PathCornerPreview,
-  EditableConnectionSegment,
-  EditableBipoleSegment,
 } from '../types';
 import type { CircuitDocument } from '../model/CircuitDocument';
 import type { ComponentRegistry } from '../definitions/ComponentRegistry';
-import { getComponentAnchorPoints } from '../canvas/ConnectionAnchors';
 import {
-  readTikzBalanced,
   scanTikzPointSequence,
-  skipTikzWhitespace,
-  type TikzPointSpec,
 } from './TikzPointParser';
 import { extractKV, splitOptions } from './TikzStatementSyntax';
-import { parseStructuredStatementBody, splitNodePlacementText } from './TikzStructuredStatement';
+import { parseStructuredNodeStatement, parseStructuredStatementBody } from './TikzStructuredStatement';
+import {
+  resolveEndpointToken,
+} from './TikzPositionResolver';
+import { TikzGeometryEngine } from './TikzGeometryEngine';
+import type { StructuredStatementBody } from './TikzStructuredStatement';
 
 // ─── helpers ───────────────────────────────────────────────────────────────
 
@@ -50,164 +49,6 @@ function parseCoord(s: string): GridPoint | null {
   const m = s.match(/\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
   if (!m) return null;
   return { x: parseFloat(m[1]), y: -parseFloat(m[2]) };
-}
-
-function parseRelativeCoordInner(s: string): GridPoint | null {
-  const m = s.trim().match(/^([-\d.]+)\s*,\s*([-\d.]+)$/);
-  if (!m) return null;
-  return { x: parseFloat(m[1]), y: -parseFloat(m[2]) };
-}
-
-function parseReferenceInner(s: string): { nodeName: string; anchor?: string } | null {
-  const explicit = s.trim().match(/^([A-Za-z][\w]*)\.([^)]+)$/);
-  if (explicit) return { nodeName: explicit[1], anchor: explicit[2].trim() };
-  const bare = s.trim().match(/^([A-Za-z][\w]*)$/);
-  if (bare) return { nodeName: bare[1] };
-  return null;
-}
-
-function resolveReference(
-  ref: { nodeName: string; anchor?: string },
-  doc: CircuitDocument,
-  registry: ComponentRegistry,
-): { point: GridPoint; ref?: ConnectionRef } | null {
-  const comp = doc.getComponentByNodeName(ref.nodeName);
-  if (!comp) return null;
-  const def = registry.get(comp.defId);
-  if (!def) return null;
-  if (!ref.anchor) {
-    return {
-      point: comp.type === 'bipole' ? comp.start : comp.position,
-      ref: {
-        componentId: comp.id,
-        nodeName: ref.nodeName,
-        anchor: 'reference',
-      },
-    };
-  }
-  const match = getComponentAnchorPoints(comp, def).find((anchor) => anchor.ref?.anchor === ref.anchor);
-  if (!match) return null;
-  return {
-    point: match.point,
-    ref: {
-      componentId: comp.id,
-      nodeName: ref.nodeName,
-      anchor: ref.anchor,
-    },
-  };
-}
-
-function resolveEndpoint(
-  token: string,
-  doc: CircuitDocument,
-  registry: ComponentRegistry,
-): { point: GridPoint; ref?: ConnectionRef } | null {
-  const coord = parseCoord(token);
-  if (coord) return { point: coord };
-  const ref = parseReferenceInner(token.replace(/^\(\s*|\s*\)$/g, ''));
-  if (!ref) return null;
-  return resolveReference(ref, doc, registry);
-}
-
-function resolveTikzPointSpec(
-  point: TikzPointSpec,
-  currentPoint: GridPoint | null,
-  doc: CircuitDocument,
-  registry: ComponentRegistry,
-): { point: GridPoint; ref?: ConnectionRef } | null {
-  if (point.relativeMode !== 'none') {
-    const relative = parseRelativeCoordInner(point.innerRaw);
-    if (!relative || !currentPoint) return null;
-    return {
-      point: {
-        x: currentPoint.x + relative.x,
-        y: currentPoint.y + relative.y,
-      },
-    };
-  }
-
-  switch (point.kind) {
-    case 'regular': {
-      const coord = parseCoord(`(${point.innerRaw})`);
-      return coord ? { point: coord } : null;
-    }
-    case 'node-ref': {
-      const ref = parseReferenceInner(point.innerRaw);
-      return ref ? resolveReference(ref, doc, registry) : null;
-    }
-    case 'options': {
-      const options = readTikzBalanced(point.innerRaw, skipTikzWhitespace(point.innerRaw, 0), '[', ']');
-      if (!options) return null;
-      const nested = scanTikzPointSequence(point.innerRaw.slice(options.end), 0);
-      if (!nested || nested.points.length !== 1) return null;
-      return resolveTikzPointSpec(nested.points[0], currentPoint, doc, registry);
-    }
-    case 'hv':
-    case 'vh': {
-      const separator = point.kind === 'hv' ? '-|' : '|-';
-      const splitIndex = point.innerRaw.indexOf(separator);
-      if (splitIndex < 0) return null;
-      const firstRaw = point.innerRaw.slice(0, splitIndex).trim();
-      const secondRaw = point.innerRaw.slice(splitIndex + separator.length).trim();
-      const first = scanTikzPointSequence(firstRaw, 0);
-      const second = scanTikzPointSequence(secondRaw, 0);
-      if (!first || !second || first.points.length !== 1 || second.points.length !== 1) return null;
-      const firstResolved = resolveTikzPointSpec(first.points[0], currentPoint, doc, registry);
-      const secondResolved = resolveTikzPointSpec(second.points[0], currentPoint, doc, registry);
-      if (!firstResolved || !secondResolved) return null;
-      return {
-        point: point.kind === 'hv'
-          ? { x: secondResolved.point.x, y: firstResolved.point.y }
-          : { x: firstResolved.point.x, y: secondResolved.point.y },
-      };
-    }
-    default:
-      return null;
-  }
-}
-
-function resolvePositionSequencePreview(
-  prefix: string,
-  doc: CircuitDocument,
-  registry: ComponentRegistry,
-  basePoint: GridPoint | null = null,
-  baseRef?: ConnectionRef,
-): PositionSequencePreview | null {
-  const tokens = scanTikzPointSequence(prefix, 0)?.points ?? [];
-  if (tokens.length === 0) return null;
-  let current: GridPoint | null = basePoint ? { ...basePoint } : null;
-  const corners: PathCornerPreview[] = [];
-
-  for (const token of tokens) {
-    const resolved = resolveTikzPointSpec(token, current, doc, registry);
-    if (!resolved) return null;
-    if (token.relativeMode !== 'none' && corners.length === 0 && current) {
-      corners.push({
-        kind: baseRef ? 'reference' : 'absolute',
-        point: { ...current },
-        ref: baseRef,
-      });
-    }
-    current = resolved.point;
-    if (token.relativeMode !== 'none') {
-      corners.push({
-        kind: 'relative',
-        point: resolved.point,
-        relativeFromIndex: corners.length - 1,
-      });
-      continue;
-    }
-    corners.push({
-      kind: resolved.ref ? 'reference' : 'absolute',
-      point: resolved.point,
-      ref: resolved.ref,
-    });
-  }
-
-  const lastCorner = corners[corners.length - 1];
-  return current && lastCorner
-    ? { corners, point: current, ref: lastCorner.ref }
-    : null;
 }
 
 function buildSinglePointPreview(point: GridPoint, ref?: ConnectionRef): PositionSequencePreview {
@@ -249,25 +90,6 @@ function expandWirePath(points: Array<{ point: GridPoint; ref?: ConnectionRef }>
     startRef: points[0].ref,
     endRef: points[points.length - 1].ref,
   };
-}
-
-function resolveStructuredPositionTexts(
-  positionTexts: string[],
-  doc: CircuitDocument,
-  registry: ComponentRegistry,
-): PositionSequencePreview[] | null {
-  if (positionTexts.length === 0) return null;
-  const sequences: PositionSequencePreview[] = [];
-  let currentPoint: GridPoint | null = null;
-  let currentRef: ConnectionRef | undefined;
-  for (const positionText of positionTexts) {
-    const resolved = resolvePositionSequencePreview(positionText, doc, registry, currentPoint, currentRef);
-    if (!resolved) return null;
-    sequences.push(resolved);
-    currentPoint = resolved.point;
-    currentRef = resolved.ref;
-  }
-  return sequences;
 }
 
 function expandDrawPath(
@@ -362,68 +184,6 @@ function normalizeTikzComponentName(name: string): string {
   return base;
 }
 
-function parseNodePlacementFragments(
-  body: string,
-  baseId: string,
-  doc: CircuitDocument,
-  registry: ComponentRegistry,
-  tikzToDefId: Map<string, string>,
-): boolean {
-  const placementRe = /((?:(?:\+\+?)?\(\s*[^()]+\s*\)\s*)+)node(?:\[([^\]]*)\])?\s*(?:\(([^)]+)\))?\s*\{([\s\S]*?)\}/g;
-  const matches = [...body.matchAll(placementRe)];
-  if (matches.length === 0) return false;
-  if (matches.map((match) => match[0]).join(' ').replace(/\s+/g, ' ').trim() !== body.replace(/\s+/g, ' ').trim()) {
-    return false;
-  }
-
-  matches.forEach((match, index) => {
-    const id = matches.length === 1 ? baseId : `${baseId}:${index}`;
-      const resolved = resolvePositionSequencePreview(match[1], doc, registry);
-      if (!resolved) return;
-    const optionParts = match[2] ? splitOptions(match[2]) : [];
-    const firstOption = optionParts[0]?.trim();
-    const normalizedTikzName = firstOption && !firstOption.includes('=')
-      ? normalizeTikzComponentName(firstOption)
-      : undefined;
-    const defId = normalizedTikzName ? (tikzToDefId.get(normalizedTikzName) ?? normalizedTikzName) : undefined;
-    const def = defId ? registry.get(defId) : undefined;
-    const text = match[4]?.trim() ?? '';
-
-    if (def && normalizedTikzName) {
-      const { filtered, rotation } = extractRotationOption(optionParts.slice(1));
-      const props: ComponentProps = {
-        options: filtered.join(', ').trim() || undefined,
-        text: text || undefined,
-        textAnchor: undefined,
-      };
-      addPlacedComponent(doc, registry, tikzToDefId, id, normalizedTikzName, resolved.point, match[3]?.trim(), props, resolved);
-      const comp = doc.getComponent(id);
-      if (comp && comp.type !== 'bipole') comp.rotation = rotation;
-      return;
-    }
-
-    const kv = extractKV(optionParts);
-    const filteredOptions = optionParts
-      .filter((part) => !/^(anchor|rotate|scale)\s*=/.test(part.trim()))
-      .join(', ')
-      .trim() || undefined;
-    doc.addDrawing({
-      id,
-      kind: 'text',
-      position: resolved.point,
-      props: {
-        anchor: kv.anchor,
-        options: filteredOptions,
-        rotation: kv.rotate,
-        scale: kv.scale,
-        text,
-      },
-    });
-  });
-
-  return true;
-}
-
 function extractRotationOption(opts: string[]): { filtered: string[]; rotation: 0 | 90 | 180 | 270 } {
   let rotation: 0 | 90 | 180 | 270 = 0;
   const filtered = opts.filter((opt) => {
@@ -442,6 +202,7 @@ function extractRotationOption(opts: string[]): { filtered: string[]; rotation: 
 
 function addPlacedComponent(
   doc: CircuitDocument,
+  geometry: TikzGeometryEngine,
   registry: ComponentRegistry,
   tikzToDefId: Map<string, string>,
   id: string,
@@ -458,10 +219,135 @@ function addPlacedComponent(
       id, defId, type: 'node', nodeName, position, positionSequence, rotation: 0, mirror: 'none', props,
     };
     doc.addComponent(comp);
+    geometry.registerComponentGeometry(comp, def);
     return;
   }
   const comp: MonopoleInstance = { id, defId, type: 'monopole', nodeName, position, positionSequence, rotation: 0, props };
   doc.addComponent(comp);
+  geometry.registerComponentGeometry(comp, def);
+}
+
+function addTextDrawing(
+  doc: CircuitDocument,
+  id: string,
+  point: GridPoint,
+  optionsText: string | undefined,
+  text: string | undefined,
+): void {
+  const optionParts = optionsText ? splitOptions(optionsText) : [];
+  const kv = extractKV(optionParts);
+  const filtered = optionParts.filter((part) => !/^(anchor|rotate|scale)\s*=/.test(part.trim()));
+  doc.addDrawing({
+    id,
+    kind: 'text',
+    position: point,
+    props: {
+      anchor: kv.anchor,
+      options: filtered.join(', ').trim() || undefined,
+      rotation: kv.rotate,
+      scale: kv.scale,
+      text,
+    },
+  });
+}
+
+function materializeStructuredNodeSegments(
+  structured: StructuredStatementBody,
+  baseId: string,
+  doc: CircuitDocument,
+  geometry: TikzGeometryEngine,
+  registry: ComponentRegistry,
+  tikzToDefId: Map<string, string>,
+  nodeSequences: Array<PositionSequencePreview | null>,
+): boolean {
+  if (!structured.segments.some((segment) => segment.kind === 'node')) return false;
+  let currentResolved = nodeSequences.length > 0 ? (nodeSequences[0] ?? null) : null;
+  let lastResolvedPositionIndex = 0;
+  if (structured.positionTexts[0]) {
+    currentResolved = doc.getResolvedStatementPositions(baseId)?.[0] ?? currentResolved;
+  }
+
+  for (let index = 0; index < structured.segments.length; index += 1) {
+    const segment = structured.segments[index];
+    if (segment.kind !== 'node') {
+      if (segment.kind === 'connection' || segment.kind === 'bipole') {
+        lastResolvedPositionIndex += 1;
+        currentResolved = doc.getResolvedStatementPositions(baseId)?.[lastResolvedPositionIndex] ?? currentResolved;
+      }
+      continue;
+    }
+
+    const nodeId = `${baseId}:${index}`;
+    const nodeResolved = nodeSequences[index] ?? currentResolved;
+    doc.setResolvedStatementPositions(nodeId, [nodeResolved]);
+    if (!nodeResolved) {
+      if (segment.positionText) currentResolved = null;
+      continue;
+    }
+
+    const tikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
+    if (!tikzName) {
+      geometry.registerNamedReference(segment.nodeName, nodeResolved);
+      addTextDrawing(doc, nodeId, nodeResolved.point, segment.optionsText, segment.text);
+      currentResolved = segment.positionText ? nodeResolved : currentResolved;
+      continue;
+    }
+
+    const optionParts = segment.optionsText ? splitOptions(segment.optionsText) : [];
+    const { filtered, rotation } = extractRotationOption(optionParts);
+    const props: ComponentProps = {
+      options: filtered.join(', ').trim() || undefined,
+      text: segment.text?.trim() || undefined,
+      textAnchor: undefined,
+    };
+    addPlacedComponent(doc, geometry, registry, tikzToDefId, nodeId, tikzName, nodeResolved.point, segment.nodeName, props, nodeResolved);
+    const comp = doc.getComponent(nodeId);
+    const defId = tikzToDefId.get(tikzName) ?? tikzName;
+    const def = registry.get(defId);
+    if (comp && comp.type !== 'bipole' && def) {
+      comp.rotation = rotation;
+      geometry.registerComponentGeometry(comp, def);
+    }
+    currentResolved = segment.positionText ? nodeResolved : currentResolved;
+  }
+
+  return true;
+}
+
+function buildStructuredDrawPath(
+  id: string,
+  structured: StructuredStatementBody,
+  positionSequences: Array<PositionSequencePreview | null>,
+  tikzToDefId: Map<string, string>,
+): DrawPathInstance | null {
+  const nonNodeSegments = structured.segments.filter((segment) => segment.kind !== 'node');
+  if (nonNodeSegments.length === 0) return null;
+  const onlyConnectionsAndBipoles = nonNodeSegments.every(
+    (segment) => segment.kind === 'connection' || segment.kind === 'bipole',
+  );
+  if (!onlyConnectionsAndBipoles) return null;
+  if (positionSequences.length !== nonNodeSegments.length + 1) return null;
+  if (positionSequences.some((sequence) => !sequence)) return null;
+
+  const segments: DrawPathSegment[] = nonNodeSegments.map((segment) => {
+    if (segment.kind === 'connection') {
+      return { kind: 'connection', operator: segment.operator };
+    }
+    const tikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
+    const defId = tikzName ? (tikzToDefId.get(tikzName) ?? tikzName) : undefined;
+    return { kind: 'bipole', defId, props: { ...segment.props } };
+  });
+  const resolvedSequences = positionSequences as PositionSequencePreview[];
+  const points = expandDrawPath(resolvedSequences, segments);
+  return {
+    id,
+    positionSequences: resolvedSequences,
+    segments,
+    points,
+    startRef: resolvedSequences[0]?.ref,
+    endRef: resolvedSequences[resolvedSequences.length - 1]?.ref,
+    junctions: new Map(),
+  };
 }
 
 // ─── main parser ────────────────────────────────────────────────────────────
@@ -476,6 +362,7 @@ export function parseCircuiTikZ(
   doc: CircuitDocument,
   registry: ComponentRegistry,
 ): void {
+  const geometry = new TikzGeometryEngine(doc, registry);
   const tikzToDefId = new Map<string, string>();
   for (const def of registry.getAll()) {
     if (!tikzToDefId.has(def.tikzName)) tikzToDefId.set(def.tikzName, def.id);
@@ -496,6 +383,16 @@ export function parseCircuiTikZ(
     const stripped = rawLines[i].replace(/%.*$/, '').trim();
     if (!stripped || /^\\(begin|end)\b/.test(stripped)) continue;
 
+    if (stripped.startsWith('\\ctikzset')) {
+      if (buf.trim()) {
+        const pending = buf.trim();
+        if (pending) statements.push({ text: pending, lineIndex: stmtLine });
+        buf = '';
+      }
+      statements.push({ text: stripped, lineIndex: i });
+      continue;
+    }
+
     if (buf === '') stmtLine = i;
     buf += (buf ? '\n' : '') + stripped;
 
@@ -513,10 +410,37 @@ export function parseCircuiTikZ(
 
   for (const { text: stmt, lineIndex } of statements) {
     const parseSingleStatement = (stmtText: string, id: string) => {
+      if (stmtText.startsWith('\\ctikzset')) return true;
+
+      const rememberResolvedPositions = (positions: Array<PositionSequencePreview | null>) => {
+        doc.setResolvedStatementPositions(id, positions);
+      };
+      const structuredNode = stmtText.startsWith('\\node')
+        ? parseStructuredNodeStatement(stmtText.slice('\\'.length))
+        : null;
+      if (structuredNode && structuredNode.segments.length === 1 && structuredNode.segments[0].kind === 'node') {
+        const segment = structuredNode.segments[0];
+        const placementText = structuredNode.positionTexts[0];
+        const resolvedPosition = geometry.rememberNodePlacement(id, placementText);
+        if (!resolvedPosition) return true;
+        const tikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
+        if (!tikzName) {
+          geometry.registerNamedReference(segment.nodeName, resolvedPosition);
+          return true;
+        }
+        const props: ComponentProps = {
+          options: segment.optionsText?.trim() || undefined,
+          text: segment.text?.trim() || undefined,
+          textAnchor: undefined,
+        };
+        addPlacedComponent(doc, geometry, registry, tikzToDefId, id, tikzName, resolvedPosition.point, segment.nodeName, props, resolvedPosition);
+        return true;
+      }
+
       const nodeStmtMatch = stmtText.match(/^\\node\s*\[([^\]]+)\]\s*(?:\(([^)]+)\))?\s+at\s+(\([^)]+\))\s*\{([\s\S]*?)\}(?:\s+node\[(.*?)\]\s+at\s+\(([^)]+)\)\s*\{([\s\S]*?)\})?$/);
-      if (nodeStmtMatch) {
-        const resolvedPosition = resolveEndpoint(nodeStmtMatch[3], doc, registry);
-        const resolvedSequence = resolvePositionSequencePreview(nodeStmtMatch[3], doc, registry);
+      if (nodeStmtMatch && (nodeStmtMatch[5] || nodeStmtMatch[6] || nodeStmtMatch[7])) {
+        const resolvedPosition = resolveEndpointToken(nodeStmtMatch[3], doc, registry);
+        const resolvedSequence = geometry.rememberPositionSequence(id, nodeStmtMatch[3]);
         const opts = splitOptions(nodeStmtMatch[1]);
         const tikzName = opts[0]?.trim();
         const baseTikzName = tikzName ? tikzName.split('=')[0]?.trim() : undefined;
@@ -537,6 +461,7 @@ export function parseCircuiTikZ(
           };
           addPlacedComponent(
             doc,
+            geometry,
             registry,
             tikzToDefId,
             id,
@@ -547,45 +472,10 @@ export function parseCircuiTikZ(
             resolvedSequence ?? buildSinglePointPreview(resolvedPosition.point, resolvedPosition.ref),
           );
           const comp = doc.getComponent(id);
-          if (comp && comp.type !== 'bipole') comp.rotation = rotation;
-        } else if (resolvedPosition) {
-          const kv = extractKV(opts);
-          const filtered = opts.filter((part) => !/^(anchor|rotate|scale)\s*=/.test(part.trim()));
-          doc.addDrawing({
-            id,
-            kind: 'text',
-            position: resolvedPosition.point,
-            props: {
-              anchor: kv.anchor,
-              options: filtered.join(', ').trim() || undefined,
-              rotation: kv.rotate,
-              scale: kv.scale,
-              text: inlineText,
-            },
-          });
-        }
-        return true;
-      }
-
-      const textNodeStmtMatch = stmtText.match(/^\\node(?:\[(.*?)\])?\s+at\s+(\([^)]+\))\s*\{([\s\S]*?)\}$/);
-      if (textNodeStmtMatch) {
-        const resolvedPosition = resolveEndpoint(textNodeStmtMatch[2], doc, registry);
-        const opts = textNodeStmtMatch[1] ? splitOptions(textNodeStmtMatch[1]) : [];
-        const kv = extractKV(opts);
-        const filtered = opts.filter((part) => !/^(anchor|rotate|scale)\s*=/.test(part.trim()));
-        if (resolvedPosition) {
-          doc.addDrawing({
-            id,
-            kind: 'text',
-            position: resolvedPosition.point,
-            props: {
-              anchor: kv.anchor,
-              options: filtered.join(', ').trim() || undefined,
-              rotation: kv.rotate,
-              scale: kv.scale,
-              text: textNodeStmtMatch[3],
-            },
-          });
+          if (comp && comp.type !== 'bipole') {
+            comp.rotation = rotation;
+            geometry.registerComponentGeometry(comp, def);
+          }
         }
         return true;
       }
@@ -616,8 +506,33 @@ export function parseCircuiTikZ(
         return true;
       }
 
-      if (parseNodePlacementFragments(body, id, doc, registry, tikzToDefId)) {
-        return true;
+      const structured = parseStructuredStatementBody(body);
+      if (structured) {
+        const structuredResolution = geometry.resolveStructuredStatement(id, structured);
+        rememberResolvedPositions(structuredResolution.positionSequences);
+        const allNodes = structured.segments.length > 0 && structured.segments.every((segment) => segment.kind === 'node');
+        const hasNodes = materializeStructuredNodeSegments(
+          structured,
+          id,
+          doc,
+          geometry,
+          registry,
+          tikzToDefId,
+          structuredResolution.nodeSequences,
+        );
+        if (allNodes) return true;
+
+        const drawPath = buildStructuredDrawPath(
+          id,
+          structured,
+          structuredResolution.positionSequences,
+          tikzToDefId,
+        );
+        if (drawPath) {
+          doc.addDrawPath(drawPath);
+          return true;
+        }
+        if (hasNodes) return true;
       }
 
       const drawing = parseDrawingStatement(body, drawOptions);
@@ -625,60 +540,6 @@ export function parseCircuiTikZ(
         drawing.id = id;
         doc.addDrawing(drawing);
         return true;
-      }
-
-      const structured = parseStructuredStatementBody(body);
-
-      // Handle single \node placement
-      if (structured && structured.segments.length === 1 && structured.segments[0].kind === 'node') {
-        const segment = structured.segments[0];
-        const resolvedPosition = structured.positionTexts[0]
-          ? resolvePositionSequencePreview(splitNodePlacementText(structured.positionTexts[0]).positionText, doc, registry)
-          : null;
-        const tikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
-        if (!tikzName || !resolvedPosition) return true;
-        const props: ComponentProps = {
-          options: segment.optionsText?.trim() || undefined,
-          text: segment.text?.trim() || undefined,
-          textAnchor: undefined,
-        };
-        addPlacedComponent(doc, registry, tikzToDefId, id, tikzName, resolvedPosition.point, segment.nodeName, props, resolvedPosition);
-        return true;
-      }
-
-      // All \draw paths with connection/bipole segments → single DrawPathInstance
-      if (structured && structured.segments.length > 0) {
-        const onlyConnectionsAndBipoles = structured.segments.every(
-          (s) => s.kind === 'connection' || s.kind === 'bipole',
-        );
-        if (onlyConnectionsAndBipoles) {
-          const positionSequences = resolveStructuredPositionTexts(structured.positionTexts, doc, registry);
-          if (!positionSequences) return true;
-
-          const segments: DrawPathSegment[] = structured.segments.map((s) => {
-            if (s.kind === 'connection') {
-              return { kind: 'connection', operator: s.operator };
-            }
-            // bipole
-            const bipSeg = s as EditableBipoleSegment;
-            const tikzName = bipSeg.tikzName ? normalizeTikzComponentName(bipSeg.tikzName) : undefined;
-            const defId = tikzName ? (tikzToDefId.get(tikzName) ?? tikzName) : undefined;
-            return { kind: 'bipole', defId, props: { ...bipSeg.props } };
-          });
-
-          const points = expandDrawPath(positionSequences, segments);
-          const drawPath: DrawPathInstance = {
-            id,
-            positionSequences,
-            segments,
-            points,
-            startRef: positionSequences[0]?.ref,
-            endRef: positionSequences[positionSequences.length - 1]?.ref,
-            junctions: new Map(),
-          };
-          doc.addDrawPath(drawPath);
-          return true;
-        }
       }
 
       return false;

@@ -413,7 +413,7 @@ async function main() {
     pushUnique(optionGroups[group] ||= [], optionName);
   }
 
-  const symbolsEntries = parseSymbolsMetadata(await readFile('src/data/symbols.svg', 'utf8'));
+  const symbolsEntries = parseSymbolsMetadata(await readFile('public/symbols.svg', 'utf8'));
   for (const symbol of symbolsEntries) {
     const entry = upsertComponent(components, symbol.tikzName);
     if (!entry.kind) {

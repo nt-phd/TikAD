@@ -402,6 +402,8 @@ export type AppEvent =
   | { type: 'document-changed'; sourceTranslations?: SourceCoordinateTranslation[] }
   /** Fired when a CAD tool updates LatexDocument.body — CodePanel syncs its textarea. */
   | { type: 'body-changed' }
+  /** Fired when document geometry changes without source text changes. */
+  | { type: 'geometry-changed' }
   /** Fired by CodePanel after debounce when the user finishes editing LaTeX manually. */
   | { type: 'user-edited-latex' }
   /** Fired by CodePanel when the caret moves to another source line. */

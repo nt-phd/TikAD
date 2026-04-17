@@ -34,11 +34,84 @@ import { materializeClipboardAt } from './tools/SelectionClipboard';
 import { getEditableStatementModel } from './codegen/StatementEditorModel';
 import type { EditableStatement } from './types';
 import { emitStructuredNodeStatement, emitStructuredStatementBody, parseStructuredStatementBody } from './codegen/TikzStructuredStatement';
-import { scanTikzPoint, scanTikzPointSequence, skipTikzWhitespace } from './codegen/TikzPointParser';
+import { readTikzBalanced, scanTikzPoint, scanTikzPointSequence, skipTikzWhitespace } from './codegen/TikzPointParser';
 import { splitOptions } from './codegen/TikzStatementSyntax';
 
 let initialized = false;
 let initPromise: Promise<ImperativeAppHandle> | null = null;
+
+function collectSourceStatements(body: string): Array<{ lineIndex: number; text: string }> {
+  const rawLines = body.split('\n');
+  const statements: Array<{ lineIndex: number; text: string }> = [];
+  let buf = '';
+  let stmtLine = 0;
+
+  for (let i = 0; i < rawLines.length; i += 1) {
+    const stripped = rawLines[i].replace(/%.*$/, '').trim();
+    if (!stripped || /^\\(begin|end)\b/.test(stripped)) continue;
+
+    if (stripped.startsWith('\\ctikzset')) {
+      if (buf.trim()) {
+        statements.push({ text: buf.trim(), lineIndex: stmtLine });
+        buf = '';
+      }
+      statements.push({ text: stripped, lineIndex: i });
+      continue;
+    }
+
+    if (!buf) stmtLine = i;
+    buf += (buf ? '\n' : '') + stripped;
+
+    if (!buf.includes(';')) continue;
+    const parts = buf.split(';');
+    for (let p = 0; p < parts.length - 1; p += 1) {
+      const text = parts[p].trim();
+      if (text) statements.push({ text, lineIndex: stmtLine });
+    }
+    buf = parts[parts.length - 1].trim();
+    if (buf) stmtLine = i;
+  }
+
+  if (buf.trim()) statements.push({ text: buf.trim(), lineIndex: stmtLine });
+  return statements;
+}
+
+function collectInUseDefIdsFromBody(body: string): string[] {
+  const defsByTikzName = new Map<string, string>();
+  for (const def of registry.getAll()) {
+    if (!defsByTikzName.has(def.tikzName)) defsByTikzName.set(def.tikzName, def.id);
+  }
+
+  const resolved = new Set<string>();
+  const rememberOptionToken = (token: string) => {
+    const trimmed = token.trim();
+    if (!trimmed) return;
+    const candidate = trimmed.includes('=') ? trimmed.slice(0, trimmed.indexOf('=')).trim() : trimmed;
+    const defId = defsByTikzName.get(candidate);
+    if (defId) resolved.add(defId);
+  };
+
+  for (const { text } of collectSourceStatements(body)) {
+    if (text.startsWith('\\ctikzset')) continue;
+    let cursor = 0;
+    while (cursor < text.length) {
+      if (text[cursor] !== '[') {
+        cursor += 1;
+        continue;
+      }
+      const balanced = readTikzBalanced(text, cursor, '[', ']');
+      if (!balanced) {
+        cursor += 1;
+        continue;
+      }
+      const options = splitOptions(balanced.text.slice(1, -1).trim());
+      for (const option of options) rememberOptionToken(option);
+      cursor = balanced.end;
+    }
+  }
+
+  return [...resolved];
+}
 
 function findPictureEndMarker(body: string): string | null {
   if (body.includes('\\end{circuitikz}')) return '\\end{circuitikz}';
@@ -217,7 +290,7 @@ function lineIdParts(id: string): { lineIndex: number; subIndex: number | null }
   };
 }
 
-function idsAtLineIndex(doc: CircuitDocument, lineIndex: number): string[] {
+function idsAtLineIndex(doc: CircuitDocument, body: string, lineIndex: number): string[] {
   if (lineIndex < 0) return [];
   const matches = [
     ...doc.components.map((component) => component.id),
@@ -225,7 +298,8 @@ function idsAtLineIndex(doc: CircuitDocument, lineIndex: number): string[] {
     ...doc.drawPaths.map((dp) => dp.id),
     ...doc.drawings.map((drawing) => drawing.id),
   ].filter((id) => lineIdParts(id).lineIndex === lineIndex);
-  return [...new Set(matches)];
+  if (matches.length > 0) return [...new Set(matches)];
+  return getEditableStatementModel(body, `line:${lineIndex}`) ? [`line:${lineIndex}`] : [];
 }
 
 function normalizeMultilineNodeStatements(body: string): string {
@@ -519,6 +593,7 @@ function applyEditableStatementToBody(body: string, statement: EditableStatement
           ),
         };
         const nextBody = emitStructuredStatementBody(nextStructured);
+        if (!nextBody) return body;
         const commandOptions = commandMatch[2]?.trim();
         lines[statement.sourceLineIndex] = `${indent}\\${commandMatch[1]}${commandOptions ? `[${commandOptions}]` : ''} ${nextBody};`;
         return lines.join('\n');
@@ -553,6 +628,7 @@ export interface ImperativeAppHandle {
   getSelectedDrawing: () => DrawingInstance | undefined;
   getSelectedWire: () => WireInstance | undefined;
   getEditableStatementModel: (id: string) => EditableStatement | null;
+  getResolvedStatementPositions: (id: string) => Array<string | null>;
   applyEditableStatement: (statement: EditableStatement) => void;
   getDef: (defId: string) => ReturnType<typeof registry.get>;
   getGridVisible: () => boolean;
@@ -582,6 +658,7 @@ export interface ImperativeAppHandle {
   onToolChange: (fn: (tool: ToolType, defId?: string) => void) => () => void;
   onSelectionChange: (fn: (selectedIds: string[], source?: 'canvas' | 'code' | 'programmatic') => void) => () => void;
   onBodyChange: (fn: () => void) => () => void;
+  onGeometryChange: (fn: () => void) => () => void;
   onDocumentChange: (fn: () => void) => () => void;
   onLatexEdited: (fn: () => void) => () => void;
   onCursorGridChange: (fn: (gridPt: { x: number; y: number }, zoomPercent: number) => void) => () => void;
@@ -645,6 +722,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       primeNodeAnchorProbes();
       reconcileSelection('programmatic');
       canvas.refresh(); // overlay only — body has not changed, no re-render needed
+      eventBus.emit({ type: 'geometry-changed' });
     });
   };
 
@@ -665,6 +743,11 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
   const parseCurrentBody = () => {
     parseCircuiTikZ(latexDoc.body, circuitDoc, registry);
     primeNodeAnchorProbes();
+  };
+
+  const getResolvedStatementPositions = (id: string): Array<string | null> => {
+    const resolved = circuitDoc.getResolvedStatementPositions(id) ?? [];
+    return resolved.map((sequence) => sequence ? `(${sequence.point.x.toFixed(3)}, ${sequence.point.y.toFixed(3)})` : null);
   };
 
   const applyFullSource = (source: string) => {
@@ -824,7 +907,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     // regardless of whether the selection came from a canvas click or the code editor.
     const representativeId = e.selectedIds[0] ?? null;
     const lineIndex = representativeId ? lineIndexFromId(representativeId) : -1;
-    const expandedIds = lineIndex >= 0 ? idsAtLineIndex(circuitDoc, lineIndex) : [];
+    const expandedIds = lineIndex >= 0 ? idsAtLineIndex(circuitDoc, latexDoc.body, lineIndex) : [];
     const nextIds = expandedIds.length > 0 ? expandedIds : e.selectedIds;
     selection.setSelectedIds(nextIds);
     canvas.refresh();
@@ -837,7 +920,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
   eventBus.on('code-caret-changed', (e) => {
     if (e.type !== 'code-caret-changed') return;
     if (suppressCodeCaretSelection) return;
-    const selectedIds = idsAtLineIndex(circuitDoc, e.lineIndex);
+    const selectedIds = idsAtLineIndex(circuitDoc, latexDoc.body, e.lineIndex);
     eventBus.emit({ type: 'selection-changed', selectedIds, source: 'code' });
   });
 
@@ -985,7 +1068,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
         componentProbeService.primeLibraryProbe(def, onResolved);
       }
     },
-    getInUseDefIds: () => [...new Set(circuitDoc.components.map((comp) => comp.defId))],
+    getInUseDefIds: () => collectInUseDefIdsFromBody(latexDoc.body),
     getSelectedComponent: () => {
       const [id] = selection.getSelectedIds();
       return id ? circuitDoc.getComponent(id) : undefined;
@@ -999,6 +1082,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       return id ? circuitDoc.getWire(id) : undefined;
     },
     getEditableStatementModel: (id) => getEditableStatementModel(latexDoc.body, id),
+    getResolvedStatementPositions,
     applyEditableStatement: (statement) => {
       pushUndoSnapshot();
       latexDoc.body = applyEditableStatementToBody(latexDoc.body, statement);
@@ -1009,7 +1093,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
         ? [statement.selectedId]
         : statement.sourceSubIndex != null
         ? [`line:${statement.sourceLineIndex}:${statement.sourceSubIndex}`]
-        : idsAtLineIndex(circuitDoc, statement.sourceLineIndex);
+        : idsAtLineIndex(circuitDoc, latexDoc.body, statement.sourceLineIndex);
       selection.setSelectedIds(nextSelectedIds);
       reconcileSelection('programmatic');
       eventBus.emit({ type: 'body-changed' });
@@ -1093,6 +1177,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       fn(event.selectedIds, event.source);
     }),
     onBodyChange: (fn) => eventBus.on('body-changed', fn),
+    onGeometryChange: (fn) => eventBus.on('geometry-changed', fn),
     onDocumentChange: (fn) => eventBus.on('document-changed', fn),
     onLatexEdited: (fn) => eventBus.on('user-edited-latex', fn),
     onCursorGridChange: (fn) => eventBus.on('cursor-grid-changed', (event) => {

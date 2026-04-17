@@ -41,6 +41,18 @@ function inferScaleFamily(entry: { class: string; group: string; type: 'path' | 
   return 'misc';
 }
 
+function registerSyntheticBipole(
+  registry: ComponentRegistry,
+  defsByTikzName: Map<string, ComponentDef>,
+  defsById: Map<string, ComponentDef>,
+  def: ComponentDef,
+): void {
+  if (defsByTikzName.has(def.tikzName)) return;
+  registry.register(def);
+  defsByTikzName.set(def.tikzName, def);
+  defsById.set(def.id, def);
+}
+
 export function populateRegistryFromSymbolsDB(
   registry: ComponentRegistry,
   db: SymbolsDB,
@@ -104,6 +116,32 @@ export function populateRegistryFromSymbolsDB(
     defsByTikzName.set(def.tikzName, def);
     defsById.set(def.id, def);
   }
+
+  registerSyntheticBipole(registry, defsByTikzName, defsById, {
+    id: 'synthetic_open_bipole',
+    displayName: 'Open',
+    category: 'misc',
+    placementType: 'bipole',
+    tikzName: 'open',
+    symbolId: 'synthetic_open_bipole',
+    symbolPinSpan: 12,
+    symbolRefX: 6,
+    symbolRefY: 3,
+    symbolPins: [
+      { name: 'START', x: -6, y: 0 },
+      { name: 'END', x: 6, y: 0 },
+    ],
+    shapeBBoxX: 4.5,
+    shapeBBoxY: 1.5,
+    shapeBBoxW: 3,
+    shapeBBoxH: 3,
+    viewBox: '0 0 12 6',
+    viewBoxW: 12,
+    viewBoxH: 6,
+    defaultProps: {},
+    scaleFamily: 'misc',
+    group: 'Wiring',
+  });
 
   const registerAlias = (sourceDef: ComponentDef, aliasTikzName: string, aliasDisplayName: string, group?: string) => {
     if (defsByTikzName.has(aliasTikzName)) return;

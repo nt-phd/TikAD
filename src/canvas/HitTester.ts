@@ -6,8 +6,6 @@ import type { ConnectionRef, DrawingInstance, DrawPathInstance, GridPoint } from
 import type { CircuitDocument } from '../model/CircuitDocument';
 import type { ComponentRegistry } from '../definitions/ComponentRegistry';
 import { getBipoleBodyMetrics, getPlacedComponentMetrics } from './ComponentGeometry';
-import { componentProbeService } from './ComponentProbeService';
-import { scaleState } from './ScaleState';
 
 const HIT_THRESHOLD = 0.5; // grid units
 
@@ -168,21 +166,16 @@ export class HitTester {
         continue;
       }
 
-      const def = this.registry.get(comp.defId);
-      if (!def) continue;
-      const probe = componentProbeService.getSelectionProbe(comp.id, comp, def, onResolved ?? (() => {}));
-      if (probe && probe.pinOffsets.length > 0) {
-        for (const pin of probe.pinOffsets) {
-          const ref = comp.nodeName ? { componentId: comp.id, nodeName: comp.nodeName, anchor: pin.name } : undefined;
-          consider({
-            x: comp.position.x + pin.x / scaleState.effectiveGridSize,
-            y: comp.position.y + pin.y / scaleState.effectiveGridSize,
-          }, ref);
-        }
-        continue;
-      }
       if (comp.nodeName) {
-        consider(comp.position, { componentId: comp.id, nodeName: comp.nodeName, anchor: 'reference' });
+        for (const [key, point] of this.doc.geometry.symbolPoints.entries()) {
+          const referenceKey = `${comp.nodeName}.reference`;
+          if (key === comp.nodeName && this.doc.geometry.symbolPoints.has(referenceKey)) continue;
+          if (key !== comp.nodeName && !key.startsWith(`${comp.nodeName}.`)) continue;
+          const anchor = key === comp.nodeName
+            ? 'reference'
+            : key.slice(comp.nodeName.length + 1);
+          consider(point, { componentId: comp.id, nodeName: comp.nodeName, anchor });
+        }
       } else {
         consider(comp.position);
       }

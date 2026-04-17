@@ -52,7 +52,6 @@ import { StatementEditor, type PositionPick } from './components/StatementEditor
 import { SplitActionButton } from './components/SplitActionButton';
 import { ToolbarView } from './components/ToolbarView';
 import { createCodeMirrorTheme, latexLanguage } from './components/ui/codeMirrorTheme';
-import { getComponentAnchorPoints } from './canvas/ConnectionAnchors';
 import { DEFAULT_PREAMBLE } from './model/LatexDocument';
 import type {
   ConnectionRef,
@@ -128,16 +127,13 @@ function buildPositionPickOptions(
   const options: Array<{ label: string; value: string }> = [{ label: baseValue, value: baseValue }];
   const tolerance = gridPitch / 2;
   const refValues = new Set<string>();
-  for (const comp of handle.circuitDoc.components) {
-    const def = handle.registry.get(comp.defId);
-    if (!def) continue;
-    const anchors = getComponentAnchorPoints(comp, def);
-    for (const anchor of anchors) {
-      if (!anchor.ref) continue;
-      if (Math.abs(anchor.point.x - gridPt.x) > tolerance) continue;
-      if (Math.abs(anchor.point.y - gridPt.y) > tolerance) continue;
-      refValues.add(formatConnectionRef(anchor.ref));
-    }
+  for (const [key, point] of handle.circuitDoc.geometry.symbolPoints.entries()) {
+    if (Math.abs(point.x - gridPt.x) > tolerance) continue;
+    if (Math.abs(point.y - gridPt.y) > tolerance) continue;
+    const dotIndex = key.indexOf('.');
+    const nodeName = dotIndex >= 0 ? key.slice(0, dotIndex) : key;
+    const anchor = dotIndex >= 0 ? key.slice(dotIndex + 1) : 'reference';
+    refValues.add(formatConnectionRef({ componentId: '', nodeName, anchor }));
   }
   for (const refValue of refValues) {
     options.push({ label: refValue, value: refValue });
@@ -1102,6 +1098,10 @@ function PropertiesViewInner({
     () => (statementSelectionId ? handle.getEditableStatementModel(statementSelectionId) : null),
     [handle, statementSelectionId, documentVersion],
   );
+  const resolvedStatementPositions = useMemo(
+    () => (statementSelectionId ? handle.getResolvedStatementPositions(statementSelectionId) : []),
+    [documentVersion, handle, statementSelectionId],
+  );
   const [draftDrawingProps, setDraftDrawingProps] = useState({
     options: drawing?.props.options ?? '',
   });
@@ -1205,6 +1205,7 @@ function PropertiesViewInner({
           model={statementModel}
           onCommit={(statement) => handle.applyEditableStatement(statement)}
           positionPick={positionPick}
+          resolvedPositions={resolvedStatementPositions}
           onPositionEditChange={(active: boolean) => {
             setPositionEditActive(active);
             handle.setPositionPickMode(active);
@@ -1319,6 +1320,9 @@ function useAppState(handle: ImperativeAppHandle | null) {
       setEnvironmentOptions(nextEnvironment.options);
       setDocumentVersion((version) => version + 1);
     });
+    const unsubGeometry = handle.onGeometryChange(() => {
+      setDocumentVersion((version) => version + 1);
+    });
     const unsubLatex = handle.onLatexEdited(() => {
       const source = handle.getFullLatexSource();
       localStorage.setItem('tikad-document', source);
@@ -1340,6 +1344,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
 
     return () => {
       unsubBody();
+      unsubGeometry();
       unsubLatex();
       unsubTool();
       unsubSelection();

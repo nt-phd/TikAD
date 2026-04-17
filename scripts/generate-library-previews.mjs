@@ -90,7 +90,7 @@ async function renderSvg(latex) {
 }
 
 async function main() {
-  const svgText = await readFile('src/data/symbols.svg', 'utf8');
+  const svgText = await readFile('public/symbols.svg', 'utf8');
   const defs = parseSymbolsMetadata(svgText);
   const previews = {};
 

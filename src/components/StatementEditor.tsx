@@ -7,6 +7,7 @@ import {
   ListSubheader,
   Menu,
   MenuItem,
+  Popover,
   Select,
   Typography,
 } from '@mui/material';
@@ -535,6 +536,7 @@ function StatementTreeLabel({
   children,
   editable,
   itemId,
+  positionDebugText,
   onAddProperty,
   onRemoveProperty,
   onStartEditing,
@@ -543,6 +545,7 @@ function StatementTreeLabel({
 }: UseTreeItemLabelSlotOwnProps & {
   editable?: boolean;
   itemId: string;
+  positionDebugText?: string | null;
   onAddProperty: (segmentIndex: number, propertyId: string) => void;
   onRemoveProperty: (item: StatementTreeItemModel) => void;
   onStartEditing: (item: StatementTreeItemModel) => void;
@@ -550,11 +553,19 @@ function StatementTreeLabel({
 }) {
   const item = useTreeItemModel<StatementTreeItemModel>(itemId);
   const [addAnchorEl, setAddAnchorEl] = useState<HTMLElement | null>(null);
+  const [debugAnchorEl, setDebugAnchorEl] = useState<HTMLElement | null>(null);
   if (!item) return <TreeItemLabel {...other}>{children}</TreeItemLabel>;
   const value = item.kind === 'add'
     ? item.title
     : (typeof children === 'string' ? children : item.value);
   const addOpen = Boolean(addAnchorEl);
+  const debugHoverProps = item.field === 'position' && positionDebugText
+    ? {
+      onMouseEnter: (event: React.MouseEvent<HTMLElement>) => setDebugAnchorEl(event.currentTarget),
+      onMouseLeave: () => setDebugAnchorEl(null),
+      sx: { cursor: 'help' },
+    }
+    : null;
 
   return (
     <TreeItemLabel
@@ -647,6 +658,7 @@ function StatementTreeLabel({
         >
           {isCompoundBipoleField(item) ? (
             <Typography
+              {...(debugHoverProps ?? {})}
               sx={{
                 color: value ? 'text.primary' : 'text.disabled',
                 flex: '1 1 0',
@@ -656,6 +668,7 @@ function StatementTreeLabel({
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 ...CODE_TOKEN_SX,
+                ...(debugHoverProps?.sx ?? {}),
               }}
               variant="body2"
             >
@@ -663,6 +676,7 @@ function StatementTreeLabel({
             </Typography>
           ) : (
             <Typography
+              {...(debugHoverProps ?? {})}
               sx={{
                 color: value ? 'text.primary' : 'text.disabled',
                 flex: '1 1 0',
@@ -672,29 +686,68 @@ function StatementTreeLabel({
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 ...CODE_TOKEN_SX,
+                ...(debugHoverProps?.sx ?? {}),
               }}
               variant="body2"
             >
               {value || '\u00A0'}
             </Typography>
           )}
+          <Popover
+            anchorEl={debugAnchorEl}
+            anchorOrigin={{ horizontal: 'right', vertical: 'center' }}
+            disableAutoFocus
+            disableEnforceFocus
+            disableRestoreFocus
+            open={Boolean(debugAnchorEl)}
+            PaperProps={{ sx: { p: 1 } }}
+            sx={{ pointerEvents: 'none' }}
+            transformOrigin={{ horizontal: 'left', vertical: 'center' }}
+          >
+            <Typography sx={{ fontFamily: MONOSPACE_FONT }} variant="body2">
+              {positionDebugText}
+            </Typography>
+          </Popover>
         </Box>
       ) : item.value ? (
-        <Typography
-          sx={{
-            color: 'text.primary',
-            flex: '1 1 0',
-            fontFamily: MONOSPACE_FONT,
-            minWidth: 0,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            ...CODE_TOKEN_SX,
-          }}
-          variant="body2"
-        >
-          {item.value}
-        </Typography>
+        <>
+          <Typography
+            onMouseEnter={(event) => {
+              if (item.field !== 'position' || !positionDebugText) return;
+              setDebugAnchorEl(event.currentTarget);
+            }}
+            onMouseLeave={() => setDebugAnchorEl(null)}
+            sx={{
+              color: 'text.primary',
+              cursor: item.field === 'position' && positionDebugText ? 'help' : undefined,
+              flex: '1 1 0',
+              fontFamily: MONOSPACE_FONT,
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              ...CODE_TOKEN_SX,
+            }}
+            variant="body2"
+          >
+            {item.value}
+          </Typography>
+          <Popover
+            anchorEl={debugAnchorEl}
+            anchorOrigin={{ horizontal: 'right', vertical: 'center' }}
+            disableAutoFocus
+            disableEnforceFocus
+            disableRestoreFocus
+            open={Boolean(debugAnchorEl)}
+            PaperProps={{ sx: { p: 1 } }}
+            sx={{ pointerEvents: 'none' }}
+            transformOrigin={{ horizontal: 'left', vertical: 'center' }}
+          >
+            <Typography sx={{ fontFamily: MONOSPACE_FONT }} variant="body2">
+              {positionDebugText}
+            </Typography>
+          </Popover>
+        </>
       ) : null}
     </TreeItemLabel>
   );
@@ -975,12 +1028,14 @@ export function StatementEditor({
   onCommit,
   model,
   positionPick,
+  resolvedPositions,
   onPositionEditChange,
   stopShortcutPropagation,
 }: {
   onCommit: (statement: EditableStatement) => void;
   model: EditableStatement;
   positionPick?: PositionPick | null;
+  resolvedPositions?: Array<string | null>;
   onPositionEditChange?: (active: boolean) => void;
   stopShortcutPropagation: (e: ReactKeyboardEvent<HTMLElement>) => void;
 }) {
@@ -2083,6 +2138,9 @@ export function StatementEditor({
         slotProps={{
           label: {
             itemId: item.id,
+            positionDebugText: item.field === 'position' && item.positionIndex != null
+              ? (resolvedPositions?.[item.positionIndex] ?? null)
+              : null,
             onAddProperty: addBipoleProperty,
             onRemoveProperty: removeTreeItem,
             onStartEditing: handleStartEditing,

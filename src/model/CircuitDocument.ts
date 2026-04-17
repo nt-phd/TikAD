@@ -1,4 +1,12 @@
-import type { ComponentInstance, DrawingInstance, WireInstance, DrawPathInstance, DocumentMetadata } from '../types';
+import type { ComponentInstance, DrawingInstance, WireInstance, DrawPathInstance, DocumentMetadata, GridPoint, PositionSequencePreview } from '../types';
+import {
+  createTikzGeometryState,
+  getStatementGeometry,
+  getGeometryStorePoint,
+  registerNamedReference,
+  setStatementGeometry,
+  type TikzGeometryState,
+} from '../codegen/TikzGeometryStore';
 import { GRID_SIZE, SNAP_GRID, DEFAULT_STYLE } from '../constants';
 
 export class CircuitDocument {
@@ -6,6 +14,7 @@ export class CircuitDocument {
   drawings: DrawingInstance[] = [];
   wires: WireInstance[] = [];
   drawPaths: DrawPathInstance[] = [];
+  geometry: TikzGeometryState = createTikzGeometryState();
   metadata: DocumentMetadata;
 
   constructor(style: 'european' | 'american' = DEFAULT_STYLE) {
@@ -31,6 +40,25 @@ export class CircuitDocument {
 
   getComponentByNodeName(nodeName: string): ComponentInstance | undefined {
     return this.components.find((c) => c.type !== 'bipole' && c.nodeName === nodeName);
+  }
+
+  setSymbolPoint(nodeName: string, point: GridPoint, anchor?: string): void {
+    registerNamedReference(this.geometry, nodeName, point);
+    if (anchor && anchor !== 'reference') {
+      this.geometry.symbolPoints.set(`${nodeName}.${anchor}`, { ...point });
+    }
+  }
+
+  getSymbolPoint(nodeName: string, anchor?: string): GridPoint | undefined {
+    return getGeometryStorePoint(this.geometry, nodeName, anchor);
+  }
+
+  setResolvedStatementPositions(id: string, positions: Array<PositionSequencePreview | null>): void {
+    setStatementGeometry(this.geometry, id, positions);
+  }
+
+  getResolvedStatementPositions(id: string): Array<PositionSequencePreview | null> | undefined {
+    return getStatementGeometry(this.geometry, id);
   }
 
   nextNodeName(prefix = 'N'): string {
@@ -85,5 +113,6 @@ export class CircuitDocument {
     this.drawings = [];
     this.wires = [];
     this.drawPaths = [];
+    this.geometry = createTikzGeometryState();
   }
 }

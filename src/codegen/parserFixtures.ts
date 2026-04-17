@@ -51,4 +51,16 @@ export const PARSER_FIXTURES: ParserFixture[] = [
     expectation: { components: 0, drawings: 0, wires: 1 },
     source: String.raw`\draw (1,-1) |- (N1.-);`,
   },
+  {
+    id: 'node-with-calc-coordinate',
+    note: 'Structured node parsing must preserve calc coordinates verbatim in the position field.',
+    expectation: { components: 0, drawings: 0, wires: 0 },
+    source: String.raw`\node[circ] (NG) at ($(Q1.G)-(1,0)$) {};`,
+  },
+  {
+    id: 'draw-with-calc-endpoint',
+    note: 'Draw statements should resolve calc endpoints from previously known anchors.',
+    expectation: { components: 0, drawings: 0, wires: 1 },
+    source: String.raw`\draw (Q1.S) -- ($(Q1.S)+(1,2)$);`,
+  },
 ];

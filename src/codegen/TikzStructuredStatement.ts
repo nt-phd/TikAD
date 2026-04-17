@@ -250,23 +250,22 @@ export function splitNodePlacementText(text: string): ParsedNodePlacement {
   };
 }
 
-export function emitStructuredStatementBody(structured: StructuredStatementBody): string {
+export function emitStructuredStatementBody(structured: StructuredStatementBody): string | null {
   const parts: string[] = [];
   let positionIndex = 0;
   if (structured.positionTexts[0]) parts.push(structured.positionTexts[0]);
   for (const segment of structured.segments) {
     if (segment.kind === 'connection') {
-      const endPos = structured.positionTexts[positionIndex + 1] ?? segment.endPositionText;
+      const endPos = structured.positionTexts[positionIndex + 1];
+      if (!endPos) return null;
       parts.push(`${segment.operator} ${endPos}`.trim());
       positionIndex += 1;
       continue;
     }
     if (segment.kind === 'bipole') {
-      const endPos = structured.positionTexts[positionIndex + 1] ?? segment.endPositionText;
-      const patched: EditableBipoleSegment = endPos !== segment.endPositionText
-        ? { ...segment, endPositionText: endPos }
-        : segment;
-      parts.push(serializeBipoleSegment(patched));
+      const endPos = structured.positionTexts[positionIndex + 1];
+      if (!endPos) return null;
+      parts.push(serializeBipoleSegment({ ...segment, endPositionText: endPos }));
       positionIndex += 1;
       continue;
     }
@@ -292,9 +291,7 @@ export function emitStructuredNodeStatement(structured: StructuredStatementBody)
   const options: string[] = [];
   if (segment.tikzName) options.push(segment.tikzName);
   if (segment.optionsText) options.push(segment.optionsText);
-  const placement = splitNodePlacementText(structured.positionTexts[0]);
-  const nodeName = segment.nodeName ?? placement.nodeName;
-  return `node${options.length > 0 ? `[${options.join(', ')}]` : ''} ${buildNodePlacementText(nodeName, placement.positionText)} {${segment.text ?? ''}}`;
+  return `node${options.length > 0 ? `[${options.join(', ')}]` : ''} ${structured.positionTexts[0].trim()} {${segment.text ?? ''}}`;
 }
 
 export function parseStructuredStatementBody(body: string): StructuredStatementBody | null {

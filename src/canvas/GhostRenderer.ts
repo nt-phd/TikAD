@@ -47,7 +47,6 @@ export class GhostRenderer {
   private deletePreviewGroup: SVGGElement;
   private selectionGroup: SVGGElement;
   private hoverGroup: SVGGElement;
-  private renderedAnchorMap = new Map<string, GridPoint>();
 
   constructor(
     private overlaySvg: SVGSVGElement,
@@ -239,7 +238,6 @@ export class GhostRenderer {
 
   renderSelection(): void {
     this.selectionGroup.innerHTML = '';
-    this.renderedAnchorMap = this.buildRenderedAnchorMap();
     for (const id of this.selection.getSelectedIds()) {
       const group = this.buildSingleSelectionGroup(id, SELECTION_COLOR);
       if (group) this.selectionGroup.appendChild(group);
@@ -596,9 +594,6 @@ export class GhostRenderer {
       const g = this.buildProbeSelectionGroup(anchorX, anchorY, probe, ghost, rotation, color, showAnchorMarker);
       return g;
     }
-    if (selectionId && !ghost) {
-      return createGroup('sel-point-pending');
-    }
     const { width, height, leftOffset, topOffset } = getPlacedComponentMetrics(def, gs);
     const anchorX = cx;
     const anchorY = cy;
@@ -787,8 +782,7 @@ export class GhostRenderer {
   private resolveDisplayedCornerPoint(sequence: PositionSequencePreview, index: number): GridPoint {
     const corner = sequence.corners[index];
     if (corner.kind === 'reference' && corner.ref) {
-      const key = this.anchorMapKey(corner.ref.nodeName, corner.ref.anchor);
-      const mapped = this.renderedAnchorMap.get(key);
+      const mapped = this.doc.getSymbolPoint(corner.ref.nodeName, corner.ref.anchor);
       if (mapped) return mapped;
     }
     if (corner.kind === 'relative' && corner.relativeFromIndex !== undefined) {
@@ -800,57 +794,6 @@ export class GhostRenderer {
       };
     }
     return corner.point;
-  }
-
-  private buildRenderedAnchorMap(): Map<string, GridPoint> {
-    const map = new Map<string, GridPoint>();
-    for (const comp of this.doc.components) {
-      if (comp.type === 'bipole' || !comp.nodeName) continue;
-      const def = this.registry.get(comp.defId);
-      if (!def) continue;
-      const displayReferencePoint = comp.positionSequence
-        ? this.resolveDisplayedSequencePointWithMap(comp.positionSequence, map)
-        : comp.position;
-      map.set(this.anchorMapKey(comp.nodeName, 'reference'), displayReferencePoint);
-      const probe = componentProbeService.getSelectionProbe(comp.id, comp, def, () => this.renderSelection());
-      if (!probe) continue;
-      for (const pin of probe.pinOffsets) {
-        map.set(this.anchorMapKey(comp.nodeName, pin.name), {
-          x: displayReferencePoint.x + pin.x / this.gs,
-          y: displayReferencePoint.y + pin.y / this.gs,
-        });
-      }
-    }
-    return map;
-  }
-
-  private resolveDisplayedSequencePointWithMap(sequence: PositionSequencePreview, map: Map<string, GridPoint>): GridPoint {
-    return this.resolveDisplayedCornerPointWithMap(sequence, sequence.corners.length - 1, map);
-  }
-
-  private resolveDisplayedCornerPointWithMap(
-    sequence: PositionSequencePreview,
-    index: number,
-    map: Map<string, GridPoint>,
-  ): GridPoint {
-    const corner = sequence.corners[index];
-    if (corner.kind === 'reference' && corner.ref) {
-      const mapped = map.get(this.anchorMapKey(corner.ref.nodeName, corner.ref.anchor));
-      if (mapped) return mapped;
-    }
-    if (corner.kind === 'relative' && corner.relativeFromIndex !== undefined) {
-      const originDisplay = this.resolveDisplayedCornerPointWithMap(sequence, corner.relativeFromIndex, map);
-      const originLogical = sequence.corners[corner.relativeFromIndex].point;
-      return {
-        x: originDisplay.x + (corner.point.x - originLogical.x),
-        y: originDisplay.y + (corner.point.y - originLogical.y),
-      };
-    }
-    return corner.point;
-  }
-
-  private anchorMapKey(nodeName: string, anchor: string): string {
-    return `${nodeName}.${anchor}`;
   }
 
   private expandDisplayedWirePoints(
