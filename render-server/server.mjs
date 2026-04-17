@@ -14,6 +14,8 @@
 
 import http from 'http';
 import { spawn } from 'child_process';
+import createDOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
 import { mkdtemp, writeFile, readFile, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -97,6 +99,50 @@ function normalizePictureEnvironmentForRender(src) {
   return src
     .replace(/\\begin\{circuitikz\}(\s*\[[^\]]*\])?/g, '\\begin{tikzpicture}$1')
     .replace(/\\end\{circuitikz\}/g, '\\end{tikzpicture}');
+}
+
+const domPurifyWindow = new JSDOM('').window;
+const DOMPurify = createDOMPurify(domPurifyWindow);
+
+DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
+  const attr = data.attrName.toLowerCase();
+  if (attr === 'href' || attr === 'xlink:href') {
+    const value = data.attrValue.trim();
+    data.keepAttr = value.startsWith('#');
+  }
+});
+
+function sanitizeSvg(svgText) {
+  const sanitized = DOMPurify.sanitize(svgText, {
+    USE_PROFILES: { svg: true, svgFilters: true },
+    ADD_TAGS: ['use'],
+    FORBID_TAGS: [
+      'script',
+      'foreignObject',
+      'iframe',
+      'object',
+      'embed',
+      'audio',
+      'video',
+      'image',
+      'animate',
+      'set',
+      'animateMotion',
+      'animateTransform',
+    ],
+    FORBID_ATTR: [
+      'style',
+      'onload',
+      'onclick',
+      'onerror',
+    ],
+  }).trim();
+
+  const svgMatches = sanitized.match(/<svg\b/gi) ?? [];
+  if (svgMatches.length !== 1 || !/<\/svg>\s*$/i.test(sanitized)) {
+    throw new Error('render produced malformed SVG root');
+  }
+  return sanitized;
 }
 
 function log(event, details = {}) {
@@ -189,7 +235,7 @@ async function renderLatex(latexBody) {
     await runCommand('pdf2svg', ['circuit.pdf', 'circuit.svg', '1'], dir, PDF2SVG_TIMEOUT_MS);
     const svgMs = Date.now() - svgStartedAt;
 
-    const svg = await readFile(join(dir, 'circuit.svg'), 'utf8');
+    const svg = sanitizeSvg(await readFile(join(dir, 'circuit.svg'), 'utf8'));
     const match = svg.match(/transform="matrix\(1,\s*0,\s*0,\s*-1,\s*([\d.+-]+),\s*([\d.+-]+)\)"/);
     const tx = match ? parseFloat(match[1]) : 0;
     const ty = match ? parseFloat(match[2]) : 0;

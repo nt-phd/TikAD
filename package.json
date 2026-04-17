@@ -30,6 +30,8 @@
     "@mui/material": "^7.3.9",
     "@mui/x-tree-view": "^9.0.1",
     "@uiw/react-codemirror": "^4.25.9",
+    "dompurify": "^3.4.0",
+    "jsdom": "^23.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
