@@ -42,6 +42,7 @@ import CodeMirror from '@uiw/react-codemirror';
 import type { EditorView } from '@codemirror/view';
 import { lineNumbers } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
+import { unifiedMergeView } from '@codemirror/merge';
 import type { ImperativeAppHandle } from './initImperativeApp';
 import { initImperativeApp } from './initImperativeApp';
 import { lineIndexFromId } from './codegen/CircuiTikZParser';
@@ -705,7 +706,7 @@ function LibraryView({
   onSelectTool: (tool: ToolType, defId?: string) => void;
 }) {
   const [query, setQuery] = useState('');
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(['In Use']);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(['In use']);
   const treeApiRef = useRichTreeViewApiRef();
   const [inUseDefIds, setInUseDefIds] = useState<string[]>([]);
   const [staticPreviews, setStaticPreviews] = useState<Record<string, string>>({});
@@ -948,7 +949,7 @@ function LibraryView({
     if (!queryLower && inUseItems.length > 0) {
       items.push({
         id: '__in-use__',
-        label: 'In Use',
+        label: 'In use',
         kind: 'group',
         count: inUseItems.length,
         children: inUseItems.map(buildComponentNode('__in-use__')),
@@ -969,7 +970,7 @@ function LibraryView({
 
   const expandedItems = useMemo(() => {
     if (queryLower) return treeItems.map((item) => item.id);
-    return expandedGroups.map((name) => name === 'In Use' ? '__in-use__' : `__group__${name}`);
+    return expandedGroups.map((name) => name === 'In use' ? '__in-use__' : `__group__${name}`);
   }, [queryLower, expandedGroups, treeItems]);
 
   return (
@@ -1003,7 +1004,7 @@ function LibraryView({
             }}
             onItemExpansionToggle={(_event, itemId, isExpanded) => {
               if (queryLower) return;
-              const name = itemId === '__in-use__' ? 'In Use' : itemId.replace('__group__', '');
+              const name = itemId === '__in-use__' ? 'In use' : itemId.replace('__group__', '');
               setExpandedGroups(isExpanded ? [name] : []);
               if (isExpanded) {
                 setTimeout(() => {
@@ -1279,6 +1280,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const documentEditorRef = useRef<EditorView | null>(null);
   const texUploadInputRef = useRef<HTMLInputElement | null>(null);
   const pendingLatexCommitRef = useRef(false);
+  const suppressHistoryRef = useRef(false);
   // Tracks the latest body text typed in the editor without triggering
   // a render on every keystroke. Only committed when commitPendingLatexEdits fires.
   const latestEditorBodyRef = useRef(body);
@@ -1319,6 +1321,17 @@ function useAppState(handle: ImperativeAppHandle | null) {
       setEnvironmentType(nextEnvironment.type);
       setEnvironmentOptions(nextEnvironment.options);
       setDocumentVersion((version) => version + 1);
+      if (!suppressHistoryRef.current) {
+        const source = handle.getFullLatexSource();
+        setHistory((prev) => {
+          if (prev.length > 0 && prev[prev.length - 1].source === source) return prev;
+          const entry: HistoryEntry = { ts: Date.now(), source };
+          const next = [...prev, entry];
+          if (next.length > 30) next.shift();
+          localStorage.setItem('tikad-history', JSON.stringify(next));
+          return next;
+        });
+      }
     });
     const unsubGeometry = handle.onGeometryChange(() => {
       setDocumentVersion((version) => version + 1);
@@ -1326,13 +1339,6 @@ function useAppState(handle: ImperativeAppHandle | null) {
     const unsubLatex = handle.onLatexEdited(() => {
       const source = handle.getFullLatexSource();
       localStorage.setItem('tikad-document', source);
-      setHistory((prev) => {
-        const entry: HistoryEntry = { ts: Date.now(), source };
-        const next = [...prev, entry];
-        if (next.length > 30) next.shift();
-        localStorage.setItem('tikad-history', JSON.stringify(next));
-        return next;
-      });
     });
     const unsubTool = handle.onToolChange((tool, defId) => {
       setCurrentTool(tool);
@@ -1591,6 +1597,10 @@ function useAppState(handle: ImperativeAppHandle | null) {
     setBody(value);
   };
 
+  const setHistoryPreviewActive = (active: boolean) => {
+    suppressHistoryRef.current = active;
+  };
+
   return {
     body,
     caretLineIndex,
@@ -1610,6 +1620,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     markLatexDirty,
     onClear,
     onRestoreHistory,
+    setHistoryPreviewActive,
     onCopyCommands,
     onCopyPreamble,
     onCopyDocument,
@@ -1700,7 +1711,7 @@ function formatHistoryTimestamp(ts: number): string {
     date.getFullYear() === yesterday.getFullYear() &&
     date.getMonth() === yesterday.getMonth() &&
     date.getDate() === yesterday.getDate();
-  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   if (isToday) return `Today ${timeStr}`;
   if (isYesterday) return `Yesterday ${timeStr}`;
   return `${date.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${timeStr}`;
@@ -1711,16 +1722,14 @@ function extractDocumentBody(source: string): string {
   return match ? match[1].trim() : source.trim();
 }
 
-// Shared sx for each read-only CodeMirror panel in HistoryView — mirrors DocumentEditor's box
-const HISTORY_PANEL_SX = {
-  backgroundColor: 'background.paper',
-  border: 1,
-  borderColor: 'divider',
-  borderRadius: 1,
-  flex: '0 0 calc(50% - 4px)',
+const HISTORY_DIFF_SX = {
+  flex: 1,
   minHeight: 0,
   minWidth: 0,
   overflow: 'hidden',
+  border: 1,
+  borderColor: 'divider',
+  borderRadius: 1,
   '& > .cm-theme': { height: '100%', minWidth: 0 },
   '& .cm-editor': {
     backgroundColor: 'background.paper',
@@ -1751,14 +1760,23 @@ const HISTORY_PANEL_SX = {
     minWidth: '100%',
   },
   '& .cm-line': { whiteSpace: 'pre' },
+  '& .cm-deletedChunk': { backgroundColor: 'rgba(255,80,80,0.15)' },
+  '& .cm-changedLine': { backgroundColor: 'rgba(255,200,0,0.1)' },
+  '& .cm-insertedLine': { backgroundColor: 'rgba(80,200,80,0.12)' },
 } as const;
 
 function HistoryView({
+  currentSource,
+  handle,
   history,
   onRestore,
+  setHistoryPreviewActive,
 }: {
+  currentSource: string;
+  handle: ImperativeAppHandle | null;
   history: HistoryEntry[];
   onRestore: (source: string) => void;
+  setHistoryPreviewActive: (active: boolean) => void;
 }) {
   const theme = useTheme();
   const codeMirrorTheme = useMemo(() => createCodeMirrorTheme(theme), [theme]);
@@ -1772,14 +1790,48 @@ function HistoryView({
     }
   }, [entries.length, selectedIndex]);
 
+  // Preview selected version on canvas; restore current source on unmount
+  useEffect(() => {
+    if (!handle || entries.length === 0) return;
+    const entry = entries[selectedIndex];
+    if (!entry) return;
+    const isPreviewing = selectedIndex > 0;
+    setHistoryPreviewActive(true);
+    handle.loadFullLatexSource(entry.source);
+    setHistoryPreviewActive(false);
+    if (isPreviewing) {
+      handle.showInfoBanner(`Version: ${formatHistoryTimestamp(entry.ts)}`);
+    } else {
+      handle.showInfoBanner(null);
+    }
+  }, [handle, selectedIndex, entries]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!handle) return;
+    return () => {
+      handle.showInfoBanner(null);
+      setHistoryPreviewActive(true);
+      handle.loadFullLatexSource(currentSource);
+      setHistoryPreviewActive(false);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handle]);
+
   const selected = entries[selectedIndex];
   const prev = entries[selectedIndex + 1];
   const bodyA = prev ? extractDocumentBody(prev.source) : '';
   const bodyB = selected ? extractDocumentBody(selected.source) : '';
 
-  const readOnlyExtensions = useMemo(
-    () => [lineNumbers(), latexLanguage, EditorState.readOnly.of(true), ...codeMirrorTheme],
-    [codeMirrorTheme],
+  const diffExtensions = useMemo(
+    () => [
+      lineNumbers(),
+      latexLanguage,
+      EditorState.readOnly.of(true),
+      ...codeMirrorTheme,
+      unifiedMergeView({ original: bodyA, mergeControls: false }),
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedIndex, codeMirrorTheme],
   );
 
   if (entries.length === 0) {
@@ -1835,19 +1887,11 @@ function HistoryView({
         ))}
       </Box>
 
-      {/* Right: two independent CodeMirror panels side by side */}
-      <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', p: 2, display: 'flex', gap: 1 }}>
-        <Box sx={HISTORY_PANEL_SX}>
+      {/* Right: unified vertical diff */}
+      <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', p: 2, display: 'flex' }}>
+        <Box sx={HISTORY_DIFF_SX}>
           <CodeMirror
-            extensions={readOnlyExtensions}
-            height="100%"
-            style={{ height: '100%' }}
-            value={bodyA}
-          />
-        </Box>
-        <Box sx={HISTORY_PANEL_SX}>
-          <CodeMirror
-            extensions={readOnlyExtensions}
+            extensions={diffExtensions}
             height="100%"
             style={{ height: '100%' }}
             value={bodyB}
@@ -1861,10 +1905,12 @@ function HistoryView({
 function EnvironmentTabs({
   appState,
   collapsed,
+  handle,
   onToggleCollapsed,
 }: {
   appState: ReturnType<typeof useAppState>;
   collapsed: boolean;
+  handle: ImperativeAppHandle | null;
   onToggleCollapsed: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<'document' | 'preamble' | 'history'>('document');
@@ -1955,7 +2001,7 @@ function EnvironmentTabs({
           setBody={appState.setEditorBody}
         />
       ) : activeTab === 'history' ? (
-        <HistoryView history={appState.history} onRestore={appState.onRestoreHistory} />
+        <HistoryView currentSource={appState.body} handle={handle} history={appState.history} onRestore={appState.onRestoreHistory} setHistoryPreviewActive={appState.setHistoryPreviewActive} />
       ) : (
         <PreambleView preamble={appState.preamble} />
       )}
@@ -2283,6 +2329,7 @@ function AppShell({
         <EnvironmentTabs
           appState={appState}
           collapsed={collapsed.document}
+          handle={handle}
           onToggleCollapsed={() => setCollapsed((prev) => ({ ...prev, document: !prev.document }))}
         />
       </Box>

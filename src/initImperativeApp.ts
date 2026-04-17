@@ -665,6 +665,7 @@ export interface ImperativeAppHandle {
   onCanvasMouseLeave: (fn: () => void) => () => void;
   onCanvasClick: (fn: (gridPt: { x: number; y: number }) => void) => () => void;
   clearDocument: () => void;
+  showInfoBanner: (message: string | null) => void;
 }
 
 async function createImperativeApp(canvasContainer: HTMLElement): Promise<ImperativeAppHandle> {
@@ -1202,6 +1203,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       eventBus.emit({ type: 'body-changed' });
       eventBus.emit({ type: 'user-edited-latex' });
     },
+    showInfoBanner: (message) => canvas.showInfoBanner(message),
   };
 }
 

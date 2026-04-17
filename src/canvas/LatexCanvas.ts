@@ -52,6 +52,7 @@ export class LatexCanvas {
   private renderInFlight = false;
   private renderPending = false;
   private errorBanner: HTMLDivElement | null = null;
+  private infoBanner: HTMLDivElement | null = null;
   hasPerformedInitialFit = false;
   private renderedContentBounds: { left: number; top: number; width: number; height: number } | null = null;
 
@@ -414,6 +415,19 @@ export class LatexCanvas {
     // Show only the first ! error line for brevity
     const firstError = message.split('\n').find(l => l.startsWith('!')) ?? message;
     this.errorBanner.textContent = firstError.slice(0, 120);
+  }
+
+  showInfoBanner(message: string | null): void {
+    if (!message) {
+      if (this.infoBanner) { this.infoBanner.remove(); this.infoBanner = null; }
+      return;
+    }
+    if (!this.infoBanner) {
+      this.infoBanner = document.createElement('div');
+      this.infoBanner.className = 'latex-info-banner';
+      this.container.appendChild(this.infoBanner);
+    }
+    this.infoBanner.textContent = message;
   }
 
   // ====== GRID ======

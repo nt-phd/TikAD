@@ -77,6 +77,24 @@ body.is-resizing-layout {
   pointer-events: none;
 }
 
+.latex-info-banner {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  right: 1.5rem;
+  background: rgba(30, 80, 160, 0.92);
+  color: #fff;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  z-index: 100;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
 .canvas-pin-tooltip {
   position: absolute;
   z-index: 120;
