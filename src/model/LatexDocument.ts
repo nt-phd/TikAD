@@ -15,7 +15,7 @@ export const DEFAULT_PREAMBLE = `\\usepackage{amsmath}
 \\usepackage{newpxtext}
 \\usepackage{newpxmath}
 \\usepackage{tikz}
-\\usepackage[american, siunitx, cuteinductors]{circuitikz}`;
+\\usepackage[siunitx]{circuitikz}`;
 
 export const DEFAULT_BODY = `\\begin{tikzpicture}
 

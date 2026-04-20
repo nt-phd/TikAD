@@ -32,14 +32,14 @@ import { TreeItemLabel } from '@mui/x-tree-view/TreeItem';
 import type { TreeItemProps } from '@mui/x-tree-view/TreeItem';
 import { useTreeItemModel } from '@mui/x-tree-view/hooks';
 import type { UseTreeItemLabelSlotOwnProps } from '@mui/x-tree-view/useTreeItem';
-import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import DataArrayRoundedIcon from '@mui/icons-material/DataArrayRounded';
-import DataObjectRoundedIcon from '@mui/icons-material/DataObjectRounded';
+import SearchRoundedIcon from '@mui/icons-material/SearchOutlined';
+import DataArrayRoundedIcon from '@mui/icons-material/DataArrayOutlined';
+import DataObjectRoundedIcon from '@mui/icons-material/DataObjectOutlined';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
-import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
-import SubjectRoundedIcon from '@mui/icons-material/SubjectRounded';
-import CropOriginalRoundedIcon from '@mui/icons-material/CropOriginalRounded';
-import RestoreRoundedIcon from '@mui/icons-material/RestoreRounded';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyOutlined';
+import SubjectRoundedIcon from '@mui/icons-material/SubjectOutlined';
+import CropOriginalRoundedIcon from '@mui/icons-material/CropOriginalOutlined';
+import RestoreRoundedIcon from '@mui/icons-material/RestoreOutlined';
 import CodeMirror from '@uiw/react-codemirror';
 import type { EditorView } from '@codemirror/view';
 import { lineNumbers } from '@codemirror/view';
@@ -213,8 +213,6 @@ const EMPTY_DOCUMENT_SETTINGS: CircuitikzDocumentSettings = {
 
 const DEFAULT_DOCUMENT_SETTINGS: CircuitikzDocumentSettings = {
   ...EMPTY_DOCUMENT_SETTINGS,
-  globalStyle: 'american',
-  inductorStyle: 'cuteinductors',
   unitStyle: 'siunitx',
 };
 
@@ -235,6 +233,32 @@ const MULTI_SELECT_MENU_PROPS = {
     },
   },
 } as const;
+
+function fallbackContentHash(source: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < source.length; i += 1) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+async function contentHash(source: string): Promise<string> {
+  if (!globalThis.crypto?.subtle) {
+    return fallbackContentHash(source);
+  }
+
+  const bytes = new TextEncoder().encode(source);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .slice(0, 8)
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function buildDownloadFilename(source: string, extension: string): Promise<string> {
+  return `tikad_${await contentHash(source)}.${extension}`;
+}
 
 function parsePreambleSettings(preamble: string): CircuitikzDocumentSettings {
   const next = { ...EMPTY_DOCUMENT_SETTINGS };
@@ -1618,7 +1642,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     await navigator.clipboard.writeText(handle.getFullLatexSource());
   };
 
-  const onDownloadSvg = () => {
+  const onDownloadSvg = async () => {
     if (!handle) return;
     const svg = handle.getRenderedSvg();
     if (!svg) return;
@@ -1626,21 +1650,21 @@ function useAppState(handle: ImperativeAppHandle | null) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'circuitikz-diagram.svg';
+    link.download = await buildDownloadFilename(svg, 'svg');
     document.body.appendChild(link);
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
-  const onDownloadTex = () => {
+  const onDownloadTex = async () => {
     if (!handle) return;
     const tex = handle.getFullLatexSource();
     const blob = new Blob([tex], { type: 'text/x-tex;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'circuitikz-diagram.tex';
+    link.download = await buildDownloadFilename(tex, 'tex');
     document.body.appendChild(link);
     link.click();
     link.remove();

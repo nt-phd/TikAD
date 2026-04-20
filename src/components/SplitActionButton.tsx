@@ -11,7 +11,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import ArrowDropDownRoundedIcon from '@mui/icons-material/ArrowDropDownRounded';
+import ArrowDropDownRoundedIcon from '@mui/icons-material/ArrowDropDownOutlined';
 
 export type SplitActionOption = {
   id: string;

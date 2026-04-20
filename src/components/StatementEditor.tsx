@@ -13,11 +13,11 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseOutlined';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import AdjustRoundedIcon from '@mui/icons-material/AdjustRounded';
-import ShowChartRoundedIcon from '@mui/icons-material/ShowChartRounded';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDownOutlined';
+import AdjustRoundedIcon from '@mui/icons-material/AdjustOutlined';
+import ShowChartRoundedIcon from '@mui/icons-material/ShowChartOutlined';
 import { RichTreeView, TreeItem, useRichTreeViewApiRef } from '@mui/x-tree-view';
 import { TreeItemLabel } from '@mui/x-tree-view/TreeItem';
 import type { TreeItemProps } from '@mui/x-tree-view/TreeItem';

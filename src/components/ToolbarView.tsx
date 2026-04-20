@@ -17,35 +17,35 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import AdsClickRoundedIcon from '@mui/icons-material/AdsClickRounded';
-import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
-import ContentCutRoundedIcon from '@mui/icons-material/ContentCutRounded';
-import ContentPasteRoundedIcon from '@mui/icons-material/ContentPasteRounded';
+import AddRoundedIcon from '@mui/icons-material/AddOutlined';
+import AdsClickRoundedIcon from '@mui/icons-material/AdsClickOutlined';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyOutlined';
+import ContentCutRoundedIcon from '@mui/icons-material/ContentCutOutlined';
+import ContentPasteRoundedIcon from '@mui/icons-material/ContentPasteOutlined';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
-import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepRounded';
-import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import FitScreenRoundedIcon from '@mui/icons-material/FitScreenRounded';
+import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepOutlined';
+import DownloadRoundedIcon from '@mui/icons-material/DownloadOutlined';
+import FitScreenRoundedIcon from '@mui/icons-material/FitScreenOutlined';
 import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
-import Grid4x4RoundedIcon from '@mui/icons-material/Grid4x4Rounded';
-import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
-import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
-import NavigationRoundedIcon from '@mui/icons-material/NavigationRounded';
-import OpenWithRoundedIcon from '@mui/icons-material/OpenWithRounded';
-import RedoRoundedIcon from '@mui/icons-material/RedoRounded';
-import RouteRoundedIcon from '@mui/icons-material/RouteRounded';
+import Grid4x4RoundedIcon from '@mui/icons-material/Grid4x4Outlined';
+import LightModeRoundedIcon from '@mui/icons-material/LightModeOutlined';
+import DarkModeRoundedIcon from '@mui/icons-material/DarkModeOutlined';
+import NavigationRoundedIcon from '@mui/icons-material/NearMeOutlined';
+import OpenWithRoundedIcon from '@mui/icons-material/OpenWithOutlined';
+import RouteRoundedIcon from '@mui/icons-material/RouteOutlined';
 import RouteSharpIcon from '@mui/icons-material/RouteSharp';
-import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
-import EastRoundedIcon from '@mui/icons-material/EastRounded';
-import SubdirectoryArrowLeftRoundedIcon from '@mui/icons-material/SubdirectoryArrowLeftRounded';
-import SubdirectoryArrowRightRoundedIcon from '@mui/icons-material/SubdirectoryArrowRightRounded';
-import TextFieldsRoundedIcon from '@mui/icons-material/TextFieldsRounded';
-import CropSquareRoundedIcon from '@mui/icons-material/CropSquareRounded';
+import InsightsRoundedIcon from '@mui/icons-material/InsightsOutlined';
+import EastRoundedIcon from '@mui/icons-material/EastOutlined';
+import SubdirectoryArrowLeftRoundedIcon from '@mui/icons-material/SubdirectoryArrowLeftOutlined';
+import SubdirectoryArrowRightRoundedIcon from '@mui/icons-material/SubdirectoryArrowRightOutlined';
+import TextFieldsRoundedIcon from '@mui/icons-material/TextFieldsOutlined';
+import CropSquareRoundedIcon from '@mui/icons-material/CropSquareOutlined';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
-import UndoRoundedIcon from '@mui/icons-material/UndoRounded';
-import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
-import ZoomInRoundedIcon from '@mui/icons-material/ZoomInRounded';
-import ZoomOutRoundedIcon from '@mui/icons-material/ZoomOutRounded';
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileOutlined';
+import ZoomInRoundedIcon from '@mui/icons-material/ZoomInOutlined';
+import ZoomOutRoundedIcon from '@mui/icons-material/ZoomOutOutlined';
 import type { ToolType, WireRoutingMode } from '../types';
 import capacitorIconSvg from './icons/toolbar/capacitor.svg?raw';
 import circIconSvg from './icons/toolbar/circ.svg?raw';
@@ -57,7 +57,7 @@ import shortIconSvg from './icons/toolbar/short.svg?raw';
 const TOOLBAR_HEIGHT = 34;
 
 const TOOL_LABELS: Array<{ activeWhen: ToolType; icon: ReactNode; id: ToolType; label: string }> = [
-  { id: 'select', activeWhen: 'select', label: 'Select', icon: <NavigationRoundedIcon fontSize="small" /> },
+  { id: 'select', activeWhen: 'select', label: 'Select', icon: <NavigationRoundedIcon fontSize="small" sx={{ transform: 'rotate(-90deg)' }} /> },
   { id: 'delete', activeWhen: 'delete', label: 'Delete', icon: <DeleteOutlineRoundedIcon fontSize="small" /> },
 ];
 
@@ -235,6 +235,9 @@ export function ToolbarView({
         {librarySlot ? (
           <Box
             sx={{
+              alignItems: 'center',
+              display: 'flex',
+              gap: 0.5,
               left: '50%',
               maxWidth: '38vw',
               minWidth: 280,
@@ -245,7 +248,31 @@ export function ToolbarView({
               zIndex: 1,
             }}
           >
-            {librarySlot}
+            <Tooltip title="Undo">
+              <Button
+                aria-label="Undo"
+                onClick={onUndo}
+                size="small"
+                sx={{ color: 'text.primary', height: 26, minWidth: 28, p: 0 }}
+                variant="text"
+              >
+                <ArrowBackRoundedIcon fontSize="small" />
+              </Button>
+            </Tooltip>
+            <Tooltip title="Redo">
+              <Button
+                aria-label="Redo"
+                onClick={onRedo}
+                size="small"
+                sx={{ color: 'text.primary', height: 26, minWidth: 28, p: 0 }}
+                variant="text"
+              >
+                <ArrowForwardRoundedIcon fontSize="small" />
+              </Button>
+            </Tooltip>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              {librarySlot}
+            </Box>
           </Box>
         ) : null}
         <Box sx={{ alignItems: 'center', alignSelf: 'stretch', display: 'flex', mr: 0.5 }}>
@@ -306,17 +333,6 @@ export function ToolbarView({
           onClose={closeMenu}
           open={menuAnchor?.id === 'edit'}
         >
-          <MenuItem onClick={() => run(onUndo)}>
-            <MenuIcon><UndoRoundedIcon fontSize="small" /></MenuIcon>
-            <ListItemText>Undo</ListItemText>
-            <MenuShortcut>Ctrl+Z</MenuShortcut>
-          </MenuItem>
-          <MenuItem onClick={() => run(onRedo)}>
-            <MenuIcon><RedoRoundedIcon fontSize="small" /></MenuIcon>
-            <ListItemText>Redo</ListItemText>
-            <MenuShortcut>Ctrl+Y</MenuShortcut>
-          </MenuItem>
-          <Divider />
           <MenuItem disabled={!hasSelection} onClick={() => run(onCutSelection)}>
             <MenuIcon><ContentCutRoundedIcon fontSize="small" /></MenuIcon>
             <ListItemText>Cut</ListItemText>
@@ -341,14 +357,6 @@ export function ToolbarView({
             <MenuIcon><DeleteSweepRoundedIcon fontSize="small" /></MenuIcon>
             <ListItemText>Delete all</ListItemText>
           </MenuItem>
-          <Divider />
-          <ListSubheader>Draw</ListSubheader>
-          {DRAW_TOOLS.map(({ icon, label, tool }) => (
-            <MenuItem key={tool} onClick={() => run(() => onSelectTool(tool))} selected={currentTool === tool}>
-              <MenuIcon>{icon}</MenuIcon>
-              <ListItemText>{label}</ListItemText>
-            </MenuItem>
-          ))}
         </Menu>
 
         <Menu
@@ -489,7 +497,7 @@ export function ToolRailView({
           <Tooltip
             key={`${id}-${label}`}
             placement="right"
-            title={label === 'Select' ? 'Select and edit' : 'Delete by click'}
+            title={label}
           >
             <ToggleButton aria-label={label} value={activeWhen}>
               {icon}
@@ -593,6 +601,27 @@ export function ToolRailView({
         </ToggleButtonGroup>
       </Box>
 
+      <Divider flexItem sx={{ my: 0.5 }} />
+      <ToggleButtonGroup
+        exclusive
+        orientation="vertical"
+        onChange={(_event, value: ToolType | null) => {
+          if (value) onSelectTool(value);
+        }}
+        size="small"
+        sx={{ '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 }, '& .MuiToggleButton-root': railToggleSx }}
+        value={DRAW_TOOLS.some(({ tool }) => tool === currentTool) ? currentTool : null}
+      >
+        {DRAW_TOOLS.map(({ icon, label, tool }) => (
+          <Tooltip key={tool} placement="right" title={label}>
+            <ToggleButton aria-label={label} value={tool}>
+              {icon}
+            </ToggleButton>
+          </Tooltip>
+        ))}
+      </ToggleButtonGroup>
+
+      <Divider flexItem sx={{ my: 0.5 }} />
       <Box sx={{ flex: 1, minHeight: 0 }} />
 
       <Tooltip placement="right" title="Snap wire to pins">
