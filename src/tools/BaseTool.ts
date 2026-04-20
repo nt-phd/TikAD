@@ -16,6 +16,7 @@ export interface ToolContext {
   deleteElements: (ids: string[]) => void;
   placeClipboard: (payload: ClipboardPayload, target: GridPoint) => void;
   undo: () => void;
+  redo: () => void;
 }
 
 export class BaseTool {

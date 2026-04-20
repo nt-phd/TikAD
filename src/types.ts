@@ -408,6 +408,8 @@ export type AppEvent =
   | { type: 'user-edited-latex' }
   /** Fired by CodePanel when the caret moves to another source line. */
   | { type: 'code-caret-changed'; lineIndex: number }
+  | { type: 'history-undo-requested' }
+  | { type: 'history-redo-requested' }
   | { type: 'cursor-grid-changed'; gridPt: GridPoint; zoomPercent: number }
   | { type: 'canvas-clicked'; gridPt: GridPoint };
 

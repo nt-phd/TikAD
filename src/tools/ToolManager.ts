@@ -33,6 +33,7 @@ export class ToolManager {
   get currentType(): ToolType { return this._currentType; }
   get currentDefId(): string | undefined { return this._currentDefId; }
   get wireRoutingMode(): WireRoutingMode { return this._wireRoutingMode; }
+  get hasClipboard(): boolean { return this.clipboard !== null; }
 
   setTool(type: ToolType, defId?: string): void {
     this.currentTool.deactivate();
@@ -104,6 +105,41 @@ export class ToolManager {
     if (this.positionPickMode === enabled) return;
     this.positionPickMode = enabled;
     this.updateCursor();
+  }
+
+  selectAll(): void {
+    const doc = this.ctx.getDocument();
+    const selectedIds = [
+      ...doc.components.map((component) => component.id),
+      ...doc.wires.map((wire) => wire.id),
+      ...doc.drawings.map((drawing) => drawing.id),
+    ];
+    this.selection.setSelectedIds(selectedIds);
+    this.emitEvent({ type: 'selection-changed', selectedIds, source: 'canvas' });
+  }
+
+  copySelection(): void {
+    const selectedIds = this.selection.getSelectedIds();
+    if (selectedIds.length === 0) return;
+    this.clipboard = copySelectionToClipboard(this.ctx.getDocument(), selectedIds);
+  }
+
+  cutSelection(): void {
+    const selectedIds = this.selection.getSelectedIds();
+    if (selectedIds.length === 0) return;
+    this.clipboard = copySelectionToClipboard(this.ctx.getDocument(), selectedIds);
+    this.ctx.deleteElements(selectedIds);
+  }
+
+  pasteSelection(): void {
+    if (!this.clipboard) return;
+    this.setTool('paste-selection');
+  }
+
+  deleteSelection(): void {
+    const selectedIds = this.selection.getSelectedIds();
+    if (selectedIds.length === 0) return;
+    this.ctx.deleteElements(selectedIds);
   }
 
   private updateCursor(): void {
@@ -179,53 +215,44 @@ export class ToolManager {
         return;
       }
 
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+        e.preventDefault();
+        this.ctx.redo();
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'a') {
         e.preventDefault();
-        const doc = this.ctx.getDocument();
-        const selectedIds = [
-          ...doc.components.map((component) => component.id),
-          ...doc.wires.map((wire) => wire.id),
-          ...doc.drawings.map((drawing) => drawing.id),
-        ];
-        this.selection.setSelectedIds(selectedIds);
-        this.emitEvent({ type: 'selection-changed', selectedIds, source: 'canvas' });
+        this.selectAll();
         return;
       }
 
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'c') {
-        const selectedIds = this.selection.getSelectedIds();
-        if (selectedIds.length > 0) {
-          e.preventDefault();
-          this.clipboard = copySelectionToClipboard(this.ctx.getDocument(), selectedIds);
-          return;
-        }
+        if (this.selection.count === 0) return;
+        e.preventDefault();
+        this.copySelection();
+        return;
       }
 
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'x') {
-        const selectedIds = this.selection.getSelectedIds();
-        if (selectedIds.length > 0) {
-          e.preventDefault();
-          this.clipboard = copySelectionToClipboard(this.ctx.getDocument(), selectedIds);
-          this.ctx.deleteElements(selectedIds);
-          return;
-        }
+        if (this.selection.count === 0) return;
+        e.preventDefault();
+        this.cutSelection();
+        return;
       }
 
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'v') {
-        if (this.clipboard) {
-          e.preventDefault();
-          this.setTool('paste-selection');
-          return;
-        }
+        if (!this.clipboard) return;
+        e.preventDefault();
+        this.pasteSelection();
+        return;
       }
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const selectedIds = this.selection.getSelectedIds();
-        if (selectedIds.length > 0) {
-          e.preventDefault();
-          this.ctx.deleteElements(selectedIds);
-          return;
-        }
+        if (this.selection.count === 0) return;
+        e.preventDefault();
+        this.deleteSelection();
+        return;
       }
 
       this.currentTool.onKeyDown(e);

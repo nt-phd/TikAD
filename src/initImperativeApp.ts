@@ -631,6 +631,10 @@ export interface ImperativeAppHandle {
   getResolvedStatementPositions: (id: string) => Array<string | null>;
   applyEditableStatement: (statement: EditableStatement) => void;
   getDef: (defId: string) => ReturnType<typeof registry.get>;
+  canPasteSelection: () => boolean;
+  copySelection: () => void;
+  cutSelection: () => void;
+  deleteSelection: () => void;
   getGridVisible: () => boolean;
   getGridPitch: () => number;
   getMajorGridEvery: () => number;
@@ -653,8 +657,12 @@ export interface ImperativeAppHandle {
   setBody: (body: string) => void;
   updateDrawingProps: (id: string, props: Record<string, string | undefined>) => void;
   undo: () => void;
+  redo: () => void;
+  pasteSelection: () => void;
   commitLatexEdits: () => void;
   commitDocumentChange: () => void;
+  onHistoryUndoRequest: (fn: () => void) => () => void;
+  onHistoryRedoRequest: (fn: () => void) => () => void;
   onToolChange: (fn: (tool: ToolType, defId?: string) => void) => () => void;
   onSelectionChange: (fn: (selectedIds: string[], source?: 'canvas' | 'code' | 'programmatic') => void) => () => void;
   onBodyChange: (fn: () => void) => () => void;
@@ -680,7 +688,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
   const circuitDoc = new CircuitDocument('european');
   const selection = new SelectionState();
   const eventBus = new EventBus();
-  const undoStack: string[] = [];
   let gridVisible = true;
   let suppressCodeCaretSelection = false;
 
@@ -762,14 +769,9 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     canvas.refresh();
   };
 
-  const MAX_UNDO_STACK = 100;
-  const pushUndoSnapshot = () => {
-    const current = latexDoc.toFullSource();
-    if (undoStack[undoStack.length - 1] !== current) {
-      undoStack.push(current);
-      if (undoStack.length > MAX_UNDO_STACK) undoStack.shift();
-    }
-  };
+  // Undo/redo history is owned by React state/localStorage. The imperative layer
+  // keeps these call sites as mutation markers, but does not maintain a second stack.
+  const pushUndoSnapshot = () => {};
 
   syncTikzScale();
   scaleState.gridPitch = circuitDoc.metadata.snapSize;
@@ -827,9 +829,10 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       canvas.refresh();
     },
     undo: () => {
-      const previous = undoStack.pop();
-      if (!previous) return;
-      applyFullSource(previous);
+      eventBus.emit({ type: 'history-undo-requested' });
+    },
+    redo: () => {
+      eventBus.emit({ type: 'history-redo-requested' });
     },
   };
 
@@ -1101,6 +1104,10 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       canvas.refresh();
     },
     getDef: (defId) => registry.get(defId),
+    canPasteSelection: () => toolManager.hasClipboard,
+    copySelection: () => toolManager.copySelection(),
+    cutSelection: () => toolManager.cutSelection(),
+    deleteSelection: () => toolManager.deleteSelection(),
     getGridVisible: () => gridVisible,
     getGridPitch: () => circuitDoc.metadata.snapSize,
     getMajorGridEvery: () => scaleState.majorGridEvery,
@@ -1161,6 +1168,12 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     undo: () => {
       toolCtx.undo();
     },
+    redo: () => {
+      toolCtx.redo();
+    },
+    pasteSelection: () => {
+      toolManager.pasteSelection();
+    },
     commitLatexEdits: () => {
       pushUndoSnapshot();
       eventBus.emit({ type: 'user-edited-latex' });
@@ -1169,6 +1182,14 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       pushUndoSnapshot();
       eventBus.emit({ type: 'document-changed' });
     },
+    onHistoryUndoRequest: (fn) => eventBus.on('history-undo-requested', (event) => {
+      if (event.type !== 'history-undo-requested') return;
+      fn();
+    }),
+    onHistoryRedoRequest: (fn) => eventBus.on('history-redo-requested', (event) => {
+      if (event.type !== 'history-redo-requested') return;
+      fn();
+    }),
     onToolChange: (fn) => eventBus.on('tool-changed', (event) => {
       if (event.type !== 'tool-changed') return;
       fn(event.tool, event.defId);

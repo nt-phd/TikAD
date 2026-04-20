@@ -51,7 +51,7 @@ import { DocumentEditor } from './components/DocumentEditor';
 import { PanelSection } from './components/PanelSection';
 import { StatementEditor, type PositionPick } from './components/StatementEditor';
 import { SplitActionButton } from './components/SplitActionButton';
-import { ToolbarView } from './components/ToolbarView';
+import { ToolbarView, type WorkspaceLayoutMode } from './components/ToolbarView';
 import { createCodeMirrorTheme, latexLanguage } from './components/ui/codeMirrorTheme';
 import { DEFAULT_PREAMBLE } from './model/LatexDocument';
 import type {
@@ -90,6 +90,9 @@ const MIN_SIDEBAR_WIDTH = 280;
 const MAX_SIDEBAR_WIDTH = 640;
 const MIN_CANVAS_WIDTH = 320;
 const MIN_DOCUMENT_HEIGHT = 160;
+const DEFAULT_DOCUMENT_WIDTH = 540;
+const MIN_DOCUMENT_WIDTH = 540;
+const MAX_DOCUMENT_WIDTH = 720;
 const MONOSPACE_FONT = '"Roboto Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
 const PROPERTIES_FIELD_SX = {
   '& .MuiChip-label': {
@@ -380,6 +383,13 @@ function clampDocumentHeight(height: number): number {
   return Math.min(viewportCap, Math.max(MIN_DOCUMENT_HEIGHT, height));
 }
 
+function clampDocumentWidth(width: number): number {
+  const viewportCap = typeof window === 'undefined'
+    ? MAX_DOCUMENT_WIDTH
+    : Math.max(MIN_DOCUMENT_WIDTH, window.innerWidth - MIN_SIDEBAR_WIDTH - MIN_CANVAS_WIDTH - 20);
+  return Math.min(Math.min(MAX_DOCUMENT_WIDTH, viewportCap), Math.max(MIN_DOCUMENT_WIDTH, width));
+}
+
 function resizerSx(axis: 'horizontal' | 'vertical') {
   const isVertical = axis === 'vertical';
   return {
@@ -518,9 +528,32 @@ function LibraryTreeLabel({ children, item, handle, isLoadingPreview, ...other }
 
   if (item.kind === 'group') {
     return (
-      <TreeItemLabel {...other}>
-        {item.label}
-        <Typography color="text.disabled" component="span" sx={{ fontFamily: 'monospace', ml: 0.75 }} variant="caption">
+      <TreeItemLabel
+        {...other}
+        sx={{
+          alignItems: 'center',
+          display: 'flex',
+          gap: 0.75,
+          minHeight: 30,
+          minWidth: 0,
+          py: 0.125,
+        }}
+      >
+        <Typography
+          sx={{
+            flex: '0 1 auto',
+            fontSize: 13,
+            fontWeight: 600,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          variant="body2"
+        >
+          {item.label}
+        </Typography>
+        <Typography color="text.disabled" component="span" sx={{ flex: '0 0 auto', fontFamily: 'monospace', fontSize: 12 }} variant="caption">
           ({item.count})
         </Typography>
       </TreeItemLabel>
@@ -1280,12 +1313,21 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const documentEditorRef = useRef<EditorView | null>(null);
   const texUploadInputRef = useRef<HTMLInputElement | null>(null);
   const pendingLatexCommitRef = useRef(false);
+  const historyCursorRef = useRef<number | null>(null);
+  const historyRef = useRef(history);
   const suppressHistoryRef = useRef(false);
   // Tracks the latest body text typed in the editor without triggering
   // a render on every keystroke. Only committed when commitPendingLatexEdits fires.
   const latestEditorBodyRef = useRef(body);
 
   const preamble = useMemo(() => buildPreambleFromPackages(preamblePackages), [preamblePackages]);
+
+  useEffect(() => {
+    historyRef.current = history;
+    if (historyCursorRef.current === null || historyCursorRef.current >= history.length) {
+      historyCursorRef.current = history.length > 0 ? history.length - 1 : null;
+    }
+  }, [history]);
 
   useEffect(() => {
     if (!handle) return;
@@ -1324,10 +1366,23 @@ function useAppState(handle: ImperativeAppHandle | null) {
       if (!suppressHistoryRef.current) {
         const source = handle.getFullLatexSource();
         setHistory((prev) => {
-          if (prev.length > 0 && prev[prev.length - 1].source === source) return prev;
+          const cursor = historyCursorRef.current;
+          const base = cursor !== null && cursor < prev.length - 1
+            ? prev.slice(0, cursor + 1)
+            : prev;
+          if (base.length > 0 && base[base.length - 1].source === source) {
+            historyCursorRef.current = base.length - 1;
+            if (base !== prev) {
+              localStorage.setItem('tikad-history', JSON.stringify(base));
+              historyRef.current = base;
+            }
+            return base;
+          }
           const entry: HistoryEntry = { ts: Date.now(), source };
-          const next = [...prev, entry];
+          const next = [...base, entry];
           if (next.length > 30) next.shift();
+          historyCursorRef.current = next.length - 1;
+          historyRef.current = next;
           localStorage.setItem('tikad-history', JSON.stringify(next));
           return next;
         });
@@ -1347,6 +1402,12 @@ function useAppState(handle: ImperativeAppHandle | null) {
     const unsubSelection = handle.onSelectionChange((nextSelectedIds) => {
       setSelectedIds(nextSelectedIds);
     });
+    const unsubUndo = handle.onHistoryUndoRequest(() => {
+      navigateHistory(-1);
+    });
+    const unsubRedo = handle.onHistoryRedoRequest(() => {
+      navigateHistory(1);
+    });
 
     return () => {
       unsubBody();
@@ -1354,7 +1415,10 @@ function useAppState(handle: ImperativeAppHandle | null) {
       unsubLatex();
       unsubTool();
       unsubSelection();
+      unsubUndo();
+      unsubRedo();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handle]);
 
   useEffect(() => {
@@ -1547,8 +1611,70 @@ function useAppState(handle: ImperativeAppHandle | null) {
     handle?.setMajorGridEvery(value);
   };
 
+  const restoreHistoryEntry = (entry: HistoryEntry, index: number) => {
+    if (!handle) return;
+    historyCursorRef.current = index;
+    suppressHistoryRef.current = true;
+    handle.loadFullLatexSource(entry.source);
+    suppressHistoryRef.current = false;
+    localStorage.setItem('tikad-document', entry.source);
+    setSelectedIds(handle.getSelectedIds());
+    setDocumentSettings(parsePreambleSettings(handle.getPreamble()));
+    const nextBody = handle.getBody();
+    latestEditorBodyRef.current = nextBody;
+    setBody(nextBody);
+    const nextEnvironment = parseEnvironmentSettings(nextBody);
+    setEnvironmentType(nextEnvironment.type);
+    setEnvironmentOptions(nextEnvironment.options);
+    setDocumentVersion((version) => version + 1);
+  };
+
+  const currentHistoryIndex = (entries: HistoryEntry[]) => {
+    if (!handle || entries.length === 0) return -1;
+    const source = handle.getFullLatexSource();
+    const cursor = historyCursorRef.current;
+    if (cursor !== null && entries[cursor]?.source === source) return cursor;
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      if (entries[index].source === source) return index;
+    }
+    return entries.length - 1;
+  };
+
+  const navigateHistory = (direction: -1 | 1) => {
+    const entries = historyRef.current;
+    if (!handle || entries.length === 0) return;
+    const currentIndex = currentHistoryIndex(entries);
+    const nextIndex = currentIndex + direction;
+    if (nextIndex < 0 || nextIndex >= entries.length) return;
+    restoreHistoryEntry(entries[nextIndex], nextIndex);
+  };
+
   const onUndo = () => {
-    handle?.undo();
+    navigateHistory(-1);
+  };
+
+  const onRedo = () => {
+    navigateHistory(1);
+  };
+
+  const onNewDocument = () => {
+    window.open(window.location.href, '_blank', 'noopener,noreferrer');
+  };
+
+  const onCutSelection = () => {
+    handle?.cutSelection();
+  };
+
+  const onCopySelection = () => {
+    handle?.copySelection();
+  };
+
+  const onPasteSelection = () => {
+    handle?.pasteSelection();
+  };
+
+  const onDeleteSelection = () => {
+    handle?.deleteSelection();
   };
 
   const onZoomIn = () => {
@@ -1573,16 +1699,8 @@ function useAppState(handle: ImperativeAppHandle | null) {
   };
 
   const onRestoreHistory = (source: string) => {
-    if (!handle) return;
-    handle.loadFullLatexSource(source);
-    setSelectedIds(handle.getSelectedIds());
-    setDocumentSettings(parsePreambleSettings(handle.getPreamble()));
-    const nextBody = handle.getBody();
-    setBody(nextBody);
-    const nextEnvironment = parseEnvironmentSettings(nextBody);
-    setEnvironmentType(nextEnvironment.type);
-    setEnvironmentOptions(nextEnvironment.options);
-    setDocumentVersion((version) => version + 1);
+    const index = historyRef.current.findIndex((entry) => entry.source === source);
+    restoreHistoryEntry({ source, ts: Date.now() }, index >= 0 ? index : Math.max(0, historyRef.current.length - 1));
   };
 
   const markLatexDirty = () => {
@@ -1630,13 +1748,19 @@ function useAppState(handle: ImperativeAppHandle | null) {
     onEnvironmentOptionsChange,
     onEnvironmentTypeChange,
     onFitToScreen,
+    onNewDocument,
+    onCutSelection,
+    onCopySelection,
+    onDeleteSelection,
     onGridPitchChange,
     onMajorGridEveryChange,
     onOpenTexUpload,
+    onPasteSelection,
     onSelectTool,
     onToggleGridVisible,
     onTogglePinSnap,
     onUndo,
+    onRedo,
     onWireRoutingModeChange,
     onZoomIn,
     onZoomOut,
@@ -2102,9 +2226,11 @@ function StatusBarView({
 function AppShell({
   collapsed,
   handle,
+  onLayoutModeChange,
   onStartDocumentResize,
-  onToggleThemeMode,
+  onThemeModeChange,
   themeMode,
+  workspaceLayoutMode,
   setCollapsed,
 }: {
   collapsed: {
@@ -2113,9 +2239,11 @@ function AppShell({
     props: boolean;
   };
   handle: ImperativeAppHandle | null;
+  onLayoutModeChange: (mode: WorkspaceLayoutMode) => void;
   onStartDocumentResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
-  onToggleThemeMode: () => void;
+  onThemeModeChange: (mode: 'light' | 'dark') => void;
   themeMode: 'light' | 'dark';
+  workspaceLayoutMode: WorkspaceLayoutMode;
   setCollapsed: Dispatch<SetStateAction<{
     document: boolean;
     library: boolean;
@@ -2171,19 +2299,29 @@ function AppShell({
         gridPitch={appState.gridPitch}
         gridVisible={appState.gridVisible}
         onClear={appState.onClear}
+        onCopySelection={appState.onCopySelection}
+        onCutSelection={appState.onCutSelection}
+        onDeleteSelection={appState.onDeleteSelection}
         onDownloadTex={appState.onDownloadTex}
         onFitToScreen={appState.onFitToScreen}
+        onLayoutModeChange={onLayoutModeChange}
+        onNewDocument={appState.onNewDocument}
         onOpenTexUpload={appState.onOpenTexUpload}
+        onPasteSelection={appState.onPasteSelection}
+        onRedo={appState.onRedo}
         onSelectTool={appState.onSelectTool}
         onGridPitchChange={appState.onGridPitchChange}
         onToggleGridVisible={appState.onToggleGridVisible}
         onTogglePinSnap={appState.onTogglePinSnap}
-        onToggleThemeMode={onToggleThemeMode}
+        onThemeModeChange={onThemeModeChange}
+        onUndo={appState.onUndo}
         onWireRoutingModeChange={appState.onWireRoutingModeChange}
         onZoomIn={appState.onZoomIn}
         onZoomOut={appState.onZoomOut}
         pinSnapEnabled={appState.pinSnapEnabled}
+        selectedIds={appState.selectedIds}
         themeMode={themeMode}
+        workspaceLayoutMode={workspaceLayoutMode}
         wireRoutingMode={appState.wireRoutingMode}
       />
 
@@ -2302,11 +2440,11 @@ function AppShell({
           aria-label="Resize document panel"
           flexItem
           onMouseDown={onStartDocumentResize}
-          orientation="horizontal"
+          orientation={workspaceLayoutMode === 'right-code' ? 'vertical' : 'horizontal'}
           role="separator"
           sx={{
             gridArea: 'docresizer',
-            ...resizerSx('horizontal'),
+            ...resizerSx(workspaceLayoutMode === 'right-code' ? 'vertical' : 'horizontal'),
           }}
         />
       ) : null}
@@ -2314,7 +2452,8 @@ function AppShell({
       <Box
         sx={{
           backgroundColor: 'background.default',
-          borderTop: 1,
+          borderTop: workspaceLayoutMode === 'bottom-code' ? 1 : 0,
+          borderLeft: workspaceLayoutMode === 'right-code' ? 1 : 0,
           borderColor: 'divider',
           display: 'flex',
           flexDirection: 'column',
@@ -2368,6 +2507,15 @@ export function App() {
     const parsed = stored ? Number.parseInt(stored, 10) : defaultDocumentHeight();
     return Number.isFinite(parsed) ? clampDocumentHeight(parsed) : clampDocumentHeight(defaultDocumentHeight());
   });
+  const [documentWidth, setDocumentWidth] = useState(() => {
+    const stored = window.localStorage.getItem('document-width');
+    const parsed = stored ? Number.parseInt(stored, 10) : DEFAULT_DOCUMENT_WIDTH;
+    return Number.isFinite(parsed) ? clampDocumentWidth(parsed) : clampDocumentWidth(DEFAULT_DOCUMENT_WIDTH);
+  });
+  const [workspaceLayoutMode, setWorkspaceLayoutMode] = useState<WorkspaceLayoutMode>(() => {
+    const stored = window.localStorage.getItem('workspace-layout-mode');
+    return stored === 'right-code' ? 'right-code' : 'bottom-code';
+  });
   const [collapsed, setCollapsed] = useState({
     document: false,
     library: false,
@@ -2389,6 +2537,20 @@ export function App() {
     document.documentElement.style.setProperty('--document-resizer-height', collapsed.document ? '0px' : '10px');
     window.localStorage.setItem('document-height', String(documentHeight));
   }, [collapsed.document, documentHeight]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--document-column-size', collapsed.document ? '60px' : `${documentWidth}px`);
+    document.documentElement.style.setProperty('--document-resizer-width', collapsed.document ? '0px' : '10px');
+    window.localStorage.setItem('document-width', String(documentWidth));
+  }, [collapsed.document, documentWidth]);
+
+  useEffect(() => {
+    document.body.classList.toggle('layout-document-right', workspaceLayoutMode === 'right-code');
+    window.localStorage.setItem('workspace-layout-mode', workspaceLayoutMode);
+    return () => {
+      document.body.classList.remove('layout-document-right');
+    };
+  }, [workspaceLayoutMode]);
 
   useEffect(() => {
     window.localStorage.setItem('theme-mode', themeMode);
@@ -2441,13 +2603,17 @@ export function App() {
         setSidebarWidth(clampSidebarWidth(nextWidth));
         return;
       }
-      const nextHeight = nextSize;
-      setDocumentHeight(clampDocumentHeight(nextHeight));
+      if (resizeState.axis === 'x') {
+        setDocumentWidth(clampDocumentWidth(nextSize));
+        return;
+      }
+      setDocumentHeight(clampDocumentHeight(nextSize));
     };
 
     const onResize = () => {
       setSidebarWidth((current) => clampSidebarWidth(current));
       setDocumentHeight((current) => clampDocumentHeight(current));
+      setDocumentWidth((current) => clampDocumentWidth(current));
     };
 
     const onMouseUp = () => {
@@ -2481,11 +2647,11 @@ export function App() {
   const startDocumentResize = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     resizeStateRef.current = {
-      axis: 'y',
-      direction: -1,
+      axis: workspaceLayoutMode === 'right-code' ? 'x' : 'y',
+      direction: workspaceLayoutMode === 'right-code' ? -1 : -1,
       kind: 'document',
-      startPointer: event.clientY,
-      startSize: documentHeight,
+      startPointer: workspaceLayoutMode === 'right-code' ? event.clientX : event.clientY,
+      startSize: workspaceLayoutMode === 'right-code' ? documentWidth : documentHeight,
     };
     document.body.classList.add('is-resizing-layout');
   };
@@ -2497,10 +2663,12 @@ export function App() {
         <AppShell
           collapsed={collapsed}
           handle={handle}
+          onLayoutModeChange={setWorkspaceLayoutMode}
           onStartDocumentResize={startDocumentResize}
-          onToggleThemeMode={() => setThemeMode((mode) => mode === 'dark' ? 'light' : 'dark')}
+          onThemeModeChange={setThemeMode}
           setCollapsed={setCollapsed}
           themeMode={themeMode}
+          workspaceLayoutMode={workspaceLayoutMode}
         />
         <Divider
           aria-label="Resize sidebar"
