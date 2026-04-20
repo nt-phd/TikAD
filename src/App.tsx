@@ -2553,7 +2553,11 @@ export function App() {
   }, [workspaceLayoutMode]);
 
   useEffect(() => {
+    document.body.classList.toggle('theme-dark', themeMode === 'dark');
     window.localStorage.setItem('theme-mode', themeMode);
+    return () => {
+      document.body.classList.remove('theme-dark');
+    };
   }, [themeMode]);
 
   const theme = useMemo(() => createTheme({

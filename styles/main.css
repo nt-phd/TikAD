@@ -71,6 +71,15 @@ body.is-resizing-layout {
   pointer-events: none;
 }
 
+body.theme-dark .canvas-container {
+  background: #121212;
+}
+
+body.theme-dark .canvas-container::before {
+  background: #121212;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 .latex-error-banner {
   position: absolute;
   bottom: 1.5rem;
@@ -137,8 +146,10 @@ body.is-resizing-layout {
   position: absolute;
   top: 0;
   left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
   transform-origin: 0 0;
-  will-change: transform;
 }
 
 .latex-layer {
@@ -153,6 +164,10 @@ body.is-resizing-layout {
   top: 0;
   left: 0;
   pointer-events: none;
+}
+
+body.theme-dark .latex-layer {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.95);
 }
 
 .latex-layer svg {
