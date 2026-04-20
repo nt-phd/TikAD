@@ -143,6 +143,32 @@ export function populateRegistryFromSymbolsDB(
     group: 'Wiring',
   });
 
+  registerSyntheticBipole(registry, defsByTikzName, defsById, {
+    id: 'synthetic_short_bipole',
+    displayName: 'Short',
+    category: 'misc',
+    placementType: 'bipole',
+    tikzName: 'short',
+    symbolId: 'synthetic_short_bipole',
+    symbolPinSpan: 12,
+    symbolRefX: 6,
+    symbolRefY: 3,
+    symbolPins: [
+      { name: 'START', x: -6, y: 0 },
+      { name: 'END', x: 6, y: 0 },
+    ],
+    shapeBBoxX: 0,
+    shapeBBoxY: 2.75,
+    shapeBBoxW: 12,
+    shapeBBoxH: 0.5,
+    viewBox: '0 0 12 6',
+    viewBoxW: 12,
+    viewBoxH: 6,
+    defaultProps: {},
+    scaleFamily: 'misc',
+    group: 'Wiring',
+  });
+
   const registerAlias = (sourceDef: ComponentDef, aliasTikzName: string, aliasDisplayName: string, group?: string) => {
     if (defsByTikzName.has(aliasTikzName)) return;
     const aliasDef: ComponentDef = {

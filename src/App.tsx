@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type {
   ChangeEvent,
   KeyboardEvent as ReactKeyboardEvent,
@@ -16,6 +16,7 @@ import {
   MenuItem,
   OutlinedInput,
   Paper,
+  Popover,
   Stack,
   Tab,
   Tabs,
@@ -34,6 +35,7 @@ import type { UseTreeItemLabelSlotOwnProps } from '@mui/x-tree-view/useTreeItem'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import DataArrayRoundedIcon from '@mui/icons-material/DataArrayRounded';
 import DataObjectRoundedIcon from '@mui/icons-material/DataObjectRounded';
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import SubjectRoundedIcon from '@mui/icons-material/SubjectRounded';
 import CropOriginalRoundedIcon from '@mui/icons-material/CropOriginalRounded';
@@ -51,7 +53,7 @@ import { DocumentEditor } from './components/DocumentEditor';
 import { PanelSection } from './components/PanelSection';
 import { StatementEditor, type PositionPick } from './components/StatementEditor';
 import { SplitActionButton } from './components/SplitActionButton';
-import { ToolbarView, type WorkspaceLayoutMode } from './components/ToolbarView';
+import { ToolbarView, ToolRailView, type SymbolShortcutTikzName } from './components/ToolbarView';
 import { createCodeMirrorTheme, latexLanguage } from './components/ui/codeMirrorTheme';
 import { DEFAULT_PREAMBLE } from './model/LatexDocument';
 import type {
@@ -65,6 +67,7 @@ import type { WireRoutingMode } from './types';
 import { componentCatalog } from './data/componentCatalog';
 import statementEditorSchemaJson from './data/statementEditorSchema.json';
 type HistoryEntry = { ts: number; source: string };
+type ThemeMode = 'light' | 'dark';
 
 const GROUP_ORDER = [
   'Resistive bipoles',
@@ -85,14 +88,19 @@ const GROUP_ORDER = [
   'Tubes',
 ] as const;
 
-const DEFAULT_SIDEBAR_WIDTH = 360;
-const MIN_SIDEBAR_WIDTH = 280;
-const MAX_SIDEBAR_WIDTH = 640;
+const DEFAULT_SIDEBAR_WIDTH = 480;
+const MIN_SIDEBAR_WIDTH = 480;
+const MAX_SIDEBAR_WIDTH = 760;
+
+function readStoredThemeMode(): ThemeMode | null {
+  const stored = window.localStorage.getItem('theme-mode');
+  return stored === 'light' || stored === 'dark' ? stored : null;
+}
+
+function readSystemThemeMode(): ThemeMode {
+  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
 const MIN_CANVAS_WIDTH = 320;
-const MIN_DOCUMENT_HEIGHT = 160;
-const DEFAULT_DOCUMENT_WIDTH = 540;
-const MIN_DOCUMENT_WIDTH = 540;
-const MAX_DOCUMENT_WIDTH = 720;
 const MONOSPACE_FONT = '"Roboto Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace';
 const PROPERTIES_FIELD_SX = {
   '& .MuiChip-label': {
@@ -369,25 +377,6 @@ function clampSidebarWidth(width: number): number {
     ? MAX_SIDEBAR_WIDTH
     : Math.max(MIN_SIDEBAR_WIDTH, window.innerWidth - MIN_CANVAS_WIDTH - 10);
   return Math.min(Math.min(MAX_SIDEBAR_WIDTH, viewportCap), Math.max(MIN_SIDEBAR_WIDTH, width));
-}
-
-function defaultDocumentHeight(): number {
-  if (typeof window === 'undefined') return 240;
-  return Math.max(MIN_DOCUMENT_HEIGHT, Math.round(window.innerHeight * 0.25));
-}
-
-function clampDocumentHeight(height: number): number {
-  const viewportCap = typeof window === 'undefined'
-    ? defaultDocumentHeight()
-    : Math.max(MIN_DOCUMENT_HEIGHT, Math.floor(window.innerHeight * 0.6));
-  return Math.min(viewportCap, Math.max(MIN_DOCUMENT_HEIGHT, height));
-}
-
-function clampDocumentWidth(width: number): number {
-  const viewportCap = typeof window === 'undefined'
-    ? MAX_DOCUMENT_WIDTH
-    : Math.max(MIN_DOCUMENT_WIDTH, window.innerWidth - MIN_SIDEBAR_WIDTH - MIN_CANVAS_WIDTH - 20);
-  return Math.min(Math.min(MAX_DOCUMENT_WIDTH, viewportCap), Math.max(MIN_DOCUMENT_WIDTH, width));
 }
 
 function resizerSx(axis: 'horizontal' | 'vertical') {
@@ -729,16 +718,24 @@ function LibraryView({
   currentDefId,
   documentSettings,
   handle,
+  hideSearchField = false,
+  query: controlledQuery,
+  onQueryChange,
   onVisibleCountChange,
   onSelectTool,
 }: {
   currentDefId?: string;
   documentSettings: CircuitikzDocumentSettings;
   handle: ImperativeAppHandle | null;
+  hideSearchField?: boolean;
+  query?: string;
+  onQueryChange?: (query: string) => void;
   onVisibleCountChange?: (count: number) => void;
   onSelectTool: (tool: ToolType, defId?: string) => void;
 }) {
-  const [query, setQuery] = useState('');
+  const [internalQuery, setInternalQuery] = useState('');
+  const query = controlledQuery ?? internalQuery;
+  const setQuery = onQueryChange ?? setInternalQuery;
   const [expandedGroups, setExpandedGroups] = useState<string[]>(['In use']);
   const treeApiRef = useRichTreeViewApiRef();
   const [inUseDefIds, setInUseDefIds] = useState<string[]>([]);
@@ -1007,22 +1004,24 @@ function LibraryView({
   }, [queryLower, expandedGroups, treeItems]);
 
   return (
-    <Box id="palette" sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, minWidth: 0, overflow: 'hidden', p: 1 }}>
-      <TextField
-        fullWidth
-        InputProps={{
-          startAdornment: <SearchRoundedIcon color="action" fontSize="small" sx={{ mr: 1 }} />,
-        }}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Search component…"
-        value={query}
-      />
+    <Box id="palette" sx={{ display: 'flex', flex: 1, flexDirection: 'column', height: '100%', minHeight: 0, minWidth: 0, overflow: 'hidden', p: 1 }}>
+      {!hideSearchField ? (
+        <TextField
+          fullWidth
+          InputProps={{
+            startAdornment: <SearchRoundedIcon color="action" fontSize="small" sx={{ mr: 1 }} />,
+          }}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search component…"
+          value={query}
+        />
+      ) : null}
       {!catalogPreviewsLoaded ? (
         <Typography color="text.secondary" sx={{ px: 1, py: 1.5 }} variant="body2">
           Loading rendered library previews…
         </Typography>
       ) : null}
-      <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, flex: 1, minHeight: 0, mt: 1,  overflow: 'auto' }}>
+      <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, flex: 1, minHeight: 0, mt: hideSearchField ? 0 : 1,  overflow: 'auto' }}>
         <LibraryTreeCtx.Provider value={{ handle, isLoadingPreview: !catalogPreviewsLoaded }}>
           <RichTreeView
             sx={{m: 1}}
@@ -1053,6 +1052,108 @@ function LibraryView({
         </LibraryTreeCtx.Provider>
       </Box>
     </Box>
+  );
+}
+
+function LibraryCommandView({
+  currentDefId,
+  documentSettings,
+  handle,
+  onSelectTool,
+  visibleCount,
+  onVisibleCountChange,
+}: {
+  currentDefId?: string;
+  documentSettings: CircuitikzDocumentSettings;
+  handle: ImperativeAppHandle | null;
+  onSelectTool: (tool: ToolType, defId?: string) => void;
+  visibleCount: number;
+  onVisibleCountChange: (count: number) => void;
+}) {
+  const anchorRef = useRef<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const close = () => setOpen(false);
+  const selectTool = (tool: ToolType, defId?: string) => {
+    onSelectTool(tool, defId);
+    close();
+  };
+
+  return (
+    <>
+      <Box ref={anchorRef} sx={{ alignItems: 'center', display: 'flex', height: 26, width: '100%' }}>
+        <OutlinedInput
+          aria-controls={open ? 'library-popover' : undefined}
+          aria-expanded={open ? 'true' : undefined}
+          aria-haspopup="dialog"
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setOpen(true);
+          }}
+          onClick={() => setOpen(true)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') close();
+          }}
+          placeholder="Add symbol..."
+          size="small"
+          startAdornment={<SearchRoundedIcon color="action" fontSize="small" sx={{ mr: 1 }} />}
+          endAdornment={(
+            <Typography color="text.disabled" component="span" sx={{ fontFamily: MONOSPACE_FONT, fontSize: 11, ml: 1 }} variant="caption">
+              {visibleCount}
+            </Typography>
+          )}
+          sx={{
+            '& .MuiOutlinedInput-input': {
+              fontSize: 13,
+              py: 0,
+            },
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: 'divider',
+            },
+            bgcolor: 'background.paper',
+            borderRadius: 1,
+            fontSize: 13,
+            height: 26,
+            width: '100%',
+          }}
+          value={query}
+        />
+      </Box>
+      <Popover
+        anchorEl={anchorRef.current}
+        anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+        disableAutoFocus
+        disableEnforceFocus
+        disableRestoreFocus
+        id="library-popover"
+        onClose={close}
+        open={open}
+        transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+        slotProps={{
+          paper: {
+            sx: {
+              display: 'flex',
+              height: 'min(720px, calc(100vh - 96px))',
+              mt: 0.5,
+              overflow: 'hidden',
+              width: anchorRef.current?.offsetWidth ?? 420,
+            },
+          },
+        }}
+      >
+        <LibraryView
+          currentDefId={currentDefId}
+          documentSettings={documentSettings}
+          hideSearchField
+          handle={handle}
+          onQueryChange={setQuery}
+          onSelectTool={selectTool}
+          onVisibleCountChange={onVisibleCountChange}
+          query={query}
+        />
+      </Popover>
+    </>
   );
 }
 
@@ -2097,33 +2198,40 @@ function EnvironmentTabs({
 
   return (
     <PanelSection
-      actions={
-        <SplitActionButton
-          actionLabel="Copy"
-          defaultActionId="copy-document"
-          options={[
-            { icon: <DataArrayRoundedIcon fontSize="small" />, id: 'copy-commands', label: 'Commands', run: appState.onCopyCommands },
-            { icon: <DataObjectRoundedIcon fontSize="small" />, id: 'copy-environment', label: 'Enviroment', run: appState.onCopyEnvironment },
-            { icon: <ContentCopyRoundedIcon fontSize="small" />, id: 'copy-preamble', label: 'Preamble', run: appState.onCopyPreamble },
-            { icon: <SubjectRoundedIcon fontSize="small" />, id: 'copy-document', label: 'Document', run: appState.onCopyDocument },
-            { icon: <CropOriginalRoundedIcon fontSize="small" />, id: 'download-svg', label: 'SVG', run: appState.onDownloadSvg },
-          ]}
-        />
-      }
       expanded={!collapsed}
       grow
       onChange={onToggleCollapsed}
       title={tabHeader}
     >
       {activeTab === 'document' ? (
-        <DocumentEditor
-          body={appState.body}
-          commitPendingLatexEdits={appState.commitPendingLatexEdits}
-          documentEditorRef={appState.documentEditorRef}
-          emitCaretSelection={appState.emitCaretSelection}
-          markLatexDirty={appState.markLatexDirty}
-          setBody={appState.setEditorBody}
-        />
+        <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
+          <DocumentEditor
+            body={appState.body}
+            commitPendingLatexEdits={appState.commitPendingLatexEdits}
+            documentEditorRef={appState.documentEditorRef}
+            emitCaretSelection={appState.emitCaretSelection}
+            markLatexDirty={appState.markLatexDirty}
+            setBody={appState.setEditorBody}
+          />
+          <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'flex-end', px: 2, pb: 1, pt: 0.5 }}>
+            <SplitActionButton
+              actionLabel="Copy"
+              defaultActionId="copy-document"
+              mainAriaLabel="Copy selected document format"
+              mainIcon={<ContentCopyOutlinedIcon fontSize="small" />}
+              options={[
+                { icon: <SubjectRoundedIcon fontSize="small" />, id: 'copy-document', label: 'Document', run: appState.onCopyDocument },
+                { icon: <DataArrayRoundedIcon fontSize="small" />, id: 'copy-commands', label: 'Commands', run: appState.onCopyCommands },
+                { icon: <DataObjectRoundedIcon fontSize="small" />, id: 'copy-environment', label: 'Environment', run: appState.onCopyEnvironment },
+                { icon: <ContentCopyRoundedIcon fontSize="small" />, id: 'copy-preamble', label: 'Preamble', run: appState.onCopyPreamble },
+                { icon: <CropOriginalRoundedIcon fontSize="small" />, id: 'download-svg', label: 'SVG', run: appState.onDownloadSvg },
+              ]}
+              showActionLabel={false}
+              showMainLabel={false}
+              storageKey="tikad-copy-action"
+            />
+          </Box>
+        </Box>
       ) : activeTab === 'history' ? (
         <HistoryView currentSource={appState.body} handle={handle} history={appState.history} onRestore={appState.onRestoreHistory} setHistoryPreviewActive={appState.setHistoryPreviewActive} />
       ) : (
@@ -2187,6 +2295,9 @@ function StatusBarView({
       : currentTool === 'delete'
         ? 'Delete'
         : 'Place component';
+  const coordText = coords
+    ? `(${formatStatusCoord(coords.x, gridPitch)},${formatStatusCoord(coords.y, gridPitch)})`
+    : '(x,y)';
 
   return (
     <Paper
@@ -2210,15 +2321,14 @@ function StatusBarView({
         whiteSpace: 'nowrap',
       }}
     >
-      {coords ? (
-        <Typography noWrap sx={{ flex: '0 0 auto', fontFamily: 'monospace' }} variant="caption">
-          {`(x,y) = (${formatStatusCoord(coords.x, gridPitch)},${formatStatusCoord(coords.y, gridPitch)})`}
-        </Typography>
-      ) : null}
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{`Grid: ${formatGridCoord(gridPitch, gridPitch)} ${gridVisible ? '' : '(hidden)'}`}</Typography>
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{`Pin snap: ${pinSnapEnabled ? 'On' : 'Off'}`}</Typography>
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{`Zoom: ${zoomPercent}%`}</Typography>
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{toolLabel}</Typography>
+      <Box sx={{ flex: '1 1 auto', minWidth: 0 }} />
+      <Typography color={coords ? 'text.primary' : 'text.secondary'} noWrap sx={{ flex: '0 0 auto', fontFamily: 'monospace' }} variant="caption">
+        {coordText}
+      </Typography>
     </Paper>
   );
 }
@@ -2226,28 +2336,22 @@ function StatusBarView({
 function AppShell({
   collapsed,
   handle,
-  onLayoutModeChange,
-  onStartDocumentResize,
   onThemeModeChange,
   themeMode,
-  workspaceLayoutMode,
   setCollapsed,
 }: {
   collapsed: {
     document: boolean;
-    library: boolean;
     props: boolean;
+    sidebar: boolean;
   };
   handle: ImperativeAppHandle | null;
-  onLayoutModeChange: (mode: WorkspaceLayoutMode) => void;
-  onStartDocumentResize: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onThemeModeChange: (mode: 'light' | 'dark') => void;
   themeMode: 'light' | 'dark';
-  workspaceLayoutMode: WorkspaceLayoutMode;
   setCollapsed: Dispatch<SetStateAction<{
     document: boolean;
-    library: boolean;
     props: boolean;
+    sidebar: boolean;
   }>>;
 }) {
   const appState = useAppState(handle);
@@ -2288,190 +2392,137 @@ function AppShell({
         : selectedDrawing
           ? `PROPERTIES: ${(selectedDrawing.kind[0].toUpperCase() + selectedDrawing.kind.slice(1)).toUpperCase()}`
         : `PROPERTIES: ${(handle?.registry.get(selectedComponent?.defId ?? '')?.displayName ?? selectedComponent?.defId ?? 'Component').toUpperCase()}`;
-  const leftBothExpanded = !collapsed.props && !collapsed.library;
-  const propsFlex = collapsed.props ? '0 0 auto' : leftBothExpanded ? '1 1 0' : '1 1 0';
-  const libraryFlex = collapsed.library ? '0 0 auto' : leftBothExpanded ? '1 1 0' : '1 1 0';
+  const propsFlex = collapsed.props ? '0 0 auto' : '1 1 0';
+  const currentDefTikzName = appState.currentDefId ? handle?.registry.get(appState.currentDefId)?.tikzName : undefined;
+  const selectSymbolShortcut = (tikzName: SymbolShortcutTikzName) => {
+    const def = handle?.registry.getAll().find((candidate) => candidate.tikzName === tikzName);
+    if (!def) return;
+    appState.onSelectTool(toolForDef(def), def.id);
+  };
 
   return (
     <>
       <ToolbarView
         currentTool={appState.currentTool}
-        gridPitch={appState.gridPitch}
-        gridVisible={appState.gridVisible}
+        librarySlot={(
+          <LibraryCommandView
+            currentDefId={appState.currentDefId}
+            documentSettings={appState.documentSettings}
+            handle={handle}
+            onSelectTool={appState.onSelectTool}
+            onVisibleCountChange={setLibraryVisibleCount}
+            visibleCount={libraryVisibleCount}
+          />
+        )}
         onClear={appState.onClear}
         onCopySelection={appState.onCopySelection}
         onCutSelection={appState.onCutSelection}
         onDeleteSelection={appState.onDeleteSelection}
         onDownloadTex={appState.onDownloadTex}
         onFitToScreen={appState.onFitToScreen}
-        onLayoutModeChange={onLayoutModeChange}
         onNewDocument={appState.onNewDocument}
         onOpenTexUpload={appState.onOpenTexUpload}
         onPasteSelection={appState.onPasteSelection}
         onRedo={appState.onRedo}
         onSelectTool={appState.onSelectTool}
-        onGridPitchChange={appState.onGridPitchChange}
-        onToggleGridVisible={appState.onToggleGridVisible}
-        onTogglePinSnap={appState.onTogglePinSnap}
         onThemeModeChange={onThemeModeChange}
         onUndo={appState.onUndo}
-        onWireRoutingModeChange={appState.onWireRoutingModeChange}
         onZoomIn={appState.onZoomIn}
         onZoomOut={appState.onZoomOut}
-        pinSnapEnabled={appState.pinSnapEnabled}
         selectedIds={appState.selectedIds}
         themeMode={themeMode}
-        workspaceLayoutMode={workspaceLayoutMode}
+      />
+
+      <ToolRailView
+        sidebarVisible={!collapsed.sidebar}
+        currentDefTikzName={currentDefTikzName}
+        currentTool={appState.currentTool}
+        gridPitch={appState.gridPitch}
+        gridVisible={appState.gridVisible}
+        onGridPitchChange={appState.onGridPitchChange}
+        onSelectTool={appState.onSelectTool}
+        onSelectSymbolShortcut={selectSymbolShortcut}
+        onToggleGridVisible={appState.onToggleGridVisible}
+        onTogglePinSnap={appState.onTogglePinSnap}
+        onToggleSidebar={() => setCollapsed((prev) => ({ ...prev, sidebar: !prev.sidebar }))}
+        onWireRoutingModeChange={appState.onWireRoutingModeChange}
+        pinSnapEnabled={appState.pinSnapEnabled}
         wireRoutingMode={appState.wireRoutingMode}
       />
 
-      <Box
-        className="left-panel"
-        id="left-panel"
-        sx={{
-          backgroundColor: 'background.default',
-          borderRight: 1,
-          borderColor: 'divider',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-          gridArea: 'lpanel',
-          height: '100%',
-          minWidth: 0,
-          minHeight: 0,
-          overflow: 'hidden',
-          p: 1,
-          width: '100%',
-        }}
-      >
+      {!collapsed.sidebar ? (
         <Box
+          className="left-panel"
+          id="left-panel"
           sx={{
+            backgroundColor: 'background.default',
+            borderRight: 1,
+            borderColor: 'divider',
             display: 'flex',
-            flex: propsFlex,
+            flexDirection: 'column',
+            gap: 1,
+            height: '100%',
+            minWidth: 480,
             minHeight: 0,
-            minWidth: 0,
+            overflow: 'hidden',
+            p: 1,
             width: '100%',
           }}
         >
-          <PanelSection
-            expanded={!collapsed.props}
-            grow
-            onChange={() => setCollapsed((prev) => ({ ...prev, props: !prev.props }))}
-            title={propertiesTitle}
+          <Box
+            sx={{
+              display: 'flex',
+              flex: propsFlex,
+              minHeight: 0,
+              minWidth: 0,
+              width: '100%',
+            }}
           >
-            <PropertiesView
-              documentSettings={appState.documentSettings}
-              documentVersion={appState.documentVersion}
-              environmentOptions={appState.environmentOptions}
-              environmentType={appState.environmentType}
-              gridPitch={appState.gridPitch}
-              majorGridEvery={appState.majorGridEvery}
-              handle={handle}
-              preamble={appState.preamble}
-              preamblePackages={appState.preamblePackages}
-              selectedIds={appState.selectedIds}
-              setEnvironmentOptions={appState.onEnvironmentOptionsChange}
-              setEnvironmentType={appState.onEnvironmentTypeChange}
-              setGridPitch={appState.onGridPitchChange}
-              setMajorGridEvery={appState.onMajorGridEveryChange}
-              setPreamblePackages={appState.setPreamblePackages}
-              stopShortcutPropagation={appState.stopShortcutPropagation}
-            />
-          </PanelSection>
-        </Box>
+            <PanelSection
+              expanded={!collapsed.props}
+              grow
+              onChange={() => setCollapsed((prev) => ({ ...prev, props: !prev.props }))}
+              title={propertiesTitle}
+            >
+              <PropertiesView
+                documentSettings={appState.documentSettings}
+                documentVersion={appState.documentVersion}
+                environmentOptions={appState.environmentOptions}
+                environmentType={appState.environmentType}
+                gridPitch={appState.gridPitch}
+                majorGridEvery={appState.majorGridEvery}
+                handle={handle}
+                preamble={appState.preamble}
+                preamblePackages={appState.preamblePackages}
+                selectedIds={appState.selectedIds}
+                setEnvironmentOptions={appState.onEnvironmentOptionsChange}
+                setEnvironmentType={appState.onEnvironmentTypeChange}
+                setGridPitch={appState.onGridPitchChange}
+                setMajorGridEvery={appState.onMajorGridEveryChange}
+                setPreamblePackages={appState.setPreamblePackages}
+                stopShortcutPropagation={appState.stopShortcutPropagation}
+              />
+            </PanelSection>
+          </Box>
 
-        <Box
-          sx={{
-            display: 'flex',
-            flex: libraryFlex,
-            minHeight: 0,
-            minWidth: 0,
-            width: '100%',
-          }}
-        >
-          <PanelSection
-            expanded={!collapsed.library}
-            grow
-            onChange={() => setCollapsed((prev) => ({ ...prev, library: !prev.library }))}
-            title={(
-              <Stack alignItems="baseline" direction="row" spacing={0.5}>
-                <Typography
-                  component="span"
-                  sx={{
-                    color: 'text.secondary',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                  }}
-                  variant="subtitle2"
-                >
-                  Library
-                </Typography>
-                <Typography
-                  component="span"
-                  sx={{
-                    color: 'text.disabled',
-                    fontFamily: MONOSPACE_FONT,
-                    fontSize: 11,
-                    fontWeight: 400,
-                    lineHeight: 1.4,
-                  }}
-                  variant="caption"
-                >
-                  ({libraryVisibleCount})
-                </Typography>
-              </Stack>
-            )}
+          <Box
+            sx={{
+              display: 'flex',
+              flex: collapsed.document ? '0 0 auto' : '1 1 0',
+              minHeight: 0,
+              minWidth: 0,
+              width: '100%',
+            }}
           >
-            <LibraryView
-              currentDefId={appState.currentDefId}
-              documentSettings={appState.documentSettings}
+            <EnvironmentTabs
+              appState={appState}
+              collapsed={collapsed.document}
               handle={handle}
-              onSelectTool={appState.onSelectTool}
-              onVisibleCountChange={setLibraryVisibleCount}
+              onToggleCollapsed={() => setCollapsed((prev) => ({ ...prev, document: !prev.document }))}
             />
-          </PanelSection>
+          </Box>
         </Box>
-      </Box>
-
-      {!collapsed.document ? (
-        <Divider
-          aria-label="Resize document panel"
-          flexItem
-          onMouseDown={onStartDocumentResize}
-          orientation={workspaceLayoutMode === 'right-code' ? 'vertical' : 'horizontal'}
-          role="separator"
-          sx={{
-            gridArea: 'docresizer',
-            ...resizerSx(workspaceLayoutMode === 'right-code' ? 'vertical' : 'horizontal'),
-          }}
-        />
       ) : null}
-
-      <Box
-        sx={{
-          backgroundColor: 'background.default',
-          borderTop: workspaceLayoutMode === 'bottom-code' ? 1 : 0,
-          borderLeft: workspaceLayoutMode === 'right-code' ? 1 : 0,
-          borderColor: 'divider',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 0,
-          gridArea: 'document',
-          minHeight: 0,
-          minWidth: 0,
-          overflow: 'hidden',
-          p: 1,
-        }}
-      >
-        <EnvironmentTabs
-          appState={appState}
-          collapsed={collapsed.document}
-          handle={handle}
-          onToggleCollapsed={() => setCollapsed((prev) => ({ ...prev, document: !prev.document }))}
-        />
-      </Box>
 
       <StatusBarView
         currentTool={appState.currentTool}
@@ -2493,68 +2544,40 @@ function AppShell({
 
 export function App() {
   const [handle, setHandle] = useState<ImperativeAppHandle | null>(null);
-  const [themeMode, setThemeMode] = useState<'light' | 'dark'>(() => {
-    const stored = window.localStorage.getItem('theme-mode');
-    return stored === 'light' ? 'light' : 'dark';
+  const hasStoredThemeModeRef = useRef(readStoredThemeMode() !== null);
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
+    return readStoredThemeMode() ?? readSystemThemeMode();
   });
+  const setThemeMode = useCallback((mode: ThemeMode) => {
+    hasStoredThemeModeRef.current = true;
+    setThemeModeState(mode);
+  }, []);
   const [sidebarWidth, setSidebarWidth] = useState(() => {
     const stored = window.localStorage.getItem('sidebar-width');
     const parsed = stored ? Number.parseInt(stored, 10) : DEFAULT_SIDEBAR_WIDTH;
     return Number.isFinite(parsed) ? clampSidebarWidth(parsed) : clampSidebarWidth(DEFAULT_SIDEBAR_WIDTH);
   });
-  const [documentHeight, setDocumentHeight] = useState(() => {
-    const stored = window.localStorage.getItem('document-height');
-    const parsed = stored ? Number.parseInt(stored, 10) : defaultDocumentHeight();
-    return Number.isFinite(parsed) ? clampDocumentHeight(parsed) : clampDocumentHeight(defaultDocumentHeight());
-  });
-  const [documentWidth, setDocumentWidth] = useState(() => {
-    const stored = window.localStorage.getItem('document-width');
-    const parsed = stored ? Number.parseInt(stored, 10) : DEFAULT_DOCUMENT_WIDTH;
-    return Number.isFinite(parsed) ? clampDocumentWidth(parsed) : clampDocumentWidth(DEFAULT_DOCUMENT_WIDTH);
-  });
-  const [workspaceLayoutMode, setWorkspaceLayoutMode] = useState<WorkspaceLayoutMode>(() => {
-    const stored = window.localStorage.getItem('workspace-layout-mode');
-    return stored === 'right-code' ? 'right-code' : 'bottom-code';
-  });
   const [collapsed, setCollapsed] = useState({
     document: false,
-    library: false,
     props: false,
+    sidebar: false,
   });
   const resizeStateRef = useRef<
-    | { axis: 'x' | 'y'; direction: 1 | -1; startPointer: number; startSize: number; kind: 'sidebar' | 'document' }
+    | { axis: 'x'; direction: 1; startPointer: number; startSize: number; kind: 'sidebar' }
     | null
   >(null);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
+    document.documentElement.style.setProperty('--sidebar-resizer-width', collapsed.sidebar ? '0px' : '10px');
     window.localStorage.setItem('sidebar-width', String(sidebarWidth));
-  }, [sidebarWidth]);
-
-  useEffect(() => {
-    document.documentElement.style.setProperty('--canvas-row-size', collapsed.document ? 'minmax(0, 1fr)' : 'minmax(0, 1fr)');
-    document.documentElement.style.setProperty('--document-row-size', collapsed.document ? '60px' : `${documentHeight}px`);
-    document.documentElement.style.setProperty('--document-resizer-height', collapsed.document ? '0px' : '10px');
-    window.localStorage.setItem('document-height', String(documentHeight));
-  }, [collapsed.document, documentHeight]);
-
-  useEffect(() => {
-    document.documentElement.style.setProperty('--document-column-size', collapsed.document ? '60px' : `${documentWidth}px`);
-    document.documentElement.style.setProperty('--document-resizer-width', collapsed.document ? '0px' : '10px');
-    window.localStorage.setItem('document-width', String(documentWidth));
-  }, [collapsed.document, documentWidth]);
-
-  useEffect(() => {
-    document.body.classList.toggle('layout-document-right', workspaceLayoutMode === 'right-code');
-    window.localStorage.setItem('workspace-layout-mode', workspaceLayoutMode);
-    return () => {
-      document.body.classList.remove('layout-document-right');
-    };
-  }, [workspaceLayoutMode]);
+  }, [collapsed.sidebar, sidebarWidth]);
 
   useEffect(() => {
     document.body.classList.toggle('theme-dark', themeMode === 'dark');
-    window.localStorage.setItem('theme-mode', themeMode);
+    if (hasStoredThemeModeRef.current) {
+      window.localStorage.setItem('theme-mode', themeMode);
+    }
     return () => {
       document.body.classList.remove('theme-dark');
     };
@@ -2605,19 +2628,11 @@ export function App() {
       if (resizeState.kind === 'sidebar') {
         const nextWidth = nextSize;
         setSidebarWidth(clampSidebarWidth(nextWidth));
-        return;
       }
-      if (resizeState.axis === 'x') {
-        setDocumentWidth(clampDocumentWidth(nextSize));
-        return;
-      }
-      setDocumentHeight(clampDocumentHeight(nextSize));
     };
 
     const onResize = () => {
       setSidebarWidth((current) => clampSidebarWidth(current));
-      setDocumentHeight((current) => clampDocumentHeight(current));
-      setDocumentWidth((current) => clampDocumentWidth(current));
     };
 
     const onMouseUp = () => {
@@ -2648,18 +2663,6 @@ export function App() {
     document.body.classList.add('is-resizing-layout');
   };
 
-  const startDocumentResize = (event: ReactMouseEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    resizeStateRef.current = {
-      axis: workspaceLayoutMode === 'right-code' ? 'x' : 'y',
-      direction: workspaceLayoutMode === 'right-code' ? -1 : -1,
-      kind: 'document',
-      startPointer: workspaceLayoutMode === 'right-code' ? event.clientX : event.clientY,
-      startSize: workspaceLayoutMode === 'right-code' ? documentWidth : documentHeight,
-    };
-    document.body.classList.add('is-resizing-layout');
-  };
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -2667,24 +2670,23 @@ export function App() {
         <AppShell
           collapsed={collapsed}
           handle={handle}
-          onLayoutModeChange={setWorkspaceLayoutMode}
-          onStartDocumentResize={startDocumentResize}
           onThemeModeChange={setThemeMode}
           setCollapsed={setCollapsed}
           themeMode={themeMode}
-          workspaceLayoutMode={workspaceLayoutMode}
         />
-        <Divider
-          aria-label="Resize sidebar"
-          flexItem
-          onMouseDown={startSidebarResize}
-          orientation="vertical"
-          role="separator"
-          sx={{
-            gridArea: 'resizer',
-            ...resizerSx('vertical'),
-          }}
-        />
+        {!collapsed.sidebar ? (
+          <Divider
+            aria-label="Resize side panel"
+            flexItem
+            onMouseDown={startSidebarResize}
+            orientation="vertical"
+            role="separator"
+            sx={{
+              gridArea: 'resizer',
+              ...resizerSx('vertical'),
+            }}
+          />
+        ) : null}
         <CanvasViewport onReady={setHandle} />
       </>
     </ThemeProvider>

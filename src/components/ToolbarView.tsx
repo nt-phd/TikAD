@@ -4,7 +4,7 @@ import {
   AppBar,
   Box,
   Button,
-  ButtonGroup,
+  Collapse,
   Divider,
   ListItemIcon,
   ListItemText,
@@ -17,7 +17,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import ArrowDropDownRoundedIcon from '@mui/icons-material/ArrowDropDownRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import AdsClickRoundedIcon from '@mui/icons-material/AdsClickRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
@@ -27,6 +26,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepRounded';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import FitScreenRoundedIcon from '@mui/icons-material/FitScreenRounded';
+import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import Grid4x4RoundedIcon from '@mui/icons-material/Grid4x4Rounded';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
@@ -46,16 +46,18 @@ import UndoRoundedIcon from '@mui/icons-material/UndoRounded';
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded';
 import ZoomInRoundedIcon from '@mui/icons-material/ZoomInRounded';
 import ZoomOutRoundedIcon from '@mui/icons-material/ZoomOutRounded';
-import WebAssetRoundedIcon from '@mui/icons-material/WebAssetRounded';
 import type { ToolType, WireRoutingMode } from '../types';
-
-export type WorkspaceLayoutMode = 'bottom-code' | 'right-code';
+import capacitorIconSvg from './icons/toolbar/capacitor.svg?raw';
+import circIconSvg from './icons/toolbar/circ.svg?raw';
+import ocircIconSvg from './icons/toolbar/ocirc.svg?raw';
+import openIconSvg from './icons/toolbar/open.svg?raw';
+import resistorIconSvg from './icons/toolbar/resistor.svg?raw';
+import shortIconSvg from './icons/toolbar/short.svg?raw';
 
 const TOOLBAR_HEIGHT = 34;
 
 const TOOL_LABELS: Array<{ activeWhen: ToolType; icon: ReactNode; id: ToolType; label: string }> = [
   { id: 'select', activeWhen: 'select', label: 'Select', icon: <NavigationRoundedIcon fontSize="small" /> },
-  { id: 'wire', activeWhen: 'wire', label: 'Wire', icon: <RouteSharpIcon fontSize="small" /> },
   { id: 'delete', activeWhen: 'delete', label: 'Delete', icon: <DeleteOutlineRoundedIcon fontSize="small" /> },
 ];
 
@@ -67,18 +69,66 @@ const DRAW_TOOLS: Array<{ icon: ReactNode; label: string; tool: ToolType }> = [
 ];
 
 const WIRE_ROUTING_OPTIONS: Array<{ icon: ReactNode; label: string; value: WireRoutingMode }> = [
-  { value: 'auto', label: 'Auto', icon: <InsightsRoundedIcon fontSize="small" /> },
-  { value: '--', label: 'Straight', icon: <EastRoundedIcon fontSize="small" /> },
-  { value: '|-', label: 'Vertical then horizontal', icon: <SubdirectoryArrowRightRoundedIcon fontSize="small" /> },
+  { value: 'auto', label: 'Auto routing', icon: <InsightsRoundedIcon fontSize="small" /> },
+  { value: '--', label: 'Straight routing', icon: <EastRoundedIcon fontSize="small" /> },
+  { value: '|-', label: 'Vertical then horizontal routing', icon: <SubdirectoryArrowRightRoundedIcon fontSize="small" /> },
   {
     value: '-|',
-    label: 'Horizontal then vertical',
+    label: 'Horizontal then vertical routing',
     icon: <SubdirectoryArrowLeftRoundedIcon fontSize="small" sx={{ transform: 'rotate(-90deg)' }} />,
   },
 ];
 
-function isEditTool(tool: ToolType): tool is 'select' | 'wire' | 'delete' {
-  return tool === 'select' || tool === 'wire' || tool === 'delete';
+export type SymbolShortcutTikzName = 'circ' | 'ocirc' | 'open' | 'short' | 'R' | 'C';
+
+const SYMBOL_SHORTCUTS: Array<{ icon: ReactNode; label: string; tikzName: SymbolShortcutTikzName }> = [
+  { tikzName: 'short', label: 'Add short circuit', icon: <RailSvgIcon svg={shortIconSvg} /> },
+  { tikzName: 'open', label: 'Add open circuit', icon: <RailSvgIcon svg={openIconSvg} /> },
+  { tikzName: 'circ', label: 'Add filled connection dot', icon: <RailSvgIcon svg={circIconSvg} /> },
+  { tikzName: 'ocirc', label: 'Add open connection dot', icon: <RailSvgIcon svg={ocircIconSvg} /> },
+];
+
+const COMMON_COMPONENT_SHORTCUTS: Array<{ icon: ReactNode; label: string; tikzName: SymbolShortcutTikzName }> = [
+  { tikzName: 'R', label: 'Add resistor', icon: <RailSvgIcon svg={resistorIconSvg} /> },
+  { tikzName: 'C', label: 'Add capacitor', icon: <RailSvgIcon svg={capacitorIconSvg} /> },
+];
+
+function RailSvgIcon({ svg }: { svg: string }) {
+  return (
+    <Box
+      aria-hidden="true"
+      dangerouslySetInnerHTML={{ __html: svg }}
+      sx={(theme) => ({
+        '--rail-icon-hole-fill': theme.palette.background.default,
+        alignItems: 'center',
+        color: 'inherit',
+        display: 'flex',
+        height: 28,
+        justifyContent: 'center',
+        width: 28,
+        '& svg': {
+          display: 'block',
+          height: 28,
+          overflow: 'visible',
+          transform: 'scale(1.08)',
+          transformOrigin: 'center',
+          width: 28,
+        },
+        '& svg [fill="currentColor"]': {
+          fill: 'currentColor',
+        },
+        '& svg [stroke="currentColor"]': {
+          stroke: 'currentColor',
+          strokeWidth: 1.75,
+          vectorEffect: 'non-scaling-stroke',
+        },
+      })}
+    />
+  );
+}
+
+function isEditTool(tool: ToolType): tool is 'select' | 'delete' {
+  return tool === 'select' || tool === 'delete';
 }
 
 function MenuShortcut({ children }: { children: ReactNode }) {
@@ -95,66 +145,46 @@ function MenuIcon({ children }: { children: ReactNode }) {
 
 export function ToolbarView({
   currentTool,
-  gridPitch,
-  gridVisible,
+  librarySlot,
   onClear,
   onCopySelection,
   onCutSelection,
   onDeleteSelection,
   onDownloadTex,
   onFitToScreen,
-  onGridPitchChange,
-  onLayoutModeChange,
   onNewDocument,
   onOpenTexUpload,
   onPasteSelection,
   onRedo,
   onSelectTool,
-  onToggleGridVisible,
-  onTogglePinSnap,
   onThemeModeChange,
   onUndo,
-  onWireRoutingModeChange,
   onZoomIn,
   onZoomOut,
-  pinSnapEnabled,
   selectedIds,
-  workspaceLayoutMode,
   themeMode,
-  wireRoutingMode,
 }: {
   currentTool: ToolType;
-  gridPitch: number;
-  gridVisible: boolean;
+  librarySlot?: ReactNode;
   onClear: () => void;
   onCopySelection: () => void;
   onCutSelection: () => void;
   onDeleteSelection: () => void;
   onDownloadTex: () => void;
   onFitToScreen: () => void;
-  onGridPitchChange: (value: number) => void;
-  onLayoutModeChange: (mode: WorkspaceLayoutMode) => void;
   onNewDocument: () => void;
   onOpenTexUpload: () => void;
   onPasteSelection: () => void;
   onRedo: () => void;
   onSelectTool: (tool: ToolType) => void;
-  onToggleGridVisible: (checked: boolean) => void;
-  onTogglePinSnap: (checked: boolean) => void;
   onThemeModeChange: (mode: 'light' | 'dark') => void;
   onUndo: () => void;
-  onWireRoutingModeChange: (mode: WireRoutingMode) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
-  pinSnapEnabled: boolean;
   selectedIds: string[];
-  workspaceLayoutMode: WorkspaceLayoutMode;
   themeMode: 'light' | 'dark';
-  wireRoutingMode: WireRoutingMode;
 }) {
   const [menuAnchor, setMenuAnchor] = useState<{ id: 'file' | 'edit' | 'view'; el: HTMLElement } | null>(null);
-  const [gridPitchMenuAnchor, setGridPitchMenuAnchor] = useState<HTMLElement | null>(null);
-  const gridOptions = [0.125, 0.25, 0.5, 1, 2];
   const hasSelection = selectedIds.length > 0;
   const denseMenuProps = {
     dense: true,
@@ -190,36 +220,13 @@ export function ToolbarView({
     py: 0,
     textTransform: 'none',
   } as const;
-  const toolbarToggleSx = {
-    alignSelf: 'stretch',
-    borderRadius: 0,
-    minHeight: 0,
-    minWidth: 32,
-    px: 0.75,
-    py: 0,
-    textTransform: 'none',
-  } as const;
-  const toolbarButtonSx = {
-    alignSelf: 'stretch',
-    borderRadius: 0,
-    minHeight: 0,
-    minWidth: 32,
-    px: 0.75,
-    py: 0,
-  } as const;
-
   const openMenu = (id: 'file' | 'edit' | 'view') => (event: React.MouseEvent<HTMLElement>) => {
     setMenuAnchor({ id, el: event.currentTarget });
   };
   const closeMenu = () => setMenuAnchor(null);
-  const closeGridPitchMenu = () => setGridPitchMenuAnchor(null);
   const run = (fn: () => void) => {
     fn();
     closeMenu();
-  };
-  const runGridPitch = (fn: () => void) => {
-    fn();
-    closeGridPitchMenu();
   };
 
   return (
@@ -229,7 +236,23 @@ export function ToolbarView({
       position="static"
       sx={{ borderBottom: 1, borderColor: 'divider', gridArea: 'toolbar' }}
     >
-      <Toolbar variant="dense" sx={{ alignItems: 'stretch', gap: 0.5, minHeight: `${TOOLBAR_HEIGHT}px !important`, px: 0.75 }}>
+      <Toolbar variant="dense" sx={{ alignItems: 'stretch', gap: 0.5, minHeight: `${TOOLBAR_HEIGHT}px !important`, position: 'relative', px: 0.75 }}>
+        {librarySlot ? (
+          <Box
+            sx={{
+              left: '50%',
+              maxWidth: '38vw',
+              minWidth: 280,
+              position: 'absolute',
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: 420,
+              zIndex: 1,
+            }}
+          >
+            {librarySlot}
+          </Box>
+        ) : null}
         <Box sx={{ alignItems: 'center', alignSelf: 'stretch', display: 'flex', mr: 0.5 }}>
           <Box alt="logo" component="img" src="/favicon.svg" sx={{ display: 'block', height: 18, width: 'auto' }} />
           <Box
@@ -351,16 +374,6 @@ export function ToolbarView({
             <ListItemText>Dark mode</ListItemText>
           </MenuItem>
           <Divider />
-          <ListSubheader>Layout</ListSubheader>
-          <MenuItem onClick={() => run(() => onLayoutModeChange('bottom-code'))} selected={workspaceLayoutMode === 'bottom-code'}>
-            <MenuIcon><WebAssetRoundedIcon fontSize="small" sx={{ transform: 'rotate(180deg)' }} /></MenuIcon>
-            <ListItemText>Code at bottom</ListItemText>
-          </MenuItem>
-          <MenuItem onClick={() => run(() => onLayoutModeChange('right-code'))} selected={workspaceLayoutMode === 'right-code'}>
-            <MenuIcon><WebAssetRoundedIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} /></MenuIcon>
-            <ListItemText>Code at right</ListItemText>
-          </MenuItem>
-          <Divider />
           <MenuItem onClick={() => run(() => onSelectTool('move'))} selected={currentTool === 'move'}>
             <MenuIcon><OpenWithRoundedIcon fontSize="small" /></MenuIcon>
             <ListItemText>Pan canvas</ListItemText>
@@ -379,113 +392,275 @@ export function ToolbarView({
           </MenuItem>
         </Menu>
 
-        <Divider flexItem orientation="vertical" sx={{ mx: 0.5 }} />
-        <ToggleButtonGroup
-          exclusive
-          onChange={(_event, value: ToolType | null) => {
-            if (value) onSelectTool(value);
-          }}
+      </Toolbar>
+    </AppBar>
+  );
+}
+
+export function ToolRailView({
+  sidebarVisible,
+  currentDefTikzName,
+  currentTool,
+  gridPitch,
+  gridVisible,
+  onGridPitchChange,
+  onSelectTool,
+  onToggleGridVisible,
+  onTogglePinSnap,
+  onToggleSidebar,
+  onSelectSymbolShortcut,
+  onWireRoutingModeChange,
+  pinSnapEnabled,
+  wireRoutingMode,
+}: {
+  sidebarVisible: boolean;
+  currentDefTikzName?: string;
+  currentTool: ToolType;
+  gridPitch: number;
+  gridVisible: boolean;
+  onGridPitchChange: (value: number) => void;
+  onSelectTool: (tool: ToolType) => void;
+  onToggleGridVisible: (checked: boolean) => void;
+  onTogglePinSnap: (checked: boolean) => void;
+  onToggleSidebar: () => void;
+  onSelectSymbolShortcut: (tikzName: SymbolShortcutTikzName) => void;
+  onWireRoutingModeChange: (mode: WireRoutingMode) => void;
+  pinSnapEnabled: boolean;
+  wireRoutingMode: WireRoutingMode;
+}) {
+  const [gridPitchMenuAnchor, setGridPitchMenuAnchor] = useState<HTMLElement | null>(null);
+  const gridOptions = [0.125, 0.25, 0.5, 1, 2];
+  const closeGridPitchMenu = () => setGridPitchMenuAnchor(null);
+  const runGridPitch = (fn: () => void) => {
+    fn();
+    closeGridPitchMenu();
+  };
+  const railToggleSx = {
+    borderRadius: 1,
+    height: 40,
+    minWidth: 0,
+    width: 40,
+    p: 0,
+  } as const;
+  const railConnectedToggleSx = {
+    ...railToggleSx,
+    borderColor: 'divider',
+    borderRadius: 0,
+    mx: 0,
+  } as const;
+
+  return (
+    <Box
+      sx={{
+        alignItems: 'center',
+        bgcolor: 'background.default',
+        borderRight: 1,
+        borderColor: 'divider',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 0.5,
+        gridArea: 'activitybar',
+        minHeight: 0,
+        overflow: 'hidden',
+        py: 0.5,
+      }}
+    >
+      <Tooltip placement="right" title={sidebarVisible ? 'Hide side panel' : 'Show side panel'}>
+        <ToggleButton
+          aria-label={sidebarVisible ? 'Hide side panel' : 'Show side panel'}
+          onClick={onToggleSidebar}
+          selected={sidebarVisible}
           size="small"
-          sx={{ alignSelf: 'stretch', '& .MuiToggleButton-root': toolbarToggleSx }}
-          value={isEditTool(currentTool) ? currentTool : null}
+          sx={railToggleSx}
+          value="side-panel"
         >
-          {TOOL_LABELS.map(({ activeWhen, icon, id, label }) => (
-            <Tooltip
-              key={`${id}-${label}`}
-              title={
-                label === 'Select'
-                  ? 'Select and edit'
-                  : label === 'Wire'
-                    ? 'Draw wire'
-                    : 'Delete by click'
-              }
-            >
-              <ToggleButton aria-label={label} value={activeWhen}>
+          <FileCopyOutlinedIcon fontSize="small" />
+        </ToggleButton>
+      </Tooltip>
+
+      <Divider flexItem sx={{ my: 0.5 }} />
+
+      <ToggleButtonGroup
+        exclusive
+        orientation="vertical"
+        onChange={(_event, value: ToolType | null) => {
+          if (value) onSelectTool(value);
+        }}
+        size="small"
+        sx={{ '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 }, '& .MuiToggleButton-root': railToggleSx }}
+        value={isEditTool(currentTool) ? currentTool : null}
+      >
+        {TOOL_LABELS.map(({ activeWhen, icon, id, label }) => (
+          <Tooltip
+            key={`${id}-${label}`}
+            placement="right"
+            title={label === 'Select' ? 'Select and edit' : 'Delete by click'}
+          >
+            <ToggleButton aria-label={label} value={activeWhen}>
+              {icon}
+            </ToggleButton>
+          </Tooltip>
+        ))}
+      </ToggleButtonGroup>
+
+      <Divider flexItem sx={{ my: 0.5 }} />
+      <Box sx={{ alignItems: 'center', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <ToggleButtonGroup
+          orientation="vertical"
+          size="small"
+          sx={{ '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 }, '& .MuiToggleButton-root': railToggleSx }}
+        >
+          {COMMON_COMPONENT_SHORTCUTS.map(({ icon, label, tikzName }) => (
+            <Tooltip key={tikzName} placement="right" title={label}>
+              <ToggleButton
+                aria-label={label}
+                onClick={() => onSelectSymbolShortcut(tikzName)}
+                selected={currentDefTikzName === tikzName}
+                value={tikzName}
+              >
                 {icon}
               </ToggleButton>
             </Tooltip>
           ))}
         </ToggleButtonGroup>
-        {currentTool === 'wire' ? (
-          <ToggleButtonGroup
-            exclusive
-            onChange={(_event, value: WireRoutingMode | null) => {
-              if (value) onWireRoutingModeChange(value);
-            }}
-            size="small"
-            sx={{ alignSelf: 'stretch', '& .MuiToggleButton-root': toolbarToggleSx }}
-            value={wireRoutingMode}
-          >
-            {WIRE_ROUTING_OPTIONS.map(({ icon, label, value }) => (
-              <Tooltip key={value} title={`Wire routing: ${label.toLowerCase()}`}>
-                <ToggleButton aria-label={`Wire routing ${label.toLowerCase()}`} value={value}>
-                  {icon}
-                </ToggleButton>
-              </Tooltip>
-            ))}
-          </ToggleButtonGroup>
-        ) : null}
-        <Box sx={{ ml: 'auto' }} />
-        <Tooltip title="Snap wire to pins">
+        <Box sx={{ alignItems: 'center', display: 'flex', flexDirection: 'column' }}>
+          <Tooltip placement="right" title="Add wire">
+            <ToggleButton
+              aria-label="Add wire"
+              onClick={() => onSelectTool('wire')}
+              selected={currentTool === 'wire'}
+              size="small"
+              sx={{
+                ...railConnectedToggleSx,
+                borderBottomLeftRadius: currentTool === 'wire' ? 0 : 4,
+                borderBottomRightRadius: currentTool === 'wire' ? 0 : 4,
+                borderTopLeftRadius: 4,
+                borderTopRightRadius: 4,
+              }}
+              value="wire"
+            >
+              <RouteSharpIcon fontSize="small" />
+            </ToggleButton>
+          </Tooltip>
+          <Collapse in={currentTool === 'wire'} timeout="auto" unmountOnExit>
+            <ToggleButtonGroup
+              exclusive
+              orientation="vertical"
+              onChange={(_event, value: WireRoutingMode | null) => {
+                if (value) onWireRoutingModeChange(value);
+              }}
+              size="small"
+              sx={{
+                '& .MuiToggleButtonGroup-grouped': {
+                  borderColor: 'divider',
+                  m: 0,
+                  mt: '-1px',
+                },
+                '& .MuiToggleButton-root': railConnectedToggleSx,
+                '& .MuiToggleButton-root:first-of-type': {
+                  borderTopLeftRadius: 0,
+                  borderTopRightRadius: 0,
+                },
+                '& .MuiToggleButton-root:last-of-type': {
+                  borderBottomLeftRadius: 4,
+                  borderBottomRightRadius: 4,
+                },
+              }}
+              value={wireRoutingMode}
+            >
+              {WIRE_ROUTING_OPTIONS.map(({ icon, label, value }) => (
+                <Tooltip key={value} placement="right" title={label}>
+                  <ToggleButton aria-label={label} value={value}>
+                    {icon}
+                  </ToggleButton>
+                </Tooltip>
+              ))}
+            </ToggleButtonGroup>
+          </Collapse>
+        </Box>
+        <ToggleButtonGroup
+          orientation="vertical"
+          size="small"
+          sx={{ '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 }, '& .MuiToggleButton-root': railToggleSx }}
+        >
+          {SYMBOL_SHORTCUTS.map(({ icon, label, tikzName }) => (
+            <Tooltip key={tikzName} placement="right" title={label}>
+              <ToggleButton
+                aria-label={label}
+                onClick={() => onSelectSymbolShortcut(tikzName)}
+                selected={currentDefTikzName === tikzName}
+                value={tikzName}
+              >
+                {icon}
+              </ToggleButton>
+            </Tooltip>
+          ))}
+        </ToggleButtonGroup>
+      </Box>
+
+      <Box sx={{ flex: 1, minHeight: 0 }} />
+
+      <Tooltip placement="right" title="Snap wire to pins">
+        <ToggleButton
+          aria-label="Pin snap"
+          onClick={() => onTogglePinSnap(!pinSnapEnabled)}
+          selected={pinSnapEnabled}
+          size="small"
+          sx={railToggleSx}
+          value="pin-snap"
+        >
+          <AdsClickRoundedIcon fontSize="small" />
+        </ToggleButton>
+      </Tooltip>
+
+      <ToggleButtonGroup
+        orientation="vertical"
+        size="small"
+        sx={{ '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 }, '& .MuiToggleButton-root': railToggleSx }}
+      >
+        <Tooltip placement="right" title={gridVisible ? 'Hide grid' : 'Show grid'}>
           <ToggleButton
-            aria-label="Pin snap"
-            onClick={() => onTogglePinSnap(!pinSnapEnabled)}
-            selected={pinSnapEnabled}
-            size="small"
-            sx={toolbarToggleSx}
-            value="pin-snap"
+            aria-label={gridVisible ? 'Hide grid' : 'Show grid'}
+            onClick={() => onToggleGridVisible(!gridVisible)}
+            selected={gridVisible}
+            value="grid-visible"
           >
-            <AdsClickRoundedIcon fontSize="small" />
+            <Grid4x4RoundedIcon fontSize="small" />
           </ToggleButton>
         </Tooltip>
-        <ButtonGroup
-          color="inherit"
-          size="small"
-          sx={{ alignSelf: 'stretch', '& .MuiButton-root': toolbarButtonSx }}
-          variant="outlined"
-        >
-          <Tooltip title={gridVisible ? 'Hide grid' : 'Show grid'}>
-            <Button
-              aria-label={gridVisible ? 'Hide grid' : 'Show grid'}
-              color="inherit"
-              onClick={() => onToggleGridVisible(!gridVisible)}
-              sx={gridVisible ? { bgcolor: 'action.selected' } : undefined}
-            >
-              <Grid4x4RoundedIcon fontSize="small" />
-            </Button>
-          </Tooltip>
-          <Tooltip title="Grid pitch">
-            <Button
-              aria-controls={gridPitchMenuAnchor ? 'grid-pitch-menu' : undefined}
-              aria-expanded={gridPitchMenuAnchor ? 'true' : undefined}
-              aria-haspopup="menu"
-              aria-label="Grid pitch"
-              color="inherit"
-              endIcon={<ArrowDropDownRoundedIcon fontSize="small" />}
-              onClick={(event) => setGridPitchMenuAnchor(event.currentTarget)}
-            >
-              <Typography sx={{ fontSize: 12 }} variant="caption">
-                {gridPitch}
-              </Typography>
-            </Button>
-          </Tooltip>
-        </ButtonGroup>
-        <Menu
-          anchorEl={gridPitchMenuAnchor}
-          disablePortal
-          id="grid-pitch-menu"
-          MenuListProps={denseMenuProps}
-          onClose={closeGridPitchMenu}
-          open={Boolean(gridPitchMenuAnchor)}
-        >
-          {gridOptions.map((value) => (
-            <MenuItem key={value} onClick={() => runGridPitch(() => onGridPitchChange(value))} selected={value === gridPitch}>
-              <MenuIcon><Grid4x4RoundedIcon fontSize="small" /></MenuIcon>
-              <ListItemText>{value}</ListItemText>
-            </MenuItem>
-          ))}
-        </Menu>
-      </Toolbar>
-    </AppBar>
+        <Tooltip placement="right" title="Grid pitch">
+          <ToggleButton
+            aria-controls={gridPitchMenuAnchor ? 'rail-grid-pitch-menu' : undefined}
+            aria-expanded={gridPitchMenuAnchor ? 'true' : undefined}
+            aria-haspopup="menu"
+            aria-label="Grid pitch"
+            onClick={(event) => setGridPitchMenuAnchor(event.currentTarget)}
+            selected={Boolean(gridPitchMenuAnchor)}
+            value="grid-pitch"
+          >
+            <Typography sx={{ fontSize: 11, lineHeight: 1 }} variant="caption">
+              {gridPitch}
+            </Typography>
+          </ToggleButton>
+        </Tooltip>
+      </ToggleButtonGroup>
+      <Menu
+        anchorEl={gridPitchMenuAnchor}
+        disablePortal
+        id="rail-grid-pitch-menu"
+        MenuListProps={{ dense: true }}
+        onClose={closeGridPitchMenu}
+        open={Boolean(gridPitchMenuAnchor)}
+        anchorOrigin={{ horizontal: 'right', vertical: 'top' }}
+        transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+      >
+        {gridOptions.map((value) => (
+          <MenuItem key={value} onClick={() => runGridPitch(() => onGridPitchChange(value))} selected={value === gridPitch}>
+            <MenuIcon><Grid4x4RoundedIcon fontSize="small" /></MenuIcon>
+            <ListItemText>{value}</ListItemText>
+          </MenuItem>
+        ))}
+      </Menu>
+    </Box>
   );
 }

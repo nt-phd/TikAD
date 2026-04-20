@@ -15,6 +15,7 @@
     "generate:component-catalog-previews": "/usr/bin/node scripts/render-component-catalog-previews.mjs",
     "refresh:component-catalog": "/bin/bash -lc '/usr/bin/node scripts/extract-circuitikz-catalog.mjs && /usr/bin/node scripts/build-component-catalog.mjs && /usr/bin/node scripts/render-component-catalog-previews.mjs'",
     "generate:library-previews": "/usr/bin/node scripts/generate-library-previews.mjs",
+    "normalize:toolbar-icons": "/usr/bin/node scripts/normalize-toolbar-icons.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
@@ -39,6 +40,7 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^5.1.0",
+    "knip": "^5.88.1",
     "typescript": "~5.9.3",
     "vite": "^8.0.1"
   }

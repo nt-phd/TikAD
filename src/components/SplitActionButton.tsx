@@ -1,17 +1,14 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   Button,
   ButtonGroup,
-  ClickAwayListener,
-  Grow,
   ListItemIcon,
   ListItemText,
+  Menu,
   MenuItem,
-  MenuList,
-  Paper,
-  Popper,
   Stack,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import ArrowDropDownRoundedIcon from '@mui/icons-material/ArrowDropDownRounded';
@@ -26,102 +23,145 @@ export type SplitActionOption = {
 export function SplitActionButton({
   actionLabel,
   defaultActionId,
+  mainAriaLabel,
+  mainIcon,
   options,
+  showActionLabel = true,
+  showMainLabel = true,
+  storageKey,
 }: {
   actionLabel: string;
   defaultActionId: string;
+  mainAriaLabel?: string;
+  mainIcon?: ReactNode;
   options: SplitActionOption[];
+  showActionLabel?: boolean;
+  showMainLabel?: boolean;
+  storageKey?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(() => {
-    const defaultIndex = options.findIndex((option) => option.id === defaultActionId);
+    const storedId = storageKey ? window.localStorage.getItem(storageKey) : null;
+    const preferredId = storedId ?? defaultActionId;
+    const defaultIndex = options.findIndex((option) => option.id === preferredId);
     return defaultIndex >= 0 ? defaultIndex : 0;
   });
-  const anchorRef = useRef<HTMLDivElement | null>(null);
   const selectedOption = options[selectedIndex];
 
   const handleMainClick = () => {
     void selectedOption.run();
   };
 
-  const handleToggle = () => {
+  const handleToggle = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
     setOpen((prev) => !prev);
   };
 
-  const handleClose = (event?: Event) => {
-    if (event && anchorRef.current?.contains(event.target as Node)) return;
+  const handleClose = () => {
     setOpen(false);
+    setAnchorEl(null);
   };
 
   const handleMenuItemClick = (index: number) => {
     setSelectedIndex(index);
-    setOpen(false);
+    if (storageKey) {
+      window.localStorage.setItem(storageKey, options[index].id);
+    }
+    handleClose();
   };
 
   return (
     <Stack alignItems="center" direction="row" spacing={0.75}>
-      <Typography color="text.secondary" sx={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em' }} variant="caption">
-        {actionLabel}
-      </Typography>
+      {showActionLabel ? (
+        <Typography color="text.secondary" sx={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em' }} variant="caption">
+          {actionLabel}
+        </Typography>
+      ) : null}
       <ButtonGroup
         aria-label={`${actionLabel} actions`}
-        ref={anchorRef}
+        color="inherit"
         size="small"
         sx={{
+          '& .MuiButtonGroup-grouped': {
+            borderColor: 'divider',
+          },
+          '& .MuiButtonGroup-grouped:hover': {
+            borderColor: 'divider',
+          },
           '& .MuiButton-root': {
             alignSelf: 'center',
+            color: 'text.primary',
+            fontSize: 13,
             height: 30,
             minHeight: 30,
-            minWidth: 34,
+            minWidth: 30,
             px: 0.75,
-            py: 0.35,
+            py: 0.25,
             textTransform: 'none',
+          },
+          '& .MuiSvgIcon-root': {
+            fontSize: 18,
           },
         }}
         variant="outlined"
       >
-        <Button onClick={handleMainClick} startIcon={selectedOption.icon}>
-          {selectedOption.label}
-        </Button>
+        <Tooltip title={actionLabel}>
+          <Button aria-label={mainAriaLabel ?? actionLabel} onClick={handleMainClick} startIcon={showMainLabel ? selectedOption.icon : undefined}>
+            {showMainLabel ? selectedOption.label : mainIcon}
+          </Button>
+        </Tooltip>
         <Button
           aria-controls={open ? `${actionLabel.toLowerCase()}-actions-menu` : undefined}
           aria-expanded={open ? 'true' : undefined}
           aria-label={`Select ${actionLabel.toLowerCase()} action`}
           aria-haspopup="menu"
           onClick={handleToggle}
+          sx={{ gap: 0.25 }}
         >
+          {selectedOption.icon}
           <ArrowDropDownRoundedIcon fontSize="small" />
         </Button>
       </ButtonGroup>
-      <Popper
-        anchorEl={anchorRef.current}
+      <Menu
+        anchorEl={anchorEl}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
         disablePortal
+        MenuListProps={{
+          dense: true,
+          sx: {
+            py: 0.25,
+            '& .MuiMenuItem-root': {
+              fontSize: 13,
+              minHeight: 30,
+              py: 0.25,
+            },
+            '& .MuiListItemText-primary': {
+              fontSize: 13,
+            },
+            '& .MuiListItemIcon-root': {
+              minWidth: 32,
+            },
+            '& .MuiSvgIcon-root': {
+              fontSize: 18,
+            },
+          },
+        }}
+        onClose={handleClose}
         open={open}
-        placement="bottom-end"
-        sx={{ zIndex: 1300 }}
-        transition
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
       >
-        {({ TransitionProps }) => (
-          <Grow {...TransitionProps}>
-            <Paper>
-              <ClickAwayListener onClickAway={handleClose}>
-                <MenuList autoFocusItem id={`${actionLabel.toLowerCase()}-actions-menu`}>
-                  {options.map((option, index) => (
-                    <MenuItem
-                      key={option.id}
-                      onClick={() => handleMenuItemClick(index)}
-                      selected={index === selectedIndex}
-                    >
-                      <ListItemIcon>{option.icon}</ListItemIcon>
-                      <ListItemText>{option.label}</ListItemText>
-                    </MenuItem>
-                  ))}
-                </MenuList>
-              </ClickAwayListener>
-            </Paper>
-          </Grow>
-        )}
-      </Popper>
+        {options.map((option, index) => (
+          <MenuItem
+            key={option.id}
+            onClick={() => handleMenuItemClick(index)}
+            selected={index === selectedIndex}
+          >
+            <ListItemIcon>{option.icon}</ListItemIcon>
+            <ListItemText>{option.label}</ListItemText>
+          </MenuItem>
+        ))}
+      </Menu>
     </Stack>
   );
 }

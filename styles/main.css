@@ -1,12 +1,9 @@
 :root {
   --toolbar-height: 34px;
-  --sidebar-width: 360px;
+  --activitybar-width: 48px;
+  --sidebar-width: 480px;
   --sidebar-resizer-width: 10px;
   --canvas-row-size: minmax(0, 1fr);
-  --document-column-size: 420px;
-  --document-row-size: minmax(0, 1fr);
-  --document-resizer-height: 10px;
-  --document-resizer-width: 10px;
 }
 
 *,
@@ -22,29 +19,18 @@ body,
   margin: 0;
 }
 
-body.layout-document-right #app {
-  grid-template-columns: minmax(0, var(--sidebar-width)) var(--sidebar-resizer-width) minmax(0, 1fr) var(--document-resizer-width) minmax(0, var(--document-column-size));
-  grid-template-rows: var(--toolbar-height) minmax(0, 1fr) auto;
-  grid-template-areas:
-    "toolbar toolbar toolbar toolbar toolbar"
-    "lpanel resizer canvas docresizer document"
-    "status status status status status";
-}
-
 body {
   overflow: hidden;
 }
 
 #app {
   display: grid;
-  grid-template-columns: minmax(0, var(--sidebar-width)) var(--sidebar-resizer-width) minmax(0, 1fr);
-  grid-template-rows: var(--toolbar-height) var(--canvas-row-size) var(--document-resizer-height) var(--document-row-size) auto;
+  grid-template-columns: var(--activitybar-width) minmax(0, var(--sidebar-width)) var(--sidebar-resizer-width) minmax(0, 1fr);
+  grid-template-rows: var(--toolbar-height) var(--canvas-row-size) auto;
   grid-template-areas:
-    "toolbar toolbar toolbar"
-    "lpanel resizer canvas"
-    "lpanel resizer docresizer"
-    "lpanel resizer document"
-    "status status status";
+    "toolbar toolbar toolbar toolbar"
+    "activitybar lpanel resizer canvas"
+    "status status status status";
   height: 100dvh;
   max-height: 100dvh;
   width: 100%;
