@@ -99,12 +99,12 @@ function RailSvgIcon({ svg }: { svg: string }) {
       aria-hidden="true"
       dangerouslySetInnerHTML={{ __html: svg }}
       sx={(theme) => ({
-        '--rail-icon-hole-fill': theme.palette.background.default,
+        '--rail-icon-ink': theme.palette.mode === 'dark' ? theme.palette.common.white : theme.palette.common.black,
         alignItems: 'center',
-        color: 'inherit',
         display: 'flex',
         height: 28,
         justifyContent: 'center',
+        opacity: theme.palette.mode === 'dark' ? 0.7 : 0.62,
         width: 28,
         '& svg': {
           display: 'block',
@@ -114,13 +114,8 @@ function RailSvgIcon({ svg }: { svg: string }) {
           transformOrigin: 'center',
           width: 28,
         },
-        '& svg [fill="currentColor"]': {
-          fill: 'currentColor',
-        },
-        '& svg [stroke="currentColor"]': {
-          stroke: 'currentColor',
-          strokeWidth: 1.75,
-          vectorEffect: 'non-scaling-stroke',
+        '.Mui-selected &': {
+          opacity: 1,
         },
       })}
     />

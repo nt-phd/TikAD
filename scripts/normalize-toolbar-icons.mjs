@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const root = resolve(scriptDir, '..');
 const outputDir = resolve(root, 'src/components/icons/toolbar');
-const strokeWidth = '1.75';
+const strokeWidth = '1.5';
 
 // Add future toolbar icons here. Use `filledOutline: true` for glyphs that must be
 // both filled and outlined without drawing fill and stroke on the same path.
@@ -35,35 +35,40 @@ function namespaceIds(svg, prefix) {
 
 function normalizePaint(svg) {
   return svg
-    .replaceAll(/stroke="rgb\(0%, 0%, 0%\)"/g, 'stroke="currentColor"')
-    .replaceAll(/fill="rgb\(0%, 0%, 0%\)"/g, 'fill="currentColor"')
-    .replaceAll(/fill="rgb\(100%, 100%, 100%\)"/g, 'fill="var(--rail-icon-hole-fill)"');
+    .replaceAll(/stroke="rgb\(0%, 0%, 0%\)"/g, 'stroke="var(--rail-icon-ink)"')
+    .replaceAll(/fill="rgb\(0%, 0%, 0%\)"/g, 'fill="var(--rail-icon-ink)"')
+    .replaceAll(/fill="rgb\(100%, 100%, 100%\)"/g, 'fill="none"');
 }
 
 function normalizeStroke(svg) {
   return svg
     .replaceAll(/stroke-width="[^"]+"/g, `stroke-width="${strokeWidth}"`)
-    .replaceAll(/<(?:path|line|polyline|polygon|circle|ellipse|rect)\b(?=[^>]*\bstroke="currentColor")[^>]*>/g, (tag) => {
+    .replaceAll(/<(?:path|line|polyline|polygon|circle|ellipse|rect)\b(?=[^>]*\bstroke="var\(--rail-icon-ink\)")[^>]*>/g, (tag) => {
       if (tag.includes('vector-effect=')) return tag;
       if (tag.endsWith('/>')) return tag.replace(/\s*\/>$/, ' vector-effect="non-scaling-stroke"/>');
       return tag.replace(/>$/, ' vector-effect="non-scaling-stroke">');
     });
 }
 
+function normalizeOpacity(svg) {
+  return svg
+    .replaceAll(/\s+opacity="[^"]*"/g, '')
+    .replaceAll(/\s+stroke-opacity="[^"]*"/g, '')
+    .replaceAll(/\s+fill-opacity="[^"]*"/g, '');
+}
+
 function normalizeFilledOutline(svg) {
   return svg.replace(
-    /(<path\b(?=[^>]*\bfill="currentColor")(?=[^>]*\bstroke="currentColor")[^>]*)(?:><\/path>|\/>)/,
+    /(<path\b(?=[^>]*\bfill="var\(--rail-icon-ink\)")(?=[^>]*\bstroke="var\(--rail-icon-ink\)")[^>]*)(?:><\/path>|\/>)/,
     (match, start) => {
       const fillOnly = start
-        .replace(/\s+stroke="currentColor"/g, '')
-        .replace(/\s+stroke-opacity="[^"]*"/g, '')
+        .replace(/\s+stroke="var\(--rail-icon-ink\)"/g, '')
         .replace(/\s+stroke-width="[^"]*"/g, '')
         .replace(/\s+stroke-linecap="[^"]*"/g, '')
         .replace(/\s+stroke-linejoin="[^"]*"/g, '')
         .replace(/\s+stroke-miterlimit="[^"]*"/g, '');
       const outlineOnly = start
-        .replace(/\s+fill="currentColor"/, ' fill="none"')
-        .replace(/\s+fill-opacity="[^"]*"/g, '');
+        .replace(/\s+fill="var\(--rail-icon-ink\)"/, ' fill="none"');
 
       return `${fillOnly}/>${outlineOnly}/>`;
     },
@@ -84,7 +89,8 @@ async function normalizeIcon({ filledOutline = false, name, source }) {
   const targetPath = resolve(outputDir, `${name}.svg`);
   const raw = await readFile(sourcePath, 'utf8');
   const prepared = normalizePaint(namespaceIds(normalizeRoot(raw), `toolbar-${name}`));
-  const normalized = `${normalizeStroke(filledOutline ? normalizeFilledOutline(prepared) : prepared).trim()}\n`;
+  const outlined = filledOutline ? normalizeFilledOutline(prepared) : prepared;
+  const normalized = `${normalizeStroke(normalizeOpacity(outlined)).trim()}\n`;
 
   await mkdir(dirname(targetPath), { recursive: true });
   await writeFile(targetPath, normalized);
