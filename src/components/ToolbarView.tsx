@@ -4,7 +4,6 @@ import {
   AppBar,
   Box,
   Button,
-  Collapse,
   Divider,
   ListItemIcon,
   ListItemText,
@@ -34,15 +33,14 @@ import LightModeRoundedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeOutlined';
 import NavigationRoundedIcon from '@mui/icons-material/NearMeOutlined';
 import OpenWithRoundedIcon from '@mui/icons-material/OpenWithOutlined';
-import RouteRoundedIcon from '@mui/icons-material/RouteOutlined';
-import RouteSharpIcon from '@mui/icons-material/RouteSharp';
-import InsightsRoundedIcon from '@mui/icons-material/InsightsOutlined';
 import EastRoundedIcon from '@mui/icons-material/EastOutlined';
 import SubdirectoryArrowLeftRoundedIcon from '@mui/icons-material/SubdirectoryArrowLeftOutlined';
 import SubdirectoryArrowRightRoundedIcon from '@mui/icons-material/SubdirectoryArrowRightOutlined';
 import TextFieldsRoundedIcon from '@mui/icons-material/TextFieldsOutlined';
 import CropSquareRoundedIcon from '@mui/icons-material/CropSquareOutlined';
 import CircleOutlinedIcon from '@mui/icons-material/CircleOutlined';
+import TurnSharpRightRoundedIcon from '@mui/icons-material/TurnSharpRightRounded';
+import UTurnLeftRoundedIcon from '@mui/icons-material/UTurnLeftRounded';
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileOutlined';
 import ZoomInRoundedIcon from '@mui/icons-material/ZoomInOutlined';
 import ZoomOutRoundedIcon from '@mui/icons-material/ZoomOutOutlined';
@@ -65,18 +63,17 @@ const DRAW_TOOLS: Array<{ icon: ReactNode; label: string; tool: ToolType }> = [
   { tool: 'draw-text', label: 'Text', icon: <TextFieldsRoundedIcon fontSize="small" /> },
   { tool: 'draw-rectangle', label: 'Rectangle', icon: <CropSquareRoundedIcon fontSize="small" /> },
   { tool: 'draw-circle', label: 'Circle', icon: <CircleOutlinedIcon fontSize="small" /> },
-  { tool: 'draw-bezier', label: 'Bezier', icon: <RouteRoundedIcon fontSize="small" /> },
 ];
 
 const WIRE_ROUTING_OPTIONS: Array<{ icon: ReactNode; label: string; value: WireRoutingMode }> = [
-  { value: 'auto', label: 'Auto routing', icon: <InsightsRoundedIcon fontSize="small" /> },
-  { value: '--', label: 'Straight routing', icon: <EastRoundedIcon fontSize="small" /> },
-  { value: '|-', label: 'Vertical then horizontal routing', icon: <SubdirectoryArrowRightRoundedIcon fontSize="small" /> },
+  { value: 'auto', label: 'Draw line (auto)', icon: <TurnSharpRightRoundedIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} /> },
+  { value: '--', label: 'Draw line (straight)', icon: <EastRoundedIcon fontSize="small" /> },
   {
     value: '-|',
-    label: 'Horizontal then vertical routing',
+    label: 'Draw line (horizontal then vertical)',
     icon: <SubdirectoryArrowLeftRoundedIcon fontSize="small" sx={{ transform: 'rotate(-90deg)' }} />,
   },
+  { value: '|-', label: 'Draw line (vertical then horizontal)', icon: <SubdirectoryArrowRightRoundedIcon fontSize="small" /> },
 ];
 
 export type SymbolShortcutTikzName = 'circ' | 'ocirc' | 'open' | 'short' | 'R' | 'C';
@@ -451,6 +448,10 @@ export function ToolRailView({
     borderRadius: 0,
     mx: 0,
   } as const;
+  const selectLineRouting = (mode: WireRoutingMode) => {
+    onWireRoutingModeChange(mode);
+    if (currentTool !== 'wire') onSelectTool('wire');
+  };
 
   return (
     <Box
@@ -464,7 +465,8 @@ export function ToolRailView({
         gap: 0.5,
         gridArea: 'activitybar',
         minHeight: 0,
-        overflow: 'hidden',
+        overflowX: 'hidden',
+        overflowY: 'auto',
         py: 0.5,
       }}
     >
@@ -507,6 +509,37 @@ export function ToolRailView({
       </ToggleButtonGroup>
 
       <Divider flexItem sx={{ my: 0.5 }} />
+      <ToggleButtonGroup
+        exclusive
+        orientation="vertical"
+        size="small"
+        sx={{ '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 }, '& .MuiToggleButton-root': railToggleSx }}
+        value={currentTool === 'wire'
+          ? wireRoutingMode
+          : (DRAW_TOOLS.some(({ tool }) => tool === currentTool) || currentTool === 'draw-bezier') ? currentTool : null}
+      >
+        {WIRE_ROUTING_OPTIONS.map(({ icon, label, value }) => (
+          <Tooltip key={value} placement="right" title={label}>
+            <ToggleButton aria-label={label} onClick={() => selectLineRouting(value)} value={value}>
+              {icon}
+            </ToggleButton>
+          </Tooltip>
+        ))}
+        <Tooltip placement="right" title="Draw line (bezier)">
+          <ToggleButton aria-label="Draw line (bezier)" onClick={() => onSelectTool('draw-bezier')} value="draw-bezier">
+            <UTurnLeftRoundedIcon fontSize="small" sx={{ transform: 'rotate(-90deg)' }} />
+          </ToggleButton>
+        </Tooltip>
+        {DRAW_TOOLS.map(({ icon, label, tool }) => (
+          <Tooltip key={tool} placement="right" title={label}>
+            <ToggleButton aria-label={label} onClick={() => onSelectTool(tool)} value={tool}>
+              {icon}
+            </ToggleButton>
+          </Tooltip>
+        ))}
+      </ToggleButtonGroup>
+
+      <Divider flexItem sx={{ my: 0.5 }} />
       <Box sx={{ alignItems: 'center', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
         <ToggleButtonGroup
           orientation="vertical"
@@ -525,67 +558,6 @@ export function ToolRailView({
               </ToggleButton>
             </Tooltip>
           ))}
-        </ToggleButtonGroup>
-        <Box sx={{ alignItems: 'center', display: 'flex', flexDirection: 'column' }}>
-          <Tooltip placement="right" title="Add wire">
-            <ToggleButton
-              aria-label="Add wire"
-              onClick={() => onSelectTool('wire')}
-              selected={currentTool === 'wire'}
-              size="small"
-              sx={{
-                ...railConnectedToggleSx,
-                borderBottomLeftRadius: currentTool === 'wire' ? 0 : 4,
-                borderBottomRightRadius: currentTool === 'wire' ? 0 : 4,
-                borderTopLeftRadius: 4,
-                borderTopRightRadius: 4,
-              }}
-              value="wire"
-            >
-              <RouteSharpIcon fontSize="small" />
-            </ToggleButton>
-          </Tooltip>
-          <Collapse in={currentTool === 'wire'} timeout="auto" unmountOnExit>
-            <ToggleButtonGroup
-              exclusive
-              orientation="vertical"
-              onChange={(_event, value: WireRoutingMode | null) => {
-                if (value) onWireRoutingModeChange(value);
-              }}
-              size="small"
-              sx={{
-                '& .MuiToggleButtonGroup-grouped': {
-                  borderColor: 'divider',
-                  m: 0,
-                  mt: '-1px',
-                },
-                '& .MuiToggleButton-root': railConnectedToggleSx,
-                '& .MuiToggleButton-root:first-of-type': {
-                  borderTopLeftRadius: 0,
-                  borderTopRightRadius: 0,
-                },
-                '& .MuiToggleButton-root:last-of-type': {
-                  borderBottomLeftRadius: 4,
-                  borderBottomRightRadius: 4,
-                },
-              }}
-              value={wireRoutingMode}
-            >
-              {WIRE_ROUTING_OPTIONS.map(({ icon, label, value }) => (
-                <Tooltip key={value} placement="right" title={label}>
-                  <ToggleButton aria-label={label} value={value}>
-                    {icon}
-                  </ToggleButton>
-                </Tooltip>
-              ))}
-            </ToggleButtonGroup>
-          </Collapse>
-        </Box>
-        <ToggleButtonGroup
-          orientation="vertical"
-          size="small"
-          sx={{ '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 }, '& .MuiToggleButton-root': railToggleSx }}
-        >
           {SYMBOL_SHORTCUTS.map(({ icon, label, tikzName }) => (
             <Tooltip key={tikzName} placement="right" title={label}>
               <ToggleButton
@@ -600,26 +572,6 @@ export function ToolRailView({
           ))}
         </ToggleButtonGroup>
       </Box>
-
-      <Divider flexItem sx={{ my: 0.5 }} />
-      <ToggleButtonGroup
-        exclusive
-        orientation="vertical"
-        onChange={(_event, value: ToolType | null) => {
-          if (value) onSelectTool(value);
-        }}
-        size="small"
-        sx={{ '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 }, '& .MuiToggleButton-root': railToggleSx }}
-        value={DRAW_TOOLS.some(({ tool }) => tool === currentTool) ? currentTool : null}
-      >
-        {DRAW_TOOLS.map(({ icon, label, tool }) => (
-          <Tooltip key={tool} placement="right" title={label}>
-            <ToggleButton aria-label={label} value={tool}>
-              {icon}
-            </ToggleButton>
-          </Tooltip>
-        ))}
-      </ToggleButtonGroup>
 
       <Divider flexItem sx={{ my: 0.5 }} />
       <Box sx={{ flex: 1, minHeight: 0 }} />
