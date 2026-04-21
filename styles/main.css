@@ -25,11 +25,11 @@ body {
 
 #app {
   display: grid;
-  grid-template-columns: var(--activitybar-width) minmax(0, var(--sidebar-width)) var(--sidebar-resizer-width) minmax(0, 1fr);
+  grid-template-columns: var(--activitybar-width) minmax(0, 1fr) var(--sidebar-resizer-width) minmax(0, var(--sidebar-width));
   grid-template-rows: var(--toolbar-height) var(--canvas-row-size) auto;
   grid-template-areas:
     "toolbar toolbar toolbar toolbar"
-    "activitybar lpanel resizer canvas"
+    "activitybar canvas resizer lpanel"
     "status status status status";
   height: 100dvh;
   max-height: 100dvh;

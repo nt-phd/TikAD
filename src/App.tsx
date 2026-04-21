@@ -109,6 +109,11 @@ const GROUP_ORDER = [
 const DEFAULT_SIDEBAR_WIDTH = 480;
 const MIN_SIDEBAR_WIDTH = 480;
 const MAX_SIDEBAR_WIDTH = 760;
+const SIDEBAR_RESPONSIVE_BREAKPOINT = 1000;
+
+function shouldCollapseSidebarForViewport(): boolean {
+  return window.innerWidth < SIDEBAR_RESPONSIVE_BREAKPOINT;
+}
 
 function readStoredThemeMode(): ThemeMode | null {
   const stored = window.localStorage.getItem('theme-mode');
@@ -2442,6 +2447,7 @@ function AppShell({
   collapsed,
   handle,
   onThemeModeChange,
+  onToggleSidebar,
   themeMode,
   setCollapsed,
 }: {
@@ -2452,6 +2458,7 @@ function AppShell({
   };
   handle: ImperativeAppHandle | null;
   onThemeModeChange: (mode: 'light' | 'dark') => void;
+  onToggleSidebar: () => void;
   themeMode: 'light' | 'dark';
   setCollapsed: Dispatch<SetStateAction<{
     document: boolean;
@@ -2530,16 +2537,17 @@ function AppShell({
         onPasteSelection={appState.onPasteSelection}
         onRedo={appState.onRedo}
         onSelectTool={appState.onSelectTool}
+        onToggleSidebar={onToggleSidebar}
         onThemeModeChange={onThemeModeChange}
         onUndo={appState.onUndo}
         onZoomIn={appState.onZoomIn}
         onZoomOut={appState.onZoomOut}
         selectedIds={appState.selectedIds}
+        sidebarVisible={!collapsed.sidebar}
         themeMode={themeMode}
       />
 
       <ToolRailView
-        sidebarVisible={!collapsed.sidebar}
         currentDefTikzName={currentDefTikzName}
         currentTool={appState.currentTool}
         gridPitch={appState.gridPitch}
@@ -2549,7 +2557,6 @@ function AppShell({
         onSelectSymbolShortcut={selectSymbolShortcut}
         onToggleGridVisible={appState.onToggleGridVisible}
         onTogglePinSnap={appState.onTogglePinSnap}
-        onToggleSidebar={() => setCollapsed((prev) => ({ ...prev, sidebar: !prev.sidebar }))}
         onWireRoutingModeChange={appState.onWireRoutingModeChange}
         pinSnapEnabled={appState.pinSnapEnabled}
         wireRoutingMode={appState.wireRoutingMode}
@@ -2561,7 +2568,7 @@ function AppShell({
           id="left-panel"
           sx={{
             backgroundColor: 'background.default',
-            borderRight: 1,
+            borderLeft: 1,
             borderColor: 'divider',
             display: 'flex',
             flexDirection: 'column',
@@ -2665,18 +2672,37 @@ export function App() {
   const [collapsed, setCollapsed] = useState({
     document: false,
     props: false,
-    sidebar: false,
+    sidebar: shouldCollapseSidebarForViewport(),
   });
+  const sidebarUserOverrideRef = useRef(false);
   const resizeStateRef = useRef<
-    | { axis: 'x'; direction: 1; startPointer: number; startSize: number; kind: 'sidebar' }
+    | { axis: 'x'; direction: -1 | 1; startPointer: number; startSize: number; kind: 'sidebar' }
     | null
   >(null);
 
   useEffect(() => {
-    document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidth}px`);
+    document.documentElement.style.setProperty('--sidebar-width', collapsed.sidebar ? '0px' : `${sidebarWidth}px`);
     document.documentElement.style.setProperty('--sidebar-resizer-width', collapsed.sidebar ? '0px' : '10px');
     window.localStorage.setItem('sidebar-width', String(sidebarWidth));
   }, [collapsed.sidebar, sidebarWidth]);
+
+  useEffect(() => {
+    const syncResponsiveSidebar = () => {
+      if (sidebarUserOverrideRef.current) return;
+      setCollapsed((prev) => {
+        const sidebar = shouldCollapseSidebarForViewport();
+        return prev.sidebar === sidebar ? prev : { ...prev, sidebar };
+      });
+    };
+    syncResponsiveSidebar();
+    window.addEventListener('resize', syncResponsiveSidebar);
+    return () => window.removeEventListener('resize', syncResponsiveSidebar);
+  }, []);
+
+  const toggleSidebar = useCallback(() => {
+    sidebarUserOverrideRef.current = true;
+    setCollapsed((prev) => ({ ...prev, sidebar: !prev.sidebar }));
+  }, []);
 
   useEffect(() => {
     document.body.classList.toggle('theme-dark', themeMode === 'dark');
@@ -2760,7 +2786,7 @@ export function App() {
     event.preventDefault();
     resizeStateRef.current = {
       axis: 'x',
-      direction: 1,
+      direction: -1,
       kind: 'sidebar',
       startPointer: event.clientX,
       startSize: sidebarWidth,
@@ -2776,6 +2802,7 @@ export function App() {
           collapsed={collapsed}
           handle={handle}
           onThemeModeChange={setThemeMode}
+          onToggleSidebar={toggleSidebar}
           setCollapsed={setCollapsed}
           themeMode={themeMode}
         />

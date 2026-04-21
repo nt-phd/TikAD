@@ -27,12 +27,12 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepOutlined';
 import DownloadRoundedIcon from '@mui/icons-material/DownloadOutlined';
 import FitScreenRoundedIcon from '@mui/icons-material/FitScreenOutlined';
-import FileCopyOutlinedIcon from '@mui/icons-material/FileCopyOutlined';
 import Grid4x4RoundedIcon from '@mui/icons-material/Grid4x4Outlined';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeOutlined';
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeOutlined';
 import NavigationRoundedIcon from '@mui/icons-material/NearMeOutlined';
 import OpenWithRoundedIcon from '@mui/icons-material/OpenWithOutlined';
+import WebAssetOutlinedIcon from '@mui/icons-material/WebAssetOutlined';
 import EastRoundedIcon from '@mui/icons-material/EastOutlined';
 import SubdirectoryArrowLeftRoundedIcon from '@mui/icons-material/SubdirectoryArrowLeftOutlined';
 import SubdirectoryArrowRightRoundedIcon from '@mui/icons-material/SubdirectoryArrowRightOutlined';
@@ -149,11 +149,13 @@ export function ToolbarView({
   onPasteSelection,
   onRedo,
   onSelectTool,
+  onToggleSidebar,
   onThemeModeChange,
   onUndo,
   onZoomIn,
   onZoomOut,
   selectedIds,
+  sidebarVisible,
   themeMode,
 }: {
   currentTool: ToolType;
@@ -169,11 +171,13 @@ export function ToolbarView({
   onPasteSelection: () => void;
   onRedo: () => void;
   onSelectTool: (tool: ToolType) => void;
+  onToggleSidebar: () => void;
   onThemeModeChange: (mode: 'light' | 'dark') => void;
   onUndo: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   selectedIds: string[];
+  sidebarVisible: boolean;
   themeMode: 'light' | 'dark';
 }) {
   const [menuAnchor, setMenuAnchor] = useState<{ id: 'file' | 'edit' | 'view'; el: HTMLElement } | null>(null);
@@ -300,6 +304,30 @@ export function ToolbarView({
             {id[0].toUpperCase() + id.slice(1)}
           </Button>
         ))}
+        <Box sx={{ flex: 1, minWidth: 0 }} />
+        <Box sx={{ alignItems: 'center', alignSelf: 'stretch', display: 'flex' }}>
+          <Tooltip title={sidebarVisible ? 'Hide side panel' : 'Show side panel'}>
+          <Button
+            aria-label={sidebarVisible ? 'Hide side panel' : 'Show side panel'}
+            aria-pressed={sidebarVisible}
+            onClick={onToggleSidebar}
+            size="small"
+            sx={{
+              bgcolor: sidebarVisible ? 'action.selected' : 'transparent',
+              color: 'text.primary',
+              height: 26,
+              minWidth: 28,
+              p: 0,
+              '&:hover': {
+                bgcolor: 'action.hover',
+              },
+            }}
+            variant="text"
+          >
+              <WebAssetOutlinedIcon fontSize="small" sx={{ transform: 'rotate(90deg)' }} />
+            </Button>
+          </Tooltip>
+        </Box>
         <Menu
           anchorEl={menuAnchor?.id === 'file' ? menuAnchor.el : null}
           disablePortal
@@ -398,7 +426,6 @@ export function ToolbarView({
 }
 
 export function ToolRailView({
-  sidebarVisible,
   currentDefTikzName,
   currentTool,
   gridPitch,
@@ -407,13 +434,11 @@ export function ToolRailView({
   onSelectTool,
   onToggleGridVisible,
   onTogglePinSnap,
-  onToggleSidebar,
   onSelectSymbolShortcut,
   onWireRoutingModeChange,
   pinSnapEnabled,
   wireRoutingMode,
 }: {
-  sidebarVisible: boolean;
   currentDefTikzName?: string;
   currentTool: ToolType;
   gridPitch: number;
@@ -422,7 +447,6 @@ export function ToolRailView({
   onSelectTool: (tool: ToolType) => void;
   onToggleGridVisible: (checked: boolean) => void;
   onTogglePinSnap: (checked: boolean) => void;
-  onToggleSidebar: () => void;
   onSelectSymbolShortcut: (tikzName: SymbolShortcutTikzName) => void;
   onWireRoutingModeChange: (mode: WireRoutingMode) => void;
   pinSnapEnabled: boolean;
@@ -470,21 +494,6 @@ export function ToolRailView({
         py: 0.5,
       }}
     >
-      <Tooltip placement="right" title={sidebarVisible ? 'Hide side panel' : 'Show side panel'}>
-        <ToggleButton
-          aria-label={sidebarVisible ? 'Hide side panel' : 'Show side panel'}
-          onClick={onToggleSidebar}
-          selected={sidebarVisible}
-          size="small"
-          sx={railToggleSx}
-          value="side-panel"
-        >
-          <FileCopyOutlinedIcon fontSize="small" />
-        </ToggleButton>
-      </Tooltip>
-
-      <Divider flexItem sx={{ my: 0.5 }} />
-
       <ToggleButtonGroup
         exclusive
         orientation="vertical"
@@ -576,24 +585,21 @@ export function ToolRailView({
       <Divider flexItem sx={{ my: 0.5 }} />
       <Box sx={{ flex: 1, minHeight: 0 }} />
 
-      <Tooltip placement="right" title="Snap wire to pins">
-        <ToggleButton
-          aria-label="Pin snap"
-          onClick={() => onTogglePinSnap(!pinSnapEnabled)}
-          selected={pinSnapEnabled}
-          size="small"
-          sx={railToggleSx}
-          value="pin-snap"
-        >
-          <AdsClickRoundedIcon fontSize="small" />
-        </ToggleButton>
-      </Tooltip>
-
       <ToggleButtonGroup
         orientation="vertical"
         size="small"
         sx={{ '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 }, '& .MuiToggleButton-root': railToggleSx }}
       >
+        <Tooltip placement="right" title="Snap wire to pins">
+          <ToggleButton
+            aria-label="Pin snap"
+            onClick={() => onTogglePinSnap(!pinSnapEnabled)}
+            selected={pinSnapEnabled}
+            value="pin-snap"
+          >
+            <AdsClickRoundedIcon fontSize="small" />
+          </ToggleButton>
+        </Tooltip>
         <Tooltip placement="right" title={gridVisible ? 'Hide grid' : 'Show grid'}>
           <ToggleButton
             aria-label={gridVisible ? 'Hide grid' : 'Show grid'}
