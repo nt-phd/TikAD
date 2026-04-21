@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import { Box, useTheme } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import CodeMirror from '@uiw/react-codemirror';
 import type { EditorView } from '@codemirror/view';
 import { lineNumbers } from '@codemirror/view';
@@ -12,6 +13,7 @@ export function DocumentEditor({
   documentEditorRef,
   emitCaretSelection,
   markLatexDirty,
+  sx,
   setBody,
 }: {
   body: string;
@@ -19,6 +21,7 @@ export function DocumentEditor({
   documentEditorRef: MutableRefObject<EditorView | null>;
   emitCaretSelection: (lineIndex: number) => void;
   markLatexDirty: () => void;
+  sx?: SxProps<Theme>;
   setBody: (value: string) => void;
 }) {
   const activeLineRef = useRef<number | null>(null);
@@ -26,7 +29,7 @@ export function DocumentEditor({
   const codeMirrorTheme = useMemo(() => createCodeMirrorTheme(theme), [theme]);
 
   return (
-    <Box id="document-panel" sx={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, p: 2 }}>
+    <Box id="document-panel" sx={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, p: 2, ...sx }}>
       <Box
         sx={{
           backgroundColor: 'background.paper',

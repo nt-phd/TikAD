@@ -15,6 +15,8 @@ import {
   ListSubheader,
   MenuItem,
   OutlinedInput,
+  Pagination,
+  PaginationItem,
   Paper,
   Popover,
   Stack,
@@ -33,12 +35,10 @@ import type { TreeItemProps } from '@mui/x-tree-view/TreeItem';
 import { useTreeItemModel } from '@mui/x-tree-view/hooks';
 import type { UseTreeItemLabelSlotOwnProps } from '@mui/x-tree-view/useTreeItem';
 import SearchRoundedIcon from '@mui/icons-material/SearchOutlined';
-import DataArrayRoundedIcon from '@mui/icons-material/DataArrayOutlined';
-import DataObjectRoundedIcon from '@mui/icons-material/DataObjectOutlined';
-import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackOutlined';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardOutlined';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyOutlined';
-import SubjectRoundedIcon from '@mui/icons-material/SubjectOutlined';
-import CropOriginalRoundedIcon from '@mui/icons-material/CropOriginalOutlined';
+import DownloadRoundedIcon from '@mui/icons-material/DownloadOutlined';
 import RestoreRoundedIcon from '@mui/icons-material/RestoreOutlined';
 import CodeMirror from '@uiw/react-codemirror';
 import type { EditorView } from '@codemirror/view';
@@ -52,7 +52,6 @@ import { formatCoord } from './codegen/CoordFormatter';
 import { DocumentEditor } from './components/DocumentEditor';
 import { PanelSection } from './components/PanelSection';
 import { StatementEditor, type PositionPick } from './components/StatementEditor';
-import { SplitActionButton } from './components/SplitActionButton';
 import { ToolbarView, ToolRailView, type SymbolShortcutTikzName } from './components/ToolbarView';
 import { createCodeMirrorTheme, latexLanguage } from './components/ui/codeMirrorTheme';
 import { DEFAULT_PREAMBLE } from './model/LatexDocument';
@@ -68,6 +67,25 @@ import { componentCatalog } from './data/componentCatalog';
 import statementEditorSchemaJson from './data/statementEditorSchema.json';
 type HistoryEntry = { ts: number; source: string };
 type ThemeMode = 'light' | 'dark';
+
+function CodePanelLayout({
+  actions,
+  children,
+}: {
+  actions: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
+      <Box sx={{ display: 'flex', flex: '1 1 0', minHeight: 180, minWidth: 0, overflow: 'hidden', p: 2, pb: 1 }}>
+        {children}
+      </Box>
+      <Box sx={{ alignItems: 'center', display: 'flex', flex: '0 0 auto', gap: 1.5, justifyContent: 'flex-end', px: 2, pb: 1.5, pt: 0.5 }}>
+        {actions}
+      </Box>
+    </Box>
+  );
+}
 
 const GROUP_ORDER = [
   'Resistive bipoles',
@@ -1904,15 +1922,30 @@ function useAppState(handle: ImperativeAppHandle | null) {
 }
 
 function PreambleView({
+  onCopyPreamble,
   preamble,
 }: {
+  onCopyPreamble: () => void;
   preamble: string;
 }) {
   const theme = useTheme();
   const codeMirrorTheme = useMemo(() => createCodeMirrorTheme(theme), [theme]);
 
   return (
-    <Box sx={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, p: 2 }}>
+    <CodePanelLayout
+      actions={(
+        <Button
+          color="inherit"
+          onClick={onCopyPreamble}
+          size="small"
+          startIcon={<ContentCopyRoundedIcon fontSize="small" />}
+          sx={PANEL_ACTION_BUTTON_SX}
+          variant="outlined"
+        >
+          Preamble
+        </Button>
+      )}
+    >
       <Box
         sx={{
           backgroundColor: 'background.paper',
@@ -1943,7 +1976,7 @@ function PreambleView({
           value={preamble}
         />
       </Box>
-    </Box>
+    </CodePanelLayout>
   );
 }
 
@@ -2012,6 +2045,38 @@ const HISTORY_DIFF_SX = {
   '& .cm-deletedChunk': { backgroundColor: 'rgba(255,80,80,0.15)' },
   '& .cm-changedLine': { backgroundColor: 'rgba(255,200,0,0.1)' },
   '& .cm-insertedLine': { backgroundColor: 'rgba(80,200,80,0.12)' },
+} as const;
+
+const PANEL_ACTION_BUTTON_SX = {
+  alignSelf: 'center',
+  borderColor: 'divider',
+  color: 'text.primary',
+  textTransform: 'none',
+  '&:hover': {
+    backgroundColor: 'action.hover',
+    borderColor: 'divider',
+  },
+  '& .MuiButton-startIcon': {
+    mr: 0.5,
+  },
+  '& .MuiSvgIcon-root': {
+    fontSize: 18,
+  },
+} as const;
+
+const HISTORY_PAGINATION_SX = {
+  '& .MuiPagination-ul': {
+    flexWrap: 'nowrap',
+  },
+  '& .MuiPaginationItem-root': {
+    color: 'text.primary',
+  },
+  '& .MuiPaginationItem-root.Mui-selected': {
+    backgroundColor: 'action.selected',
+  },
+  '& .MuiPaginationItem-root.Mui-selected:hover': {
+    backgroundColor: 'action.hover',
+  },
 } as const;
 
 function HistoryView({
@@ -2092,62 +2157,69 @@ function HistoryView({
   }
 
   return (
-    <Box sx={{ display: 'flex', flex: 1, minHeight: 0, minWidth: 0, overflow: 'hidden' }}>
-      {/* Left: version list */}
-      <Box
-        sx={{
-          width: 180,
-          flexShrink: 0,
-          overflowY: 'auto',
-          borderRight: 1,
-          borderColor: 'divider',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        {entries.map((entry, i) => (
-          <Box
-            key={entry.ts}
-            onClick={() => setSelectedIndex(i)}
-            sx={{
-              px: 1.5,
-              py: 1,
-              cursor: 'pointer',
-              bgcolor: i === selectedIndex ? 'action.selected' : 'transparent',
-              '&:hover': { bgcolor: i === selectedIndex ? 'action.selected' : 'action.hover' },
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.5,
-            }}
-          >
-            <Typography variant="caption" sx={{ fontWeight: i === 0 ? 700 : 400, lineHeight: 1.3, flex: 1 }}>
-              {formatHistoryTimestamp(entry.ts)}
-              {i === 0 ? ' (latest)' : ''}
-            </Typography>
-            {i === selectedIndex && (
-              <Tooltip title="Restore this version">
-                <RestoreRoundedIcon
-                  onClick={(e) => { e.stopPropagation(); onRestore(entry.source); }}
-                  sx={{ fontSize: 16, color: 'text.secondary', flexShrink: 0, cursor: 'pointer' }}
-                />
+    <CodePanelLayout
+      actions={(
+        <>
+        <Box sx={{ minWidth: 0, overflowX: 'auto' }}>
+          <Pagination
+            boundaryCount={1}
+            count={entries.length}
+            onChange={(_event, page) => setSelectedIndex(page - 1)}
+            page={selectedIndex + 1}
+            renderItem={(item) => {
+              const entry = item.type === 'page' && item.page ? entries[item.page - 1] : null;
+              const title = entry
+                ? `${formatHistoryTimestamp(entry.ts)}${item.page === 1 ? ' (latest)' : ''}`
+                : item.type === 'previous'
+                  ? 'Previous'
+                  : item.type === 'next'
+                    ? 'Next'
+                    : item.type;
+              const paginationItem = (
+              <PaginationItem
+                {...item}
+                slots={{ previous: ArrowBackRoundedIcon, next: ArrowForwardRoundedIcon }}
+              />
+            );
+            if (item.type === 'start-ellipsis' || item.type === 'end-ellipsis') {
+              return paginationItem;
+            }
+            return (
+                <Tooltip key={`${item.type}-${item.page ?? 0}`} placement="top" title={title}>
+                <span>
+                  {paginationItem}
+                </span>
               </Tooltip>
-            )}
-          </Box>
-        ))}
-      </Box>
-
-      {/* Right: unified vertical diff */}
-      <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden', p: 2, display: 'flex' }}>
-        <Box sx={HISTORY_DIFF_SX}>
-          <CodeMirror
-            extensions={diffExtensions}
-            height="100%"
-            style={{ height: '100%' }}
-            value={bodyB}
+            );
+          }}
+          shape="rounded"
+          siblingCount={1}
+          size="small"
+          sx={HISTORY_PAGINATION_SX}
           />
         </Box>
+        <Button
+          color="inherit"
+          onClick={() => selected && onRestore(selected.source)}
+          size="small"
+          startIcon={<RestoreRoundedIcon fontSize="small" />}
+          sx={{ ...PANEL_ACTION_BUTTON_SX, flexShrink: 0 }}
+          variant="outlined"
+        >
+          Restore
+        </Button>
+        </>
+      )}
+    >
+      <Box sx={HISTORY_DIFF_SX}>
+        <CodeMirror
+          extensions={diffExtensions}
+          height="100%"
+          style={{ height: '100%' }}
+          value={bodyB}
+        />
       </Box>
-    </Box>
+    </CodePanelLayout>
   );
 }
 
@@ -2163,6 +2235,7 @@ function EnvironmentTabs({
   onToggleCollapsed: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<'document' | 'preamble' | 'history'>('document');
+  const currentFullSource = handle?.getFullLatexSource() ?? appState.body;
   const tabHeader = (
     <Box
       onClick={(event) => event.stopPropagation()}
@@ -2228,7 +2301,32 @@ function EnvironmentTabs({
       title={tabHeader}
     >
       {activeTab === 'document' ? (
-        <Box sx={{ display: 'flex', flex: 1, flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
+        <CodePanelLayout
+          actions={(
+            <>
+              <Button
+                color="inherit"
+                onClick={appState.onCopyCommands}
+                size="small"
+                startIcon={<ContentCopyRoundedIcon fontSize="small" />}
+                sx={PANEL_ACTION_BUTTON_SX}
+                variant="outlined"
+              >
+                Code
+              </Button>
+              <Button
+                color="inherit"
+                onClick={appState.onDownloadSvg}
+                size="small"
+                startIcon={<DownloadRoundedIcon fontSize="small" />}
+                sx={{ ...PANEL_ACTION_BUTTON_SX, ml: 1 }}
+                variant="outlined"
+              >
+                SVG
+              </Button>
+            </>
+          )}
+        >
           <DocumentEditor
             body={appState.body}
             commitPendingLatexEdits={appState.commitPendingLatexEdits}
@@ -2236,30 +2334,13 @@ function EnvironmentTabs({
             emitCaretSelection={appState.emitCaretSelection}
             markLatexDirty={appState.markLatexDirty}
             setBody={appState.setEditorBody}
+            sx={{ p: 0 }}
           />
-          <Box sx={{ alignItems: 'center', display: 'flex', justifyContent: 'flex-end', px: 2, pb: 1, pt: 0.5 }}>
-            <SplitActionButton
-              actionLabel="Copy"
-              defaultActionId="copy-document"
-              mainAriaLabel="Copy selected document format"
-              mainIcon={<ContentCopyOutlinedIcon fontSize="small" />}
-              options={[
-                { icon: <SubjectRoundedIcon fontSize="small" />, id: 'copy-document', label: 'Document', run: appState.onCopyDocument },
-                { icon: <DataArrayRoundedIcon fontSize="small" />, id: 'copy-commands', label: 'Commands', run: appState.onCopyCommands },
-                { icon: <DataObjectRoundedIcon fontSize="small" />, id: 'copy-environment', label: 'Environment', run: appState.onCopyEnvironment },
-                { icon: <ContentCopyRoundedIcon fontSize="small" />, id: 'copy-preamble', label: 'Preamble', run: appState.onCopyPreamble },
-                { icon: <CropOriginalRoundedIcon fontSize="small" />, id: 'download-svg', label: 'SVG', run: appState.onDownloadSvg },
-              ]}
-              showActionLabel={false}
-              showMainLabel={false}
-              storageKey="tikad-copy-action"
-            />
-          </Box>
-        </Box>
+        </CodePanelLayout>
       ) : activeTab === 'history' ? (
-        <HistoryView currentSource={appState.body} handle={handle} history={appState.history} onRestore={appState.onRestoreHistory} setHistoryPreviewActive={appState.setHistoryPreviewActive} />
+        <HistoryView currentSource={currentFullSource} handle={handle} history={appState.history} onRestore={appState.onRestoreHistory} setHistoryPreviewActive={appState.setHistoryPreviewActive} />
       ) : (
-        <PreambleView preamble={appState.preamble} />
+        <PreambleView onCopyPreamble={appState.onCopyPreamble} preamble={appState.preamble} />
       )}
     </PanelSection>
   );
