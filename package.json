@@ -15,8 +15,13 @@
     "generate:component-catalog-previews": "/usr/bin/node scripts/render-component-catalog-previews.mjs",
     "refresh:component-catalog": "/bin/bash -lc '/usr/bin/node scripts/extract-circuitikz-catalog.mjs && /usr/bin/node scripts/build-component-catalog.mjs && /usr/bin/node scripts/render-component-catalog-previews.mjs'",
     "generate:library-previews": "/usr/bin/node scripts/generate-library-previews.mjs",
+    "generate:landing-examples-code": "/usr/bin/node landing/scripts/gen-landing-examples-code-svg.mjs",
     "normalize:toolbar-icons": "/usr/bin/node scripts/normalize-toolbar-icons.mjs",
-    "build": "tsc && vite build",
+    "build": "npm run build:app",
+    "build:app": "tsc && vite build",
+    "build:landing": "tsc -p landing/tsconfig.json && vite build --config landing/vite.config.ts",
+    "deploy:app": "./deploy/deploy.sh",
+    "deploy:landing": "./deploy/deploy-landing-cloudflare.sh",
     "preview": "vite preview"
   },
   "dependencies": {

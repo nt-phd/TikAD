@@ -1,0 +1,19 @@
+\begin{circuitikz}
+  \node[op amp, noinv input up] (N1) at (5,0) {$U_1$};
+  \node[sground] (N4) at (3,-6) {};
+  \node[ocirc, label=left:$v_i$] (N2) at ($(N1.+)+(-1,0)$) {};
+  \node[ocirc, label=right:$v_o$] (N3) at ($(N1.out)+(1.5,0)$) {};
+  \node[circ] (A) at (5,-2) {};
+  \node[circ] (B) at (3,-2) {};
+  \node[circ] (C) at (5,-3.5) {};
+  \node[circ] (D) at (3,-3.5) {};
+  \node[circ] (E) at (7,-2) {};
+  \node[circ] (F) at (7,0) {};
+  \draw (B) to[R=$R_1$] (A) to[R=$R_2$] (E);
+  \draw (C) -- ++(0,1.5);
+  \draw (D) to[C=$C_1$] (C) to[C=$C_2$] ($(E)+(0,-1.5)$) |- ++(0,3.5);
+  \draw (3,-4) |- (N1.-);
+  \draw (3,-4) to[R=$R_0$] (N4);
+  \draw (N1.out) -- (N3);
+  \draw (N2) -- (N1.+);
+\end{tikzpicture}

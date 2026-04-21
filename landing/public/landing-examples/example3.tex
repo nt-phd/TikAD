@@ -1,0 +1,18 @@
+\begin{tikzpicture}
+  \node[npn, transform shape, label=right:$Q_1$] (Q1) at (2.5,-2.5) {};
+  \node[vcc](N3) at (2.5,0.5) {$V_{CC}$};
+  \node[vcc](N4) at (0,-0.5){$V_{CC}$};
+  \node[ocirc, label=west:$V_i$] (Vi) at (-2,-2.5) {};
+  \node[ocirc, label=east:$V_o$] (Vo) at ($(Q1.E)+(2,0)$) {};
+  \node[sground](N1) at (0,-4.5){};
+  \node[sground](N2) at (2.5,-5.5){}; 
+  \draw (N4) to[resistor=$R_{B1}$] (0,-2.5) to[resistor=$R_{B2}$] (N1);
+  \draw (0,-2.5) to[short, i=$I_B$] (Q1.B);
+  \draw (N3) to[resistor=$R_C$, i>={$I_C$}] (Q1.C);
+  \draw (Q1.B) to[open, v<=$V_{BE}$, voltage=european] (Q1.E);
+  \node[circ] at (0,-2.5) {}; 
+  \node[circ] at (Q1.E) {}; 
+  \draw (Q1.E) to[resistor=$R_E$, i>=$I_E$] (N2);
+  \draw (Vi) to[capacitor=$C_1$] (0,-2.5);
+  \draw (Q1.E) to[capacitor=$C_2$] (Vo);
+\end{tikzpicture}
