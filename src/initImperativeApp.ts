@@ -719,39 +719,21 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     eventBus.emit({ type: 'selection-changed', selectedIds: next, source });
   };
 
-  let anchorProbeReparseScheduled = false;
-
-  const scheduleAnchorProbeReparse = () => {
-    if (anchorProbeReparseScheduled) return;
-    anchorProbeReparseScheduled = true;
-    queueMicrotask(() => {
-      anchorProbeReparseScheduled = false;
-      parseCircuiTikZ(latexDoc.body, circuitDoc, registry);
-      primeNodeAnchorProbes();
-      reconcileSelection('programmatic');
-      canvas.refresh();
-      eventBus.emit({ type: 'geometry-changed' });
-      eventBus.emit({ type: 'body-changed' });
-    });
-  };
-
-  const primeNodeAnchorProbes = () => {
-    const bodySnapshot = latexDoc.body;
-    const preambleSnapshot = latexDoc.preamble;
-    for (const comp of circuitDoc.components) {
-      if ((comp.type !== 'node' && comp.type !== 'monopole') || !comp.nodeName) continue;
-      const def = registry.get(comp.defId);
-      if (!def) continue;
-      componentProbeService.getPlacedGhostProbe(def, comp.rotation ?? 0, () => {
-        if (latexDoc.body !== bodySnapshot || latexDoc.preamble !== preambleSnapshot) return;
-        scheduleAnchorProbeReparse();
-      });
-    }
-  };
-
   const parseCurrentBody = () => {
     parseCircuiTikZ(latexDoc.body, circuitDoc, registry);
-    primeNodeAnchorProbes();
+  };
+
+  const invalidateRenderDerivedGeometry = () => {
+    componentProbeService.invalidate();
+    circuitDoc.clearMeasuredSymbolPoints();
+  };
+
+  canvas.onAnchorGeometryMeasured = (points) => {
+    circuitDoc.setMeasuredSymbolPoints(points);
+    parseCurrentBody();
+    reconcileSelection('programmatic');
+    canvas.refresh();
+    eventBus.emit({ type: 'geometry-changed' });
   };
 
   const getResolvedStatementPositions = (id: string): Array<string | null> => {
@@ -763,7 +745,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     latexDoc.loadFromSource(source);
     latexDoc.body = normalizeMultilineNodeStatements(latexDoc.body);
     syncTikzScale();
-    componentProbeService.invalidate();
+    invalidateRenderDerivedGeometry();
     parseCurrentBody();
     reconcileSelection('programmatic');
     eventBus.emit({ type: 'body-changed' });
@@ -787,7 +769,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       pushUndoSnapshot();
       latexDoc.body = appendLineToBody(latexDoc.body, line);
       syncTikzScale();
-      componentProbeService.invalidate();
+      invalidateRenderDerivedGeometry();
       parseCurrentBody();
       eventBus.emit({ type: 'body-changed' });
       canvas.refresh();
@@ -804,7 +786,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       }
       latexDoc.body = removeBodyLines(latexDoc.body, lineIndices);
       syncTikzScale();
-      componentProbeService.invalidate();
+      invalidateRenderDerivedGeometry();
       parseCurrentBody();
       selection.clear();
       eventBus.emit({ type: 'selection-changed', selectedIds: [], source: 'canvas' });
@@ -821,7 +803,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       const appended = appendLinesToBody(latexDoc.body, lines);
       latexDoc.body = appended.body;
       syncTikzScale();
-      componentProbeService.invalidate();
+      invalidateRenderDerivedGeometry();
       parseCurrentBody();
       const selectedIds = lines.map((_, index) => `line:${appended.startLineIndex + index}`);
       selection.setSelectedIds(selectedIds);
@@ -946,7 +928,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     if (e.sourceTranslations && e.sourceTranslations.length > 0) {
       latexDoc.body = translateSourceCoordinates(latexDoc.body, e.sourceTranslations);
       syncTikzScale();
-      componentProbeService.invalidate();
+      invalidateRenderDerivedGeometry();
       parseCurrentBody();
       reconcileSelection('programmatic');
       eventBus.emit({ type: 'body-changed' });
@@ -971,7 +953,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       const replaced = replaceBodyLinesWithGroups(nextBody, replacements);
       latexDoc.body = replaced.body;
       syncTikzScale();
-      componentProbeService.invalidate();
+      invalidateRenderDerivedGeometry();
       parseCurrentBody();
       const nextSelectedIds = selection.getSelectedIds().map((id) => replaced.idMap.get(id) ?? id);
       selection.setSelectedIds(nextSelectedIds);  // remap IDs before reconcile reads them
@@ -1002,7 +984,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     }
     latexDoc.body = nextBody;
     syncTikzScale();
-    componentProbeService.invalidate();
+    invalidateRenderDerivedGeometry();
     eventBus.emit({ type: 'body-changed' });
     canvas.refresh();
   });
@@ -1011,7 +993,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     const previousSelection = selection.getSelectedIds();
     latexDoc.body = normalizeMultilineNodeStatements(latexDoc.body);
     syncTikzScale();
-    componentProbeService.invalidate();
+    invalidateRenderDerivedGeometry();
     parseCurrentBody();
     selection.setSelectedIds(previousSelection);
     reconcileSelection('programmatic');
@@ -1095,7 +1077,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       pushUndoSnapshot();
       latexDoc.body = applyEditableStatementToBody(latexDoc.body, statement);
       syncTikzScale();
-      componentProbeService.invalidate();
+      invalidateRenderDerivedGeometry();
       parseCurrentBody();
       const nextSelectedIds = statement.selectedId != null
         ? [statement.selectedId]
@@ -1158,11 +1140,11 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     },
     setPreamble: (preamble) => {
       latexDoc.preamble = preamble;
-      componentProbeService.invalidate();
+      invalidateRenderDerivedGeometry();
     },
     setBody: (body) => {
       latexDoc.body = body;
-      componentProbeService.invalidate();
+      invalidateRenderDerivedGeometry();
     },
     updateDrawingProps: (id, props) => {
       const drawing = circuitDoc.getDrawing(id);

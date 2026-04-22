@@ -1,6 +1,7 @@
 /**
  * LaTeX render server
- * POST /render  { latex: string }  → { svg: string } | { error: string }
+ * POST /render  { latex: string, anchors?: AnchorRequest[] }
+ *   → { svg: string, anchorSvg?: string, anchorMarkers?: AnchorMarker[] } | { error: string }
  *
  * Production protections:
  * - bounded queue
@@ -95,10 +96,80 @@ ${src}
 `;
 };
 
+function markerColor(index) {
+  const hue = (index * 137.508) % 360;
+  const chroma = 0.78;
+  const x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = 0.12;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hue < 60) [r, g, b] = [chroma, x, 0];
+  else if (hue < 120) [r, g, b] = [x, chroma, 0];
+  else if (hue < 180) [r, g, b] = [0, chroma, x];
+  else if (hue < 240) [r, g, b] = [0, x, chroma];
+  else if (hue < 300) [r, g, b] = [x, 0, chroma];
+  else [r, g, b] = [chroma, 0, x];
+  const toHex = (value) => Math.round((value + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
 function normalizePictureEnvironmentForRender(src) {
   return src
     .replace(/\\begin\{circuitikz\}(\s*\[[^\]]*\])?/g, '\\begin{tikzpicture}$1')
     .replace(/\\end\{circuitikz\}/g, '\\end{tikzpicture}');
+}
+
+function normalizeAnchorRequests(anchors) {
+  if (!Array.isArray(anchors)) return [];
+  const normalized = [];
+  const seen = new Set();
+  for (const entry of anchors) {
+    if (!entry || typeof entry !== 'object') continue;
+    const nodeName = typeof entry.nodeName === 'string' ? entry.nodeName.trim() : '';
+    const anchor = typeof entry.anchor === 'string' ? entry.anchor.trim() : 'reference';
+    if (!/^[A-Za-z][\w]*$/.test(nodeName)) continue;
+    if (!anchor || anchor.length > 80 || /[{}\\;]/.test(anchor)) continue;
+    const key = anchor === 'reference' ? nodeName : `${nodeName}.${anchor}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    normalized.push({ key, nodeName, anchor });
+    if (normalized.length >= 600) break;
+  }
+  return normalized;
+}
+
+function buildAnchorDiagnosticSource(latexBody, anchors) {
+  if (anchors.length === 0) return null;
+  let source = normalizePictureEnvironmentForRender(LATEX_WRAPPER(latexBody));
+  const markers = anchors.map((anchor, index) => ({
+    ...anchor,
+    color: markerColor(index),
+    latexColorName: `tikadAnchorMarker${index}`,
+  }));
+  const colorDefs = markers
+    .map((marker) => `\\definecolor{${marker.latexColorName}}{HTML}{${marker.color.slice(1).toUpperCase()}}`)
+    .join('\n');
+  const documentIndex = source.indexOf('\\begin{document}');
+  if (documentIndex >= 0) {
+    source = `${source.slice(0, documentIndex)}${colorDefs}\n${source.slice(documentIndex)}`;
+  } else {
+    source = `${colorDefs}\n${source}`;
+  }
+
+  const markerLines = markers
+    .map((marker) => {
+      const target = marker.anchor === 'reference' ? marker.nodeName : `${marker.nodeName}.${marker.anchor}`;
+      return `\\fill[${marker.latexColorName}] (${target}) circle[radius=0.08];`;
+    })
+    .join('\n');
+  const endToken = '\\end{tikzpicture}';
+  const endIndex = source.lastIndexOf(endToken);
+  if (endIndex < 0) return null;
+  return {
+    source: `${source.slice(0, endIndex)}${markerLines}\n${source.slice(endIndex)}`,
+    markers,
+  };
 }
 
 const domPurifyWindow = new JSDOM('').window;
@@ -219,7 +290,7 @@ function runCommand(cmd, args, cwd, timeoutMs) {
   });
 }
 
-async function renderLatex(latexBody) {
+async function renderLatex(latexBody, anchors = []) {
   const dir = await mkdtemp(join(tmpdir(), 'circuitikz-'));
   const startedAt = Date.now();
   try {
@@ -241,7 +312,27 @@ async function renderLatex(latexBody) {
     const ty = match ? parseFloat(match[2]) : 0;
     const totalMs = Date.now() - startedAt;
     log('render_success', { compileMs, svgBytes: svg.length, svgMs, totalMs });
-    return { svg, tx, ty };
+    const result = { svg, tx, ty };
+
+    const diagnostic = buildAnchorDiagnosticSource(latexBody, anchors);
+    if (diagnostic) {
+      try {
+        const anchorTexFile = join(dir, 'anchors.tex');
+        await writeFile(anchorTexFile, diagnostic.source, 'utf8');
+        await runCommand('pdflatex', ['-interaction=nonstopmode', '-halt-on-error', 'anchors.tex'], dir, PDFLATEX_TIMEOUT_MS);
+        await runCommand('pdf2svg', ['anchors.pdf', 'anchors.svg', '1'], dir, PDF2SVG_TIMEOUT_MS);
+        const anchorSvg = sanitizeSvg(await readFile(join(dir, 'anchors.svg'), 'utf8'));
+        const anchorMatch = anchorSvg.match(/transform="matrix\(1,\s*0,\s*0,\s*-1,\s*([\d.+-]+),\s*([\d.+-]+)\)"/);
+        result.anchorSvg = anchorSvg;
+        result.anchorTx = anchorMatch ? parseFloat(anchorMatch[1]) : 0;
+        result.anchorTy = anchorMatch ? parseFloat(anchorMatch[2]) : 0;
+        result.anchorMarkers = diagnostic.markers.map(({ latexColorName, ...marker }) => marker);
+      } catch (anchorErr) {
+        log('anchor_render_error', { detail: anchorErr.message });
+        result.anchorError = anchorErr.message;
+      }
+    }
+    return result;
   } catch (err) {
     let detail = err.message;
     try {
@@ -272,7 +363,7 @@ function drainQueue() {
   }
 }
 
-function enqueueRender(cacheKey, latex) {
+function enqueueRender(cacheKey, latex, anchors = []) {
   const cached = getCached(cacheKey);
   if (cached) {
     metrics.cacheHits += 1;
@@ -293,7 +384,7 @@ function enqueueRender(cacheKey, latex) {
 
   const promise = new Promise((resolve) => {
     queue.push(async () => {
-      const result = await renderLatex(latex);
+      const result = await renderLatex(latex, anchors);
       if (!result.error) touchCache(cacheKey, result);
       inflight.delete(cacheKey);
       metrics.completed += 1;
@@ -361,8 +452,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      const { latex } = JSON.parse(body);
+      const { latex, anchors } = JSON.parse(body);
       if (!latex || typeof latex !== 'string') throw new Error('missing latex field');
+      const anchorRequests = normalizeAnchorRequests(anchors);
       const complexityError = withinComplexityLimits(latex);
       if (complexityError) {
         sendJson(res, 422, { error: complexityError });
@@ -370,7 +462,11 @@ const server = http.createServer(async (req, res) => {
       }
 
       // Cache hits are free — check rate limit only for real renders
-      if (!getCached(latex) && !inflight.has(latex)) {
+      const cacheKey = anchorRequests.length > 0
+        ? JSON.stringify({ latex, anchors: anchorRequests.map(({ key }) => key) })
+        : latex;
+
+      if (!getCached(cacheKey) && !inflight.has(cacheKey)) {
         const retryAfter = checkRateLimit(ip);
         if (retryAfter !== null) {
           res.setHeader('Retry-After', String(retryAfter));
@@ -379,7 +475,7 @@ const server = http.createServer(async (req, res) => {
         }
       }
 
-      const result = await enqueueRender(latex, latex);
+      const result = await enqueueRender(cacheKey, latex, anchorRequests);
       sendJson(res, result.error ? 422 : 200, result);
     } catch (error) {
       sendJson(res, 400, { error: error.message });

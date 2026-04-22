@@ -70,6 +70,8 @@ export interface ComponentDef {
    */
   symbolRefX: number;
   symbolRefY: number;
+  /** TikZ anchors supported by this node-style component, as documented by CircuiTikZ. */
+  anchorNames?: string[];
   symbolPins?: SymbolPin[];
   shapeBBoxX?: number;
   shapeBBoxY?: number;

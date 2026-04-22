@@ -36,6 +36,54 @@ import { createSvgElement } from '../utils/svg';
 const BASE_PT_TO_PX = GRID_SIZE / TIKZ_PT_PER_UNIT;
 const ZOOM_LEVELS = [1, 2, 3, 4, 5];
 
+interface AnchorRenderRequest {
+  anchor: string;
+  nodeName: string;
+}
+
+interface AnchorRenderMarker extends AnchorRenderRequest {
+  color: string;
+  key: string;
+}
+
+interface RenderResponse {
+  anchorError?: string;
+  anchorMarkers?: AnchorRenderMarker[];
+  anchorSvg?: string;
+  anchorTx?: number;
+  anchorTy?: number;
+  error?: string;
+  svg?: string;
+  tx?: number;
+  ty?: number;
+}
+
+function normalizeColor(value: string | null): string {
+  const input = (value ?? '').trim().toLowerCase();
+  if (!input) return '';
+  const hex3 = input.match(/^#([0-9a-f]{3})$/i);
+  if (hex3) {
+    const [r, g, b] = hex3[1].split('');
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  const hex6 = input.match(/^#([0-9a-f]{6})$/i);
+  if (hex6) return `#${hex6[1]}`;
+  const rgb = input.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (rgb) {
+    const toHex = (n: string) => Math.max(0, Math.min(255, Number.parseInt(n, 10))).toString(16).padStart(2, '0');
+    return `#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`;
+  }
+  const rgbPercent = input.match(/^rgba?\(([\d.]+)%\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/);
+  if (rgbPercent) {
+    const toHex = (n: string) => {
+      const value = Math.max(0, Math.min(255, Math.round((Number.parseFloat(n) / 100) * 255)));
+      return value.toString(16).padStart(2, '0');
+    };
+    return `#${toHex(rgbPercent[1])}${toHex(rgbPercent[2])}${toHex(rgbPercent[3])}`;
+  }
+  return input.replace(/\s+/g, '');
+}
+
 export class LatexCanvas {
   readonly view: ViewTransform;
   readonly snap: SnapEngine;
@@ -68,6 +116,7 @@ export class LatexCanvas {
   private axisYPath!: SVGPathElement;
   private interactionRect!: SVGRectElement;
   private ghostSvgNonce = 0;
+  onAnchorGeometryMeasured: ((points: Map<string, GridPoint>) => void) | null = null;
 
   // Pan/zoom
   private spaceHeld = false;
@@ -79,8 +128,8 @@ export class LatexCanvas {
   constructor(
     private container: HTMLElement,
     private latexDoc: LatexDocument,
-    circuitDoc: CircuitDocument,
-    registry: ComponentRegistry,
+    private circuitDoc: CircuitDocument,
+    private registry: ComponentRegistry,
     selection: SelectionState,
   ) {
     this.view = new ViewTransform();
@@ -264,15 +313,20 @@ export class LatexCanvas {
     const latex = this.latexDoc.toFullSource();
 
     try {
+      const anchorRequests = this.buildAnchorRenderRequests();
       const res = await fetch(`${RENDER_SERVER_URL}/render`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ latex }),
+        body: JSON.stringify({ latex, anchors: anchorRequests }),
         signal: AbortSignal.timeout(30000),
       });
-      const data = await res.json() as { svg?: string; tx?: number; ty?: number; error?: string };
+      const data = await res.json() as RenderResponse;
       if (data.svg) {
         this.injectSvg(data.svg, data.tx ?? 0, data.ty ?? 0);
+        if (data.anchorSvg && data.anchorMarkers) {
+          const points = this.measureAnchorSvg(data.anchorSvg, data.anchorMarkers, data.anchorTx ?? 0, data.anchorTy ?? 0);
+          if (points.size > 0) this.onAnchorGeometryMeasured?.(points);
+        }
         this.showError(null);
       } else {
         console.warn('[LatexCanvas] render error:', data.error);
@@ -285,6 +339,70 @@ export class LatexCanvas {
       this.renderInFlight = false;
       if (this.renderPending) this.doRender();
     }
+  }
+
+  private buildAnchorRenderRequests(): AnchorRenderRequest[] {
+    const seen = new Set<string>();
+    const requests: AnchorRenderRequest[] = [];
+    for (const comp of this.circuitDoc.components) {
+      if (comp.type === 'bipole' || !comp.nodeName) continue;
+      const def = this.registry.get(comp.defId);
+      if (!def) continue;
+      const names = new Set<string>([
+        'reference',
+        ...(def.anchorNames ?? []),
+        ...(def.symbolPins ?? []).map((pin) => pin.name),
+      ]);
+      for (const anchor of names) {
+        if (!anchor || anchor === 'START' || anchor === 'END') continue;
+        const key = anchor === 'reference' ? comp.nodeName : `${comp.nodeName}.${anchor}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        requests.push({ nodeName: comp.nodeName, anchor });
+      }
+    }
+    return requests;
+  }
+
+  private measureAnchorSvg(
+    svgText: string,
+    markers: AnchorRenderMarker[],
+    tx: number,
+    ty: number,
+  ): Map<string, GridPoint> {
+    const points = new Map<string, GridPoint>();
+    if (markers.length === 0) return points;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, 'image/svg+xml');
+    const svg = doc.querySelector('svg');
+    if (!svg) return points;
+
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
+    host.appendChild(document.importNode(svg, true));
+    document.body.appendChild(host);
+
+    try {
+      const liveSvg = host.querySelector('svg')!;
+      const markerColorMap = new Map(markers.map((marker) => [normalizeColor(marker.color), marker]));
+      const ptToPx = BASE_PT_TO_PX;
+      const gs = scaleState.effectiveGridSize;
+      for (const el of liveSvg.querySelectorAll<SVGGraphicsElement>('circle, path, ellipse, rect')) {
+        const fill = normalizeColor(el.getAttribute('fill'));
+        const marker = markerColorMap.get(fill);
+        if (!marker) continue;
+        const box = el.getBBox();
+        const centerX = box.x + box.width / 2;
+        const centerY = box.y + box.height / 2;
+        points.set(marker.key, {
+          x: ((centerX - tx) * ptToPx) / gs,
+          y: ((centerY - ty) * ptToPx) / gs,
+        });
+      }
+    } finally {
+      host.remove();
+    }
+    return points;
   }
 
   private injectSvg(svgText: string, tx: number, ty: number): void {

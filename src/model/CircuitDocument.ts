@@ -15,6 +15,7 @@ export class CircuitDocument {
   wires: WireInstance[] = [];
   drawPaths: DrawPathInstance[] = [];
   geometry: TikzGeometryState = createTikzGeometryState();
+  measuredSymbolPoints: Map<string, GridPoint> = new Map();
   metadata: DocumentMetadata;
 
   constructor(style: 'european' | 'american' = DEFAULT_STYLE) {
@@ -50,7 +51,20 @@ export class CircuitDocument {
   }
 
   getSymbolPoint(nodeName: string, anchor?: string): GridPoint | undefined {
-    return getGeometryStorePoint(this.geometry, nodeName, anchor);
+    return getGeometryStorePoint(this.geometry, nodeName, anchor)
+      ?? this.measuredSymbolPoints.get(anchor && anchor !== 'reference' ? `${nodeName}.${anchor}` : nodeName)
+      ?? (anchor === 'reference' ? this.measuredSymbolPoints.get(nodeName) : undefined);
+  }
+
+  setMeasuredSymbolPoints(points: Map<string, GridPoint>): void {
+    this.measuredSymbolPoints = new Map();
+    for (const [key, point] of points) {
+      this.measuredSymbolPoints.set(key, { ...point });
+    }
+  }
+
+  clearMeasuredSymbolPoints(): void {
+    this.measuredSymbolPoints.clear();
   }
 
   setResolvedStatementPositions(id: string, positions: Array<PositionSequencePreview | null>): void {

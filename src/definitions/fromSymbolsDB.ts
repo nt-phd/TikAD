@@ -99,6 +99,7 @@ export function populateRegistryFromSymbolsDB(
       symbolPinSpan,
       symbolRefX: v.refX,
       symbolRefY: v.refY,
+      anchorNames: v.pins.map((pin) => pin.name),
       symbolPins: v.pins.map((pin) => ({ name: pin.name, x: pin.x, y: pin.y })),
       shapeBBoxX: v.bboxX,
       shapeBBoxY: v.bboxY,
@@ -194,7 +195,17 @@ export function populateRegistryFromSymbolsDB(
     if (defsByTikzName.has(entry.tag)) continue;
     const source = entry.previewDefId ? defsById.get(entry.previewDefId) : undefined;
     if (!source) continue;
-    registerAlias(source, entry.tag, entry.displayName, entry.group || source.group);
+    const aliasDef: ComponentDef = {
+      ...source,
+      id: `${source.id}__alias__${entry.tag.replace(/\s+/g, '-')}`,
+      displayName: entry.displayName,
+      group: entry.group || source.group,
+      tikzName: entry.tag,
+      anchorNames: entry.anchors.length > 0 ? [...entry.anchors] : source.anchorNames,
+    };
+    registry.register(aliasDef);
+    defsByTikzName.set(aliasDef.tikzName, aliasDef);
+    defsById.set(aliasDef.id, aliasDef);
   }
 
   for (const entry of componentCatalog.components) {
