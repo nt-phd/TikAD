@@ -1,25 +1,24 @@
-import type { GridPoint } from '../types';
-import { BaseTool } from './BaseTool';
+import { BaseTool, type SnapResult } from './BaseTool';
 
 export class DeleteTool extends BaseTool {
   private hoveredId: string | null = null;
 
-  onMouseDown(gridPt: GridPoint, e: MouseEvent): void {
+  onMouseDown({ point }: SnapResult, e: MouseEvent): void {
     if (e.button !== 0) return;
-    const hitId = this.ctx.hitTester.hitTest(gridPt);
+    const hitId = this.ctx.hitTester.hitTest(point);
     if (hitId) {
       this.ctx.deleteElements([hitId]);
       this.hoveredId = null;
       this.ctx.ghost.renderDeletePreview(null);
     }
   }
-  onMouseMove(gridPt: GridPoint, _e: MouseEvent): void {
-    const hitId = this.ctx.hitTester.hitTest(gridPt);
+  onMouseMove({ point }: SnapResult, _e: MouseEvent): void {
+    const hitId = this.ctx.hitTester.hitTest(point);
     if (hitId === this.hoveredId) return;
     this.hoveredId = hitId;
     this.ctx.ghost.renderDeletePreview(hitId);
   }
-  onMouseUp(_gridPt: GridPoint, _e: MouseEvent): void {}
+  onMouseUp(_snap: SnapResult, _e: MouseEvent): void {}
 
   activate(): void {
     this.hoveredId = null;

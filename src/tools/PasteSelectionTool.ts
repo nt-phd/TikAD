@@ -1,5 +1,5 @@
 import type { GridPoint } from '../types';
-import { BaseTool, type ToolContext } from './BaseTool';
+import { BaseTool, type ToolContext, type SnapResult } from './BaseTool';
 import type { ClipboardPayload } from './SelectionClipboard';
 import { previewClipboardAt } from './SelectionClipboard';
 
@@ -26,18 +26,18 @@ export class PasteSelectionTool extends BaseTool {
     this.ctx.ghost.setGhostElement(null);
   }
 
-  onMouseDown(gridPt: GridPoint, e: MouseEvent): void {
+  onMouseDown({ point }: SnapResult, e: MouseEvent): void {
     if (e.button !== 0) return;
-    this.ctx.placeClipboard(this.payload, gridPt);
+    this.ctx.placeClipboard(this.payload, point);
     this.onCommit();
   }
 
-  onMouseMove(gridPt: GridPoint, _e: MouseEvent): void {
-    this.lastGridPt = gridPt;
-    this.renderGhost(gridPt);
+  onMouseMove({ point }: SnapResult, _e: MouseEvent): void {
+    this.lastGridPt = point;
+    this.renderGhost(point);
   }
 
-  onMouseUp(_gridPt: GridPoint, _e: MouseEvent): void {}
+  onMouseUp(_snap: SnapResult, _e: MouseEvent): void {}
 
   onKeyDown(e: KeyboardEvent): void {
     if (e.key === 'Escape') this.onCancel();

@@ -1,5 +1,5 @@
 import type { GridPoint, Rotation } from '../types';
-import { BaseTool } from './BaseTool';
+import { BaseTool, type SnapResult } from './BaseTool';
 import { formatCoord } from '../codegen/CoordFormatter';
 
 export class PlaceMonopoleTool extends BaseTool {
@@ -11,16 +11,16 @@ export class PlaceMonopoleTool extends BaseTool {
   }
 
   onBodyChanged(): void {
-    this.lastGridPt = null;
-    this.ctx.ghost.setGhostElement(null);
+    this.rebuildGhost();
   }
 
   private rebuildGhost(): void {
     if (!this.lastGridPt) return;
+    this.ctx.ghost.onGhostProbeReady = () => this.rebuildGhost();
     this.ctx.ghost.setGhostElement(this.ctx.ghost.buildMonopoleGhost(this.defId, this.lastGridPt, this.rotation));
   }
 
-  onMouseDown(gridPt: GridPoint, e: MouseEvent): void {
+  onMouseDown({ point: gridPt }: SnapResult, e: MouseEvent): void {
     if (e.button !== 0) {
       this.ctx.ghost.setGhostElement(null);
       return;
@@ -30,14 +30,14 @@ export class PlaceMonopoleTool extends BaseTool {
     this.ctx.appendLine(`\\node[${tikzName}](${nodeName}) at ${formatCoord(gridPt)} {};`);
   }
 
-  onMouseMove(gridPt: GridPoint, _e: MouseEvent): void {
+  onMouseMove({ point: gridPt }: SnapResult, _e: MouseEvent): void {
     this.lastGridPt = gridPt;
     this.ctx.ghost.onGhostProbeReady = () => this.rebuildGhost();
     const ghost = this.ctx.ghost.buildMonopoleGhost(this.defId, gridPt, this.rotation);
     this.ctx.ghost.setGhostElement(ghost);
   }
 
-  onMouseUp(_gridPt: GridPoint, _e: MouseEvent): void {}
+  onMouseUp(_snap: SnapResult, _e: MouseEvent): void {}
 
   onKeyDown(e: KeyboardEvent): void {
     if (e.key === 'r' || e.key === 'R') {

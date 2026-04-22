@@ -163,6 +163,11 @@ export class ToolManager {
     }
   }
 
+  private snapEvent(e: MouseEvent) {
+    const raw = this.canvas.eventToGridRaw(e);
+    return this.canvas.snap.snap(raw, this.ctx.getDocument().geometry);
+  }
+
   private attachListeners(): void {
     const el = this.canvas.overlaySvg;
 
@@ -170,19 +175,19 @@ export class ToolManager {
       if (e.button === 1) return;
       if (this.canvas.isCurrentlyPanning) return;
       if (this.positionPickMode) return;
-      this.currentTool.onMouseDown(this.canvas.eventToGrid(e), e);
+      this.currentTool.onMouseDown(this.snapEvent(e), e);
     });
 
     el.addEventListener('mousemove', (e: MouseEvent) => {
       if (this.canvas.isCurrentlyPanning) return;
       if (this.positionPickMode) return;
-      this.currentTool.onMouseMove(this.canvas.eventToGrid(e), e);
+      this.currentTool.onMouseMove(this.snapEvent(e), e);
     });
 
     el.addEventListener('mouseup', (e: MouseEvent) => {
       if (this.canvas.isCurrentlyPanning) return;
       if (this.positionPickMode) return;
-      this.currentTool.onMouseUp(this.canvas.eventToGrid(e), e);
+      this.currentTool.onMouseUp(this.snapEvent(e), e);
     });
 
     el.addEventListener('click', (e: MouseEvent) => {
@@ -190,9 +195,7 @@ export class ToolManager {
       if (this.canvas.isCurrentlyPanning) return;
       if (!this.positionPickMode) return;
       if (!this.canvas.isEventInsideCanvas(e)) return;
-      const raw = this.canvas.eventToGrid(e);
-      const snapped = this.canvas.snap.snapToGrid(raw);
-      this.emitEvent({ type: 'canvas-clicked', gridPt: snapped });
+      this.emitEvent({ type: 'canvas-clicked', gridPt: this.snapEvent(e).point });
     });
 
     el.addEventListener('dblclick', (_e: MouseEvent) => {

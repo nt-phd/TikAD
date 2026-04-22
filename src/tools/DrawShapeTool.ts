@@ -1,7 +1,7 @@
 import { SELECTION_COLOR } from '../constants';
 import { createCircle, createGroup, createLine, createPath, createRect, createText } from '../utils/svg';
 import type { DrawingKind, GridPoint } from '../types';
-import { BaseTool } from './BaseTool';
+import { BaseTool, type SnapResult } from './BaseTool';
 import { formatCoord } from '../codegen/CoordFormatter';
 import { pointsEqual } from '../utils/geometry';
 import { scaleState } from '../canvas/ScaleState';
@@ -49,7 +49,7 @@ export class DrawShapeTool extends BaseTool {
     }
   }
 
-  onMouseDown(gridPt: GridPoint, e: MouseEvent): void {
+  onMouseDown({ point: gridPt }: SnapResult, e: MouseEvent): void {
     if (e.button !== 0) return;
     this.points.push(gridPt);
     if (this.points.length < this.requiredPoints()) return;
@@ -89,7 +89,7 @@ export class DrawShapeTool extends BaseTool {
     this.ctx.ghost.setGhostElement(null);
   }
 
-  onMouseMove(gridPt: GridPoint, _e: MouseEvent): void {
+  onMouseMove({ point: gridPt }: SnapResult, _e: MouseEvent): void {
     if (this.points.length === 0) return;
     const gs = scaleState.effectiveGridSize;
     const g = createGroup('ghost-drawing');
@@ -182,7 +182,7 @@ export class DrawShapeTool extends BaseTool {
     this.ctx.ghost.setGhostElement(g);
   }
 
-  onMouseUp(_gridPt: GridPoint, _e: MouseEvent): void {}
+  onMouseUp(_snap: SnapResult, _e: MouseEvent): void {}
 
   deactivate(): void {
     this.points = [];

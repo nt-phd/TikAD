@@ -1,5 +1,5 @@
 import type { GridPoint, BipoleInstance, MonopoleInstance, SourceCoordinateTranslation, WireInstance, DrawPathInstance } from '../types';
-import { BaseTool } from './BaseTool';
+import { BaseTool, type SnapResult } from './BaseTool';
 import type { SelectionState } from '../model/SelectionState';
 
 export class SelectTool extends BaseTool {
@@ -35,7 +35,7 @@ export class SelectTool extends BaseTool {
     this.selection = selection;
   }
 
-  onMouseDown(gridPt: GridPoint, e: MouseEvent): void {
+  onMouseDown({ point: gridPt }: SnapResult, e: MouseEvent): void {
     if (e.button !== 0) return;
 
     const endpointTarget = this.findSelectedBipoleEndpoint(gridPt);
@@ -223,7 +223,7 @@ export class SelectTool extends BaseTool {
     }
   }
 
-  onMouseMove(gridPt: GridPoint, _e: MouseEvent): void {
+  onMouseMove({ point: gridPt, ref }: SnapResult, _e: MouseEvent): void {
     if (this.isMarqueeSelecting && this.dragStartGrid) {
       this.hasDragged = true;
       const hitIds = this.ctx.hitTester.getElementsInRect(this.dragStartGrid, gridPt);
@@ -256,19 +256,15 @@ export class SelectTool extends BaseTool {
       const comp = doc.getComponent(this.dragBipoleEndpoint.id);
       const orig = this.dragOriginalPositions.get(this.dragBipoleEndpoint.id);
       if (comp?.type === 'bipole' && orig?.start && orig?.end) {
-        const snapped = this.ctx.hitTester.connectionSnapEnabled
-          ? this.ctx.hitTester.findNearestConnectionTarget(gridPt, 0.5)
-          : null;
-        const targetPoint = snapped?.point ?? gridPt;
         if (this.dragBipoleEndpoint.endpoint === 'start') {
-          comp.start = { x: targetPoint.x, y: targetPoint.y };
+          comp.start = { x: gridPt.x, y: gridPt.y };
           comp.end = { ...orig.end };
-          comp.startRef = snapped?.ref;
+          comp.startRef = ref;
           comp.startSequence = undefined;
         } else {
           comp.start = { ...orig.start };
-          comp.end = { x: targetPoint.x, y: targetPoint.y };
-          comp.endRef = snapped?.ref;
+          comp.end = { x: gridPt.x, y: gridPt.y };
+          comp.endRef = ref;
           comp.endSequence = undefined;
         }
         this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
@@ -319,15 +315,11 @@ export class SelectTool extends BaseTool {
       const wire = doc.getWire(this.dragWireHandle.id);
       const orig = this.dragOriginalPositions.get(this.dragWireHandle.id);
       if (wire && orig?.points) {
-        const snapped = this.ctx.hitTester.connectionSnapEnabled
-          ? this.ctx.hitTester.findNearestConnectionTarget(gridPt, 0.5)
-          : null;
-        const targetPoint = snapped?.point ?? gridPt;
         const sourcePoints = orig.pathPoints && orig.pathPoints.length > 0 ? orig.pathPoints : orig.points;
         const nextPoints = sourcePoints.map((point) => ({ ...point }));
         const originalPoint = sourcePoints[this.dragWireHandle.index];
         if (originalPoint) {
-          nextPoints[this.dragWireHandle.index] = { x: targetPoint.x, y: targetPoint.y };
+          nextPoints[this.dragWireHandle.index] = { x: gridPt.x, y: gridPt.y };
           if (orig.pathPoints && wire.operators && wire.operators.length === orig.pathPoints.length - 1) {
             wire.pathPoints = nextPoints;
             wire.points = this.rebuildExpandedWirePoints(nextPoints, wire.operators);
@@ -337,8 +329,8 @@ export class SelectTool extends BaseTool {
             wire.operators = undefined;
           }
           wire.pathSequences = undefined;
-          if (this.dragWireHandle.index === 0) wire.startRef = snapped?.ref;
-          if (this.dragWireHandle.index === sourcePoints.length - 1) wire.endRef = snapped?.ref;
+          if (this.dragWireHandle.index === 0) wire.startRef = ref;
+          if (this.dragWireHandle.index === sourcePoints.length - 1) wire.endRef = ref;
           this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
         }
       }
@@ -348,18 +340,14 @@ export class SelectTool extends BaseTool {
       const dp = doc.getDrawPath(this.dragDrawPathHandle.id);
       const orig = this.dragOriginalPositions.get(this.dragDrawPathHandle.id);
       if (dp && orig?.drawPathPositions) {
-        const snapped = this.ctx.hitTester.connectionSnapEnabled
-          ? this.ctx.hitTester.findNearestConnectionTarget(gridPt, 0.5)
-          : null;
-        const targetPoint = snapped?.point ?? gridPt;
         const idx = this.dragDrawPathHandle.index;
         const seq = dp.positionSequences[idx];
         const updatedCorners = seq.corners.map((c, ci) =>
-          ci === seq.corners.length - 1 ? { ...c, point: targetPoint } : c,
+          ci === seq.corners.length - 1 ? { ...c, point: gridPt } : c,
         );
-        dp.positionSequences[idx] = { ...seq, point: targetPoint, corners: updatedCorners };
-        if (idx === 0) dp.startRef = snapped?.ref;
-        if (idx === dp.positionSequences.length - 1) dp.endRef = snapped?.ref;
+        dp.positionSequences[idx] = { ...seq, point: gridPt, corners: updatedCorners };
+        if (idx === 0) dp.startRef = ref;
+        if (idx === dp.positionSequences.length - 1) dp.endRef = ref;
         dp.points = this.rebuildDrawPathPoints(dp);
         this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
       }
@@ -436,7 +424,7 @@ export class SelectTool extends BaseTool {
     this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
   }
 
-  onMouseUp(_gridPt: GridPoint, _e: MouseEvent): void {
+  onMouseUp(_snap: SnapResult, _e: MouseEvent): void {
     if (this.isMarqueeSelecting) {
       if (!this.hasDragged) {
         if (this.marqueeMode === 'replace') {

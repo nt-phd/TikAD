@@ -1,19 +1,26 @@
-import type { GridPoint } from '../types';
-import { BaseTool } from './BaseTool';
+import type { ConnectionRef, GridPoint } from '../types';
+import { BaseTool, type SnapResult } from './BaseTool';
 import { pointsEqual } from '../utils/geometry';
 import { formatCoord } from '../codegen/CoordFormatter';
 
+function formatEndpoint(point: GridPoint, ref?: ConnectionRef): string {
+  if (!ref) return formatCoord(point);
+  return ref.anchor === 'reference' ? `(${ref.nodeName})` : `(${ref.nodeName}.${ref.anchor})`;
+}
+
 export class PlaceBipoleTool extends BaseTool {
   private startPoint: GridPoint | null = null;
+  private startRef: ConnectionRef | undefined = undefined;
   private hoverPoint: GridPoint | null = null;
 
   constructor(ctx: import('./BaseTool').ToolContext, private defId: string) {
     super(ctx);
   }
 
-  onMouseDown(gridPt: GridPoint, e: MouseEvent): void {
+  onMouseDown({ point: gridPt, ref }: SnapResult, e: MouseEvent): void {
     if (e.button !== 0) {
       this.startPoint = null;
+      this.startRef = undefined;
       this.hoverPoint = null;
       this.ctx.ghost.setGhostElement(null);
       return;
@@ -21,30 +28,32 @@ export class PlaceBipoleTool extends BaseTool {
 
     if (!this.startPoint) {
       this.startPoint = gridPt;
+      this.startRef = ref;
       this.hoverPoint = null;
     } else {
       if (pointsEqual(this.startPoint, gridPt)) return;
       const tikzName = this.ctx.getDef(this.defId)?.tikzName ?? this.defId;
       this.ctx.appendLine(
-        `\\draw ${formatCoord(this.startPoint)} to[${tikzName}] ${formatCoord(gridPt)};`
+        `\\draw ${formatEndpoint(this.startPoint, this.startRef)} to[${tikzName}] ${formatEndpoint(gridPt, ref)};`
       );
       this.startPoint = null;
+      this.startRef = undefined;
       this.hoverPoint = null;
       this.ctx.ghost.setGhostElement(null);
     }
   }
 
   onBodyChanged(): void {
-    this.hoverPoint = null;
-    this.ctx.ghost.setGhostElement(null);
+    this.rebuildGhost();
   }
 
   private rebuildGhost(): void {
     if (!this.startPoint || !this.hoverPoint) return;
+    this.ctx.ghost.onGhostProbeReady = () => this.rebuildGhost();
     this.ctx.ghost.setGhostElement(this.ctx.ghost.buildBipoleGhost(this.defId, this.startPoint, this.hoverPoint, false));
   }
 
-  onMouseMove(gridPt: GridPoint, _e: MouseEvent): void {
+  onMouseMove({ point: gridPt }: SnapResult, _e: MouseEvent): void {
     if (!this.startPoint) return;
     if (pointsEqual(this.startPoint, gridPt)) {
       this.hoverPoint = null;
@@ -60,10 +69,11 @@ export class PlaceBipoleTool extends BaseTool {
     }
   }
 
-  onMouseUp(_gridPt: GridPoint, _e: MouseEvent): void {}
+  onMouseUp(_snap: SnapResult, _e: MouseEvent): void {}
 
   deactivate(): void {
     this.startPoint = null;
+    this.startRef = undefined;
     this.hoverPoint = null;
     super.deactivate();
   }

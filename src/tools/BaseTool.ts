@@ -3,6 +3,9 @@ import type { GhostRenderer } from '../canvas/GhostRenderer';
 import type { HitTester } from '../canvas/HitTester';
 import type { ComponentDef } from '../types';
 import type { ClipboardPayload } from './SelectionClipboard';
+import type { SnapResult } from '../canvas/SnapEngine';
+
+export type { SnapResult };
 
 export interface ToolContext {
   ghost: GhostRenderer;
@@ -22,9 +25,9 @@ export interface ToolContext {
 export class BaseTool {
   constructor(protected ctx: ToolContext) {}
 
-  onMouseDown(_gridPt: GridPoint, _e: MouseEvent): void {}
-  onMouseMove(_gridPt: GridPoint, _e: MouseEvent): void {}
-  onMouseUp(_gridPt: GridPoint, _e: MouseEvent): void {}
+  onMouseDown(_snap: SnapResult, _e: MouseEvent): void {}
+  onMouseMove(_snap: SnapResult, _e: MouseEvent): void {}
+  onMouseUp(_snap: SnapResult, _e: MouseEvent): void {}
   onKeyDown(_e: KeyboardEvent): void {}
   onBodyChanged(): void {}
   activate(): void {}

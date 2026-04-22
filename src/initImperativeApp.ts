@@ -731,6 +731,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       reconcileSelection('programmatic');
       canvas.refresh();
       eventBus.emit({ type: 'geometry-changed' });
+      eventBus.emit({ type: 'body-changed' });
     });
   };
 
@@ -1114,7 +1115,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     getGridVisible: () => gridVisible,
     getGridPitch: () => circuitDoc.metadata.snapSize,
     getMajorGridEvery: () => scaleState.majorGridEvery,
-    getPinSnapEnabled: () => canvas.hitTester.connectionSnapEnabled,
+    getPinSnapEnabled: () => canvas.snap.connectionSnapEnabled,
     getWireRoutingMode: () => toolManager.wireRoutingMode,
     zoomIn: () => canvas.zoomIn(),
     zoomOut: () => canvas.zoomOut(),
@@ -1137,7 +1138,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       canvas.refresh();
     },
     setPinSnapEnabled: (enabled) => {
-      canvas.hitTester.connectionSnapEnabled = enabled;
+      canvas.snap.connectionSnapEnabled = enabled;
     },
     setWireRoutingMode: (mode) => {
       toolManager.setWireRoutingMode(mode);

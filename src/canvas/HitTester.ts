@@ -2,7 +2,7 @@
  * Model-based hit testing — no DOM queries needed.
  * Works in grid coordinates (integer TikZ units).
  */
-import type { ComponentDef, ComponentInstance, ConnectionRef, DrawingInstance, DrawPathInstance, GridPoint } from '../types';
+import type { ComponentDef, ComponentInstance, DrawingInstance, DrawPathInstance, GridPoint } from '../types';
 import type { CircuitDocument } from '../model/CircuitDocument';
 import type { ComponentRegistry } from '../definitions/ComponentRegistry';
 import { getBipoleBodyMetrics, getPlacedComponentMetrics } from './ComponentGeometry';
@@ -174,65 +174,10 @@ function drawingIntersectsRect(drawing: DrawingInstance, left: number, top: numb
 }
 
 export class HitTester {
-  connectionSnapEnabled = true;
-
   constructor(
     private doc: CircuitDocument,
     private registry: ComponentRegistry,
   ) {}
-
-  findNearestConnectionTarget(gridPt: GridPoint, radius = 0.5, onResolved?: () => void): { point: GridPoint; ref?: ConnectionRef } | null {
-    let best: { point: GridPoint; ref?: ConnectionRef } | null = null;
-    let bestDist = radius;
-
-    const consider = (pt: GridPoint, ref?: ConnectionRef) => {
-      const d = Math.hypot(gridPt.x - pt.x, gridPt.y - pt.y);
-      if (d <= bestDist) {
-        bestDist = d;
-        best = { point: pt, ref };
-      }
-    };
-
-    for (const comp of this.doc.components) {
-      if (comp.type === 'bipole') {
-        consider(comp.start, comp.startRef);
-        consider(comp.end, comp.endRef);
-        continue;
-      }
-
-      if (comp.nodeName) {
-        for (const [key, point] of this.doc.geometry.symbolPoints.entries()) {
-          const referenceKey = `${comp.nodeName}.reference`;
-          if (key === comp.nodeName && this.doc.geometry.symbolPoints.has(referenceKey)) continue;
-          if (key !== comp.nodeName && !key.startsWith(`${comp.nodeName}.`)) continue;
-          const anchor = key === comp.nodeName
-            ? 'reference'
-            : key.slice(comp.nodeName.length + 1);
-          consider(point, { componentId: comp.id, nodeName: comp.nodeName, anchor });
-        }
-      } else {
-        consider(comp.position);
-      }
-    }
-
-    for (const wire of this.doc.wires) {
-      if (wire.points.length === 0) continue;
-      consider(wire.points[0], wire.startRef);
-      consider(wire.points[wire.points.length - 1], wire.endRef);
-    }
-
-    for (const dp of this.doc.drawPaths) {
-      if (dp.positionSequences.length === 0) continue;
-      consider(dp.positionSequences[0].point, dp.startRef);
-      consider(dp.positionSequences[dp.positionSequences.length - 1].point, dp.endRef);
-    }
-
-    return best;
-  }
-
-  findNearestConnectionPoint(gridPt: GridPoint, radius = 0.5, onResolved?: () => void): GridPoint | null {
-    return this.findNearestConnectionTarget(gridPt, radius, onResolved)?.point ?? null;
-  }
 
   /** Returns the id of the closest component/wire at gridPt, or null. */
   hitTest(gridPt: GridPoint): string | null {
