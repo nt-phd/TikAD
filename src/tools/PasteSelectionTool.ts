@@ -13,9 +13,17 @@ export class PasteSelectionTool extends BaseTool {
     super(ctx);
   }
 
+  private lastGridPt: GridPoint | null = null;
+
   private renderGhost(gridPt: GridPoint): void {
+    this.ctx.ghost.onGhostProbeReady = () => this.renderGhost(gridPt);
     const entries = previewClipboardAt(this.payload, gridPt);
     this.ctx.ghost.setGhostElement(this.ctx.ghost.buildClipboardGhost(entries));
+  }
+
+  onBodyChanged(): void {
+    this.lastGridPt = null;
+    this.ctx.ghost.setGhostElement(null);
   }
 
   onMouseDown(gridPt: GridPoint, e: MouseEvent): void {
@@ -25,6 +33,7 @@ export class PasteSelectionTool extends BaseTool {
   }
 
   onMouseMove(gridPt: GridPoint, _e: MouseEvent): void {
+    this.lastGridPt = gridPt;
     this.renderGhost(gridPt);
   }
 

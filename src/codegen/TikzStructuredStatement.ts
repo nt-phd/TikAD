@@ -146,7 +146,7 @@ function parseNodeSegmentFromKeyword(source: string, nodeStart: number, position
   if (atEnd != null) {
     const position = scanTikzPointSequence(source, atEnd);
     if (!position) return null;
-    positionText = buildNodePlacementText(nodeName, position.text);
+    positionText = position.text;
     cursor = position.end;
   }
   cursor = skipTikzWhitespace(source, cursor);
@@ -222,7 +222,8 @@ function serializeTopLevelNodeSegment(segment: EditableNodeSegment, positionText
   const options: string[] = [];
   if (segment.tikzName) options.push(segment.tikzName);
   if (segment.optionsText) options.push(segment.optionsText);
-  return `node${options.length > 0 ? `[${options.join(', ')}]` : ''} ${positionText.trim()} {${segment.text ?? ''}}`;
+  const nodeName = segment.nodeName ? `(${segment.nodeName}) ` : '';
+  return `node${options.length > 0 ? `[${options.join(', ')}]` : ''} ${nodeName}at ${positionText.trim()} {${segment.text ?? ''}}`;
 }
 
 function buildNodePlacementText(nodeName: string | undefined, positionText: string): string {

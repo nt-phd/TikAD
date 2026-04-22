@@ -31,6 +31,7 @@ export class ToolManager {
   }
 
   get currentType(): ToolType { return this._currentType; }
+  get activeTool(): BaseTool { return this.currentTool; }
   get currentDefId(): string | undefined { return this._currentDefId; }
   get wireRoutingMode(): WireRoutingMode { return this._wireRoutingMode; }
   get hasClipboard(): boolean { return this.clipboard !== null; }

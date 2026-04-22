@@ -47,6 +47,7 @@ export class GhostRenderer {
   private deletePreviewGroup: SVGGElement;
   private selectionGroup: SVGGElement;
   private hoverGroup: SVGGElement;
+  onGhostProbeReady: (() => void) | null = null;
 
   constructor(
     private overlaySvg: SVGSVGElement,
@@ -118,7 +119,7 @@ export class GhostRenderer {
         props: {},
       };
       const probe = showLatexPreview
-        ? componentProbeService.getBipoleGhostProbe(def, ghostComp, () => this.setGhostElement(this.buildBipoleGhost(defId, start, end, true)))
+        ? componentProbeService.getBipoleGhostProbe(def, ghostComp, () => this.onGhostProbeReady?.())
         : null;
       if (probe && showLatexPreview) {
         this.setLatexGhostPreview({
@@ -181,7 +182,7 @@ export class GhostRenderer {
   buildMonopoleGhost(defId: string, position: GridPoint, rotation = 0): SVGGElement | null {
     const def = this.registry.get(defId);
     if (!def) return null;
-    const probe = componentProbeService.getPlacedGhostProbe(def, rotation, () => this.setGhostElement(this.buildMonopoleGhost(defId, position, rotation)));
+    const probe = componentProbeService.getPlacedGhostProbe(def, rotation, () => this.onGhostProbeReady?.());
     if (probe) {
       this.setLatexGhostPreview({
         anchorX: position.x * this.gs,
@@ -246,6 +247,7 @@ export class GhostRenderer {
     for (const sequence of sequences) {
       for (let index = 0; index < sequence.corners.length; index++) {
         const displayPoint = this.resolveDisplayedCornerPoint(sequence, index);
+        if (!displayPoint) continue;
         if (Math.abs(displayPoint.x - cursor.x) > tolerance) continue;
         if (Math.abs(displayPoint.y - cursor.y) > tolerance) continue;
         this.hoverGroup.appendChild(this.buildCornerMarker(sequence, index, SELECTION_COLOR, GHOST_LINE_OPACITY));
@@ -345,9 +347,11 @@ export class GhostRenderer {
     const gs = this.gs;
     const g = createGroup('sel-statement-group');
     const displayHandlePoints = sequences.map((sequence) => this.resolveDisplayedSequencePoint(sequence));
-    const displayPathPoints = operators.length === displayHandlePoints.length - 1
-      ? this.expandDisplayedWirePoints(displayHandlePoints, operators)
-      : displayHandlePoints;
+    if (displayHandlePoints.some((p) => p === null)) return g;
+    const resolvedHandlePoints = displayHandlePoints as GridPoint[];
+    const displayPathPoints = operators.length === resolvedHandlePoints.length - 1
+      ? this.expandDisplayedWirePoints(resolvedHandlePoints, operators)
+      : resolvedHandlePoints;
     for (let i = 0; i < displayPathPoints.length - 1; i++) {
       const a = displayPathPoints[i];
       const b = displayPathPoints[i + 1];
@@ -508,7 +512,9 @@ export class GhostRenderer {
     const g = createGroup('sel-draw-path');
     // Connection lines between consecutive positions
     const operators = path.segments.map((s) => (s.kind === 'connection' ? (s.operator ?? '--') : '--') as '--' | '|-' | '-|');
-    const handlePoints = path.positionSequences.map((s) => this.resolveDisplayedSequencePoint(s));
+    const resolvedPoints = path.positionSequences.map((s) => this.resolveDisplayedSequencePoint(s));
+    if (resolvedPoints.some((p) => p === null)) return g;
+    const handlePoints = resolvedPoints as GridPoint[];
     const displayPoints = this.expandDisplayedWirePoints(handlePoints, operators);
     for (let i = 0; i < displayPoints.length - 1; i++) {
       const a = displayPoints[i];
@@ -549,6 +555,7 @@ export class GhostRenderer {
     const gs = this.gs;
     const startPoint = comp.startSequence ? this.resolveDisplayedSequencePoint(comp.startSequence) : comp.start;
     const endPoint = comp.endSequence ? this.resolveDisplayedSequencePoint(comp.endSequence) : comp.end;
+    if (!startPoint || !endPoint) return;
     const sx = startPoint.x * gs;
     const sy = startPoint.y * gs;
     const ex = endPoint.x * gs;
@@ -582,7 +589,7 @@ export class GhostRenderer {
     const cy = y * gs;
     const selectedComp = selectionId ? this.doc.getComponent(selectionId) : undefined;
     const probe = selectionId && selectedComp
-      ? componentProbeService.getSelectionProbe(selectionId, selectedComp, def, () => this.renderSelection())
+      ? componentProbeService.getPlacedGhostProbe(def, rotation, () => this.renderSelection())
       : null;
     if (!probe) return null;
     const nodeName = selectedComp && 'nodeName' in selectedComp ? selectedComp.nodeName : undefined;
@@ -655,8 +662,10 @@ export class GhostRenderer {
       if (skipLastCorner && index === lastIndex) continue;
       const corner = sequence.corners[index];
       const displayPoint = this.resolveDisplayedCornerPoint(sequence, index);
+      if (!displayPoint) continue;
       if (corner.kind === 'relative' && corner.relativeFromIndex !== undefined) {
         const originPoint = this.resolveDisplayedCornerPoint(sequence, corner.relativeFromIndex);
+        if (!originPoint) continue;
         parent.appendChild(this.buildRelativeOriginMarker(sequence, corner.relativeFromIndex, color));
         parent.appendChild(this.createRelativeVector(
           originPoint.x * gs,
@@ -680,6 +689,7 @@ export class GhostRenderer {
   ): SVGGElement {
     const gs = this.gs;
     const displayPoint = this.resolveDisplayedCornerPoint(sequence, index);
+    if (!displayPoint) return createGroup('sel-corner-empty');
     const x = displayPoint.x * gs;
     const y = displayPoint.y * gs;
     if (this.resolveCornerMarkerKind(sequence, index) === 'ring') {
@@ -696,6 +706,7 @@ export class GhostRenderer {
   ): SVGGElement {
     const gs = this.gs;
     const displayPoint = this.resolveDisplayedCornerPoint(sequence, index);
+    if (!displayPoint) return createGroup('sel-relative-origin-empty');
     const x = displayPoint.x * gs;
     const y = displayPoint.y * gs;
     if (this.resolveCornerMarkerKind(sequence, index) === 'ring') {
@@ -737,18 +748,18 @@ export class GhostRenderer {
     return undefined;
   }
 
-  private resolveDisplayedSequencePoint(sequence: PositionSequencePreview): GridPoint {
+  private resolveDisplayedSequencePoint(sequence: PositionSequencePreview): GridPoint | null {
     return this.resolveDisplayedCornerPoint(sequence, sequence.corners.length - 1);
   }
 
-  private resolveDisplayedCornerPoint(sequence: PositionSequencePreview, index: number): GridPoint {
+  private resolveDisplayedCornerPoint(sequence: PositionSequencePreview, index: number): GridPoint | null {
     const corner = sequence.corners[index];
     if (corner.kind === 'reference' && corner.ref) {
-      const mapped = this.doc.getSymbolPoint(corner.ref.nodeName, corner.ref.anchor);
-      if (mapped) return mapped;
+      return this.doc.getSymbolPoint(corner.ref.nodeName, corner.ref.anchor) ?? null;
     }
     if (corner.kind === 'relative' && corner.relativeFromIndex !== undefined) {
       const originDisplay = this.resolveDisplayedCornerPoint(sequence, corner.relativeFromIndex);
+      if (!originDisplay) return null;
       const originLogical = sequence.corners[corner.relativeFromIndex].point;
       return {
         x: originDisplay.x + (corner.point.x - originLogical.x),

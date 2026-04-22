@@ -2,10 +2,12 @@
  * Model-based hit testing — no DOM queries needed.
  * Works in grid coordinates (integer TikZ units).
  */
-import type { ConnectionRef, DrawingInstance, DrawPathInstance, GridPoint } from '../types';
+import type { ComponentDef, ComponentInstance, ConnectionRef, DrawingInstance, DrawPathInstance, GridPoint } from '../types';
 import type { CircuitDocument } from '../model/CircuitDocument';
 import type { ComponentRegistry } from '../definitions/ComponentRegistry';
 import { getBipoleBodyMetrics, getPlacedComponentMetrics } from './ComponentGeometry';
+import { componentProbeService } from './ComponentProbeService';
+import { scaleState } from './ScaleState';
 
 const HIT_THRESHOLD = 0.5; // grid units
 
@@ -24,6 +26,12 @@ function distPointToSegment(
 
 function pointInRect(px: number, py: number, left: number, top: number, right: number, bottom: number): boolean {
   return px >= left && px <= right && py >= top && py <= bottom;
+}
+
+function distanceToRect(px: number, py: number, left: number, top: number, right: number, bottom: number): number {
+  const dx = px < left ? left - px : px > right ? px - right : 0;
+  const dy = py < top ? top - py : py > bottom ? py - bottom : 0;
+  return Math.hypot(dx, dy);
 }
 
 function ccw(ax: number, ay: number, bx: number, by: number, cx: number, cy: number): number {
@@ -104,6 +112,32 @@ function distanceToDrawing(drawing: DrawingInstance, pt: GridPoint): number {
       return best;
     }
   }
+}
+
+function getPlacedHitMetrics(
+  comp: ComponentInstance,
+  def: ComponentDef,
+): {
+  height: number;
+  leftOffset: number;
+  topOffset: number;
+  width: number;
+} {
+  if (comp.type !== 'bipole') {
+    const probe = componentProbeService.getPlacedGhostProbe(def, comp.rotation ?? 0, () => {});
+    if (probe) {
+      const gs = scaleState.effectiveGridSize;
+      return {
+        height: probe.bboxHeight / gs,
+        leftOffset: probe.bboxLeft / gs,
+        topOffset: probe.bboxTop / gs,
+        width: probe.bboxWidth / gs,
+      };
+    }
+  }
+
+  const { width, height, leftOffset, topOffset } = getPlacedComponentMetrics(def, 1);
+  return { width, height, leftOffset, topOffset };
 }
 
 function drawingIntersectsRect(drawing: DrawingInstance, left: number, top: number, right: number, bottom: number): boolean {
@@ -237,7 +271,7 @@ export class HitTester {
       } else if (comp.type === 'monopole' || comp.type === 'node') {
         const def = this.registry.get(comp.defId);
         if (!def) continue;
-        const { width, height, leftOffset, topOffset } = getPlacedComponentMetrics(def, 1);
+        const { width, height, leftOffset, topOffset } = getPlacedHitMetrics(comp, def);
         const angle = -(comp.rotation ?? 0) * Math.PI / 180;
         const relX = gridPt.x - comp.position.x;
         const relY = gridPt.y - comp.position.y;
@@ -245,14 +279,7 @@ export class HitTester {
         const localY = relX * Math.sin(angle) + relY * Math.cos(angle);
         const left = leftOffset;
         const top = topOffset;
-        if (
-          localX >= left &&
-          localX <= left + width &&
-          localY >= top &&
-          localY <= top + height
-        ) {
-          d = 0;
-        }
+        d = distanceToRect(localX, localY, left, top, left + width, top + height);
       }
       if (d < bestDist) { bestDist = d; best = comp.id; }
     }
@@ -323,7 +350,7 @@ export class HitTester {
 
       const def = this.registry.get(comp.defId);
       if (!def) continue;
-      const { width, height, leftOffset, topOffset } = getPlacedComponentMetrics(def, 1);
+      const { width, height, leftOffset, topOffset } = getPlacedHitMetrics(comp, def);
       const leftLocal = leftOffset;
       const topLocal = topOffset;
       const angle = (comp.rotation ?? 0) * Math.PI / 180;

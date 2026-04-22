@@ -1,5 +1,6 @@
 import type { ComponentDef, ComponentInstance, GridPoint, PositionSequencePreview } from '../types';
-import { getProbeDerivedComponentAnchorPoints } from './TikzComponentAnchors';
+import { componentProbeService } from '../canvas/ComponentProbeService';
+import { scaleState } from '../canvas/ScaleState';
 
 export interface TikzGeometryState {
   statementPositions: Map<string, Array<PositionSequencePreview | null>>;
@@ -69,9 +70,14 @@ export function registerComponentGeometry(
   def: ComponentDef,
 ): void {
   if (comp.type === 'bipole' || !comp.nodeName) return;
-  for (const anchorPoint of getProbeDerivedComponentAnchorPoints(comp, def)) {
-    if (!anchorPoint.ref?.anchor) continue;
-    setGeometryStorePoint(store, comp.nodeName, anchorPoint.point, anchorPoint.ref.anchor);
+  const probe = componentProbeService.getPlacedGhostProbe(def, comp.rotation ?? 0, () => {});
+  if (probe && probe.pinOffsets.length > 0) {
+    for (const pin of probe.pinOffsets) {
+      setGeometryStorePoint(store, comp.nodeName, {
+        x: comp.position.x + pin.x / scaleState.effectiveGridSize,
+        y: comp.position.y + pin.y / scaleState.effectiveGridSize,
+      }, pin.name);
+    }
   }
   setGeometryStorePoint(store, comp.nodeName, comp.position, 'reference');
 }

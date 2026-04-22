@@ -26,6 +26,7 @@ export class BaseTool {
   onMouseMove(_gridPt: GridPoint, _e: MouseEvent): void {}
   onMouseUp(_gridPt: GridPoint, _e: MouseEvent): void {}
   onKeyDown(_e: KeyboardEvent): void {}
+  onBodyChanged(): void {}
   activate(): void {}
   deactivate(): void { this.ctx.ghost.setGhostElement(null); }
 }

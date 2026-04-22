@@ -1,6 +1,5 @@
 import { GRID_SIZE, RENDER_SERVER_URL, TIKZ_PT_PER_UNIT } from '../constants';
-import type { BipoleInstance, ComponentDef, ComponentInstance } from '../types';
-import { lineIndexFromId } from '../codegen/CircuiTikZParser';
+import type { BipoleInstance, ComponentDef } from '../types';
 
 const PT_TO_PX = GRID_SIZE / TIKZ_PT_PER_UNIT;
 const MARKER_PALETTE = ['#ff006e', '#00c853', '#2962ff', '#ffab00', '#aa00ff', '#00b8d4', '#ff5722', '#8bc34a'];
@@ -113,12 +112,6 @@ function normalizeColor(value: string | null): string {
 }
 
 
-function parseCoordPair(s: string): { x: number; y: number } | null {
-  const m = s.match(/\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
-  if (!m) return null;
-  return { x: Number.parseFloat(m[1]), y: Number.parseFloat(m[2]) };
-}
-
 function assignMarkerColors(pinNames: string[]): ProbeMarkerSpec[] {
   return pinNames.map((name, index) => ({
     name,
@@ -200,89 +193,6 @@ function measureProbeSvg(
   }
 }
 
-function buildPlacedProbeFromSource(source: { body: string; preamble: string }, sourceLine: string, def: ComponentDef): ProbeRequest | null {
-  const tikzOptions = extractTikzPictureOptions(source.body);
-  let probeLine: string | null = null;
-  const nodeName = 'probe';
-
-  const nodeStmt = sourceLine.match(/^(\s*\\node\s*)\[([^\]]+)\]\s*(?:\(([^)]+)\))?\s+at\s+\([^)]+\)([\s\S]*)$/);
-  if (nodeStmt) {
-    probeLine = `${nodeStmt[1]}[${nodeStmt[2]}](${nodeName}) at (0,0) {};`;
-  } else {
-    const pathNodeStmt = sourceLine.match(/^(\s*\\(?:draw|path)\s*)\([^)]+\)\s+node\[([^\]]+)\](\s*\{[\s\S]*?\}\s*);?$/);
-    if (pathNodeStmt) probeLine = `${pathNodeStmt[1]}(0,0) node[${pathNodeStmt[2]}](${nodeName})${pathNodeStmt[3]};`;
-  }
-  if (!probeLine) return null;
-
-  const pinNames = (def.symbolPins ?? [])
-    .map((pin) => pin.name)
-    .filter((name) => !['START', 'END', 'reference', 'center'].includes(name));
-  if (def.scaleFamily === 'amplifiers' && !pinNames.includes('out')) pinNames.push('out');
-  const markers = assignMarkerColors(['__REFERENCE__', ...(pinNames.length > 0 ? pinNames : ['reference'])]);
-  markers[0].target = '';
-  const markerLines = buildMarkerLines(nodeName, markers);
-  if (pinNames.length === 0) {
-    markerLines.splice(1, markerLines.length - 1, `\\fill[${markers[1].latexColorName}] (0,0) circle[radius=0.08];`);
-  }
-
-  const displayLatex = [
-    '\\documentclass[tikz,border=2pt]{standalone}',
-    source.preamble,
-    '\\begin{document}',
-    `\\begin{tikzpicture}${tikzOptions}`,
-    probeLine,
-    '\\end{tikzpicture}',
-    '\\end{document}',
-  ].join('\n');
-
-  return {
-    cacheKey: `placed:${source.preamble}\n@@\n${tikzOptions}\n@@\n${probeLine}\n@@\n${def.id}`,
-    displayLatex,
-    markers,
-    latex: [
-      '\\documentclass[tikz,border=2pt]{standalone}',
-      source.preamble,
-      ...buildMarkerColorDefs(markers),
-      '\\begin{document}',
-      `\\begin{tikzpicture}${tikzOptions}`,
-      probeLine,
-      ...markerLines,
-      '\\end{tikzpicture}',
-      '\\end{document}',
-    ].join('\n'),
-  };
-}
-
-function findEnclosingPathCommand(body: string, lineIndex: number): 'draw' | 'path' | null {
-  const lines = body.split('\n');
-  for (let i = lineIndex - 1; i >= 0; i--) {
-    const trimmed = lines[i]?.replace(/%.*$/, '').trim();
-    if (!trimmed) continue;
-    if (trimmed === ';') break;
-    const match = trimmed.match(/^\\(draw|path)(?:\[[^\]]*\])?\s*$/);
-    if (match) return match[1] as 'draw' | 'path';
-    if (trimmed.startsWith('\\')) break;
-  }
-  return null;
-}
-
-function buildPlacedProbeRequest(
-  source: { body: string; preamble: string },
-  sourceLine: string,
-  lineIndex: number,
-  def: ComponentDef,
-): ProbeRequest | null {
-  const direct = buildPlacedProbeFromSource(source, sourceLine, def);
-  if (direct) return direct;
-  const bareNodeLine = sourceLine.match(/^(\s*\([^)]+\)\s+)node\[([^\]]+)\](?:\s*\(([^)]+)\))?(\s*\{[\s\S]*\}\s*;?)$/);
-  if (!bareNodeLine) return null;
-  const command = findEnclosingPathCommand(source.body, lineIndex) ?? 'path';
-  return buildPlacedProbeFromSource(
-    source,
-    `\\${command} ${bareNodeLine[1]}node[${bareNodeLine[2]}]${bareNodeLine[3] ? `(${bareNodeLine[3]})` : ''}${bareNodeLine[4]}`,
-    def,
-  );
-}
 
 function buildPlacedGhostProbe(source: { body: string; preamble: string }, def: ComponentDef, rotation: number): ProbeRequest {
   const tikzOptions = extractTikzPictureOptions(source.body);
@@ -329,47 +239,6 @@ function buildPlacedGhostProbe(source: { body: string; preamble: string }, def: 
   };
 }
 
-function buildBipoleProbeLatex(source: { body: string; preamble: string }, sourceLine: string): ProbeRequest | null {
-  const tikzOptions = extractTikzPictureOptions(source.body);
-  const bipoleStmt = sourceLine.match(/^(\s*\\draw\s*)(\([^)]+\))\s+to\[([^\]]+)\]\s+(\([^)]+\))\s*;?\s*$/);
-  if (!bipoleStmt) return null;
-  const start = parseCoordPair(bipoleStmt[2]);
-  const end = parseCoordPair(bipoleStmt[4]);
-  if (!start || !end) return null;
-  const dist = Math.hypot(end.x - start.x, end.y - start.y);
-  const markers: ProbeMarkerSpec[] = [
-    { name: 'START', target: '', color: MARKER_PALETTE[0], latexColorName: 'probeMarker0' },
-    { name: 'END', target: '', color: MARKER_PALETTE[1], latexColorName: 'probeMarker1' },
-  ];
-  const cleanDraw = `${bipoleStmt[1]}(0,0) to[${bipoleStmt[3]}] (${dist},0);`;
-  const displayLatex = [
-    '\\documentclass[tikz,border=2pt]{standalone}',
-    source.preamble,
-    '\\begin{document}',
-    `\\begin{tikzpicture}${tikzOptions}`,
-    cleanDraw,
-    '\\end{tikzpicture}',
-    '\\end{document}',
-  ].join('\n');
-
-  return {
-    cacheKey: `bipole:${source.preamble}\n@@\n${tikzOptions}\n@@\n${bipoleStmt[3]}\n@@\n${dist}`,
-    displayLatex,
-    markers,
-    latex: [
-      '\\documentclass[tikz,border=2pt]{standalone}',
-      source.preamble,
-      ...buildMarkerColorDefs(markers),
-      '\\begin{document}',
-      `\\begin{tikzpicture}${tikzOptions}`,
-      cleanDraw,
-      `\\fill[${markers[0].latexColorName}] (0,0) circle[radius=0.08];`,
-      `\\fill[${markers[1].latexColorName}] (${dist},0) circle[radius=0.08];`,
-      '\\end{tikzpicture}',
-      '\\end{document}',
-    ].join('\n'),
-  };
-}
 
 function buildBipoleGhostProbe(source: { body: string; preamble: string }, def: ComponentDef, comp: BipoleInstance): ProbeRequest {
   const tikzOptions = extractTikzPictureOptions(source.body);
@@ -424,22 +293,7 @@ export class ComponentProbeService {
     this.inflightCallbacks.clear();
   }
 
-  getSelectionProbe(id: string, comp: ComponentInstance, def: ComponentDef, onResolved: () => void): ComponentRenderProbe | null {
-    if (!this.getLatexSource) return null;
-    const source = this.getLatexSource();
-    const lineIndex = lineIndexFromId(id);
-    if (lineIndex < 0) return null;
-    const sourceLine = source.body.split('\n')[lineIndex]?.trim();
-    if (!sourceLine) return null;
-    const request = comp.type === 'bipole'
-      ? buildBipoleProbeLatex(source, sourceLine)
-      : buildPlacedProbeRequest(source, sourceLine, lineIndex, def);
-    if (!request) return null;
-    request.persist = true;
-    return this.getOrQueueProbe(request, onResolved);
-  }
-
-  getBipoleGhostProbe(def: ComponentDef, comp: BipoleInstance, onResolved: () => void, persist = false): ComponentRenderProbe | null {
+getBipoleGhostProbe(def: ComponentDef, comp: BipoleInstance, onResolved: () => void, persist = false): ComponentRenderProbe | null {
     if (!this.getLatexSource) return null;
     const source = this.getLatexSource();
     const request = buildBipoleGhostProbe(source, def, comp);

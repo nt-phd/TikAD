@@ -34,6 +34,16 @@ export class PlaceBipoleTool extends BaseTool {
     }
   }
 
+  onBodyChanged(): void {
+    this.hoverPoint = null;
+    this.ctx.ghost.setGhostElement(null);
+  }
+
+  private rebuildGhost(): void {
+    if (!this.startPoint || !this.hoverPoint) return;
+    this.ctx.ghost.setGhostElement(this.ctx.ghost.buildBipoleGhost(this.defId, this.startPoint, this.hoverPoint, false));
+  }
+
   onMouseMove(gridPt: GridPoint, _e: MouseEvent): void {
     if (!this.startPoint) return;
     if (pointsEqual(this.startPoint, gridPt)) {
@@ -44,6 +54,7 @@ export class PlaceBipoleTool extends BaseTool {
     const changed = !this.hoverPoint || !pointsEqual(this.hoverPoint, gridPt);
     this.hoverPoint = gridPt;
     if (changed) {
+      this.ctx.ghost.onGhostProbeReady = () => this.rebuildGhost();
       const ghost = this.ctx.ghost.buildBipoleGhost(this.defId, this.startPoint, gridPt, false);
       this.ctx.ghost.setGhostElement(ghost);
     }

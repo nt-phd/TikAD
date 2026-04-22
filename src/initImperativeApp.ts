@@ -729,7 +729,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       parseCircuiTikZ(latexDoc.body, circuitDoc, registry);
       primeNodeAnchorProbes();
       reconcileSelection('programmatic');
-      canvas.refresh(); // overlay only — body has not changed, no re-render needed
+      canvas.refresh();
       eventBus.emit({ type: 'geometry-changed' });
     });
   };
@@ -741,7 +741,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       if ((comp.type !== 'node' && comp.type !== 'monopole') || !comp.nodeName) continue;
       const def = registry.get(comp.defId);
       if (!def) continue;
-      componentProbeService.getSelectionProbe(comp.id, comp, def, () => {
+      componentProbeService.getPlacedGhostProbe(def, comp.rotation ?? 0, () => {
         if (latexDoc.body !== bodySnapshot || latexDoc.preamble !== preambleSnapshot) return;
         scheduleAnchorProbeReparse();
       });
@@ -903,6 +903,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
   // Single place where a LaTeX render is triggered: whenever the body changes.
   eventBus.on('body-changed', () => {
     canvas.scheduleRender();
+    toolManager.activeTool.onBodyChanged();
   });
 
   eventBus.on('selection-changed', (e) => {
@@ -945,6 +946,8 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       latexDoc.body = translateSourceCoordinates(latexDoc.body, e.sourceTranslations);
       syncTikzScale();
       componentProbeService.invalidate();
+      parseCurrentBody();
+      reconcileSelection('programmatic');
       eventBus.emit({ type: 'body-changed' });
       canvas.refresh();
       return;

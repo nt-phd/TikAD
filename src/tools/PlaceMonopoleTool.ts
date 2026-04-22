@@ -4,9 +4,20 @@ import { formatCoord } from '../codegen/CoordFormatter';
 
 export class PlaceMonopoleTool extends BaseTool {
   private rotation: Rotation = 0;
+  private lastGridPt: GridPoint | null = null;
 
   constructor(ctx: import('./BaseTool').ToolContext, private defId: string) {
     super(ctx);
+  }
+
+  onBodyChanged(): void {
+    this.lastGridPt = null;
+    this.ctx.ghost.setGhostElement(null);
+  }
+
+  private rebuildGhost(): void {
+    if (!this.lastGridPt) return;
+    this.ctx.ghost.setGhostElement(this.ctx.ghost.buildMonopoleGhost(this.defId, this.lastGridPt, this.rotation));
   }
 
   onMouseDown(gridPt: GridPoint, e: MouseEvent): void {
@@ -20,6 +31,8 @@ export class PlaceMonopoleTool extends BaseTool {
   }
 
   onMouseMove(gridPt: GridPoint, _e: MouseEvent): void {
+    this.lastGridPt = gridPt;
+    this.ctx.ghost.onGhostProbeReady = () => this.rebuildGhost();
     const ghost = this.ctx.ghost.buildMonopoleGhost(this.defId, gridPt, this.rotation);
     this.ctx.ghost.setGhostElement(ghost);
   }
@@ -34,6 +47,7 @@ export class PlaceMonopoleTool extends BaseTool {
 
   deactivate(): void {
     this.rotation = 0;
+    this.lastGridPt = null;
     super.deactivate();
   }
 }
