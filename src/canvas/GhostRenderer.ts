@@ -585,7 +585,8 @@ export class GhostRenderer {
       ? componentProbeService.getSelectionProbe(selectionId, selectedComp, def, () => this.renderSelection())
       : null;
     if (!probe) return null;
-    return this.buildProbeSelectionGroup(cx, cy, probe, ghost, rotation, color, showAnchorMarker);
+    const nodeName = selectedComp && 'nodeName' in selectedComp ? selectedComp.nodeName : undefined;
+    return this.buildProbeSelectionGroup(cx, cy, probe, ghost, rotation, color, showAnchorMarker, nodeName);
   }
 
   private buildProbeSelectionGroup(
@@ -596,6 +597,7 @@ export class GhostRenderer {
     rotationDeg = 0,
     color: string = SELECTION_COLOR,
     showAnchorMarker = true,
+    nodeName?: string,
   ): SVGGElement {
     const gs = this.gs;
     const g = createGroup('sel-probe');
@@ -625,14 +627,8 @@ export class GhostRenderer {
     }
     if (!ghost) {
       for (const pin of probe.pinOffsets) {
-        g.appendChild(this.tooltipRingAt(
-          pin.x,
-          pin.y,
-          gs * OVERLAY_MARKER_RADIUS,
-          pin.name,
-          color,
-          SELECTION_LINE_OPACITY,
-        ));
+        const label = nodeName ? `${nodeName}.${pin.name}` : pin.name;
+        g.appendChild(this.tooltipRingAt(pin.x, pin.y, gs * OVERLAY_MARKER_RADIUS, label, color, SELECTION_LINE_OPACITY));
       }
     }
     return g;

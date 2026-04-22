@@ -109,7 +109,7 @@ body.theme-dark .canvas-container::before {
   border-radius: 6px;
   background: rgba(36, 36, 36, 0.94);
   color: #fff;
-  font-family: Roboto, sans-serif;
+  font-family: 'Roboto Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 12px;
   line-height: 1.2;
   white-space: nowrap;
