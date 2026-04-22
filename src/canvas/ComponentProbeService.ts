@@ -112,20 +112,6 @@ function normalizeColor(value: string | null): string {
   return input.replace(/\s+/g, '');
 }
 
-function unionBounds(bounds: DOMRect[]): DOMRect | null {
-  if (bounds.length === 0) return null;
-  let left = bounds[0].x;
-  let top = bounds[0].y;
-  let right = bounds[0].x + bounds[0].width;
-  let bottom = bounds[0].y + bounds[0].height;
-  for (const bbox of bounds.slice(1)) {
-    left = Math.min(left, bbox.x);
-    top = Math.min(top, bbox.y);
-    right = Math.max(right, bbox.x + bbox.width);
-    bottom = Math.max(bottom, bbox.y + bbox.height);
-  }
-  return new DOMRect(left, top, right - left, bottom - top);
-}
 
 function parseCoordPair(s: string): { x: number; y: number } | null {
   const m = s.match(/\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
@@ -154,28 +140,9 @@ function buildMarkerColorDefs(markers: ProbeMarkerSpec[]): string[] {
     `\\definecolor{${marker.latexColorName}}{HTML}{${marker.color.slice(1).toUpperCase()}}`);
 }
 
-function stripMarkerElements(svg: SVGSVGElement, markerColors: Set<string>): SVGSVGElement {
-  const cleaned = svg.cloneNode(true) as SVGSVGElement;
-  const elements = [...cleaned.querySelectorAll<SVGGraphicsElement>('path, circle, ellipse, rect, line, polygon, polyline, use')];
-  for (const element of elements) {
-    const fill = normalizeColor(element.getAttribute('fill'));
-    const stroke = normalizeColor(element.getAttribute('stroke'));
-    const style = normalizeColor(element.getAttribute('style'));
-    if (
-      markerColors.has(fill) ||
-      markerColors.has(stroke) ||
-      [...markerColors].some((color) => style.includes(color))
-    ) {
-      element.remove();
-    }
-  }
-  return cleaned;
-}
 
 function measureProbeSvg(
   svgText: string,
-  tx: number,
-  ty: number,
   markers: ProbeMarkerSpec[],
 ): ComponentRenderProbe | null {
   const parser = new DOMParser();
@@ -184,89 +151,49 @@ function measureProbeSvg(
   if (!svg) return null;
 
   const host = document.createElement('div');
-  host.style.position = 'absolute';
-  host.style.width = '0';
-  host.style.height = '0';
-  host.style.overflow = 'hidden';
-  host.style.pointerEvents = 'none';
+  host.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
   host.appendChild(document.importNode(svg, true));
   document.body.appendChild(host);
 
   try {
-    const liveSvg = host.querySelector('svg');
-    if (!liveSvg) return null;
-    const markerColorMap = new Map(markers.map((marker) => [normalizeColor(marker.color), marker.name]));
-    const markerColors = new Set(markerColorMap.keys());
-    const elements = [...liveSvg.querySelectorAll<SVGGraphicsElement>('path, circle, ellipse, rect, line, polygon, polyline, use')];
-    const pinBounds = new Map<string, DOMRect>();
-    const bodyBounds: DOMRect[] = [];
+    const liveSvg = host.querySelector('svg')!;
+    const markerColorMap = new Map(markers.map((m) => [normalizeColor(m.color), m]));
 
-    for (const element of elements) {
-      let bbox: DOMRect;
-      try {
-        bbox = element.getBBox();
-      } catch {
-        continue;
-      }
-      if (!bbox.width && !bbox.height) continue;
-
-      const fill = normalizeColor(element.getAttribute('fill'));
-      const stroke = normalizeColor(element.getAttribute('stroke'));
-      const style = normalizeColor(element.getAttribute('style'));
-      const markerName =
-        markerColorMap.get(fill) ??
-        markerColorMap.get(stroke) ??
-        [...markerColorMap.entries()].find(([color]) => style.includes(color))?.[1];
-
-      if (markerName) {
-        pinBounds.set(markerName, bbox);
-        continue;
-      }
-      bodyBounds.push(bbox);
+    // Identify marker elements by color, measure their centers, then remove them.
+    const pinCenters = new Map<string, { x: number; y: number }>();
+    for (const el of liveSvg.querySelectorAll<SVGGraphicsElement>('circle, path, ellipse, rect')) {
+      const fill = normalizeColor(el.getAttribute('fill'));
+      const marker = markerColorMap.get(fill);
+      if (!marker) continue;
+      const b = el.getBBox();
+      pinCenters.set(marker.name, { x: b.x + b.width / 2, y: b.y + b.height / 2 });
+      el.remove();
     }
 
-    const referenceBounds = pinBounds.get('__REFERENCE__');
-    const anchorX = referenceBounds ? referenceBounds.x + referenceBounds.width / 2 : tx;
-    const anchorY = referenceBounds ? referenceBounds.y + referenceBounds.height / 2 : ty;
-    const bboxNorthWest = pinBounds.get('__BBOX_NW__');
-    const bboxSouthEast = pinBounds.get('__BBOX_SE__');
+    // Measure the body bbox from the SVG root — all transforms already applied.
+    const bodyBbox = liveSvg.getBBox();
+    if (!bodyBbox.width && !bodyBbox.height) return null;
 
-    const bbox = (() => {
-      if (bboxNorthWest && bboxSouthEast) {
-        const nwX = bboxNorthWest.x + bboxNorthWest.width / 2;
-        const nwY = bboxNorthWest.y + bboxNorthWest.height / 2;
-        const seX = bboxSouthEast.x + bboxSouthEast.width / 2;
-        const seY = bboxSouthEast.y + bboxSouthEast.height / 2;
-        const left = Math.min(nwX, seX);
-        const top = Math.min(nwY, seY);
-        const right = Math.max(nwX, seX);
-        const bottom = Math.max(nwY, seY);
-        return new DOMRect(left, top, right - left, bottom - top);
-      }
-      return unionBounds(bodyBounds);
-    })();
-    if (!bbox) return null;
+    const anchor = pinCenters.get('__REFERENCE__');
+    if (!anchor) return null;
 
-    const pinOffsets = markers.map((marker) => {
-      if (marker.name === '__REFERENCE__' || marker.name === '__BBOX_NW__' || marker.name === '__BBOX_SE__') return null;
-      const pin = pinBounds.get(marker.name);
-      if (!pin) return null;
-      return {
-        name: marker.name,
-        x: (pin.x + pin.width / 2 - anchorX) * PT_TO_PX,
-        y: (pin.y + pin.height / 2 - anchorY) * PT_TO_PX,
-      };
-    }).filter(Boolean) as Array<{ name: string; x: number; y: number }>;
+    const pinOffsets = markers
+      .filter((m) => m.name !== '__REFERENCE__')
+      .flatMap((m) => {
+        const pin = pinCenters.get(m.name);
+        if (!pin) return [];
+        return [{ name: m.name, x: (pin.x - anchor.x) * PT_TO_PX, y: (pin.y - anchor.y) * PT_TO_PX }];
+      });
 
     return {
-      bboxLeft: (bbox.x - anchorX) * PT_TO_PX,
-      bboxTop: (bbox.y - anchorY) * PT_TO_PX,
-      bboxWidth: bbox.width * PT_TO_PX,
-      bboxHeight: bbox.height * PT_TO_PX,
+      bboxLeft: (bodyBbox.x - anchor.x) * PT_TO_PX,
+      bboxTop: (bodyBbox.y - anchor.y) * PT_TO_PX,
+      bboxWidth: bodyBbox.width * PT_TO_PX,
+      bboxHeight: bodyBbox.height * PT_TO_PX,
       pinOffsets,
-      svgMarkup: stripMarkerElements(liveSvg, markerColors).outerHTML,
-      tx,
-      ty,
+      svgMarkup: liveSvg.outerHTML,
+      tx: 0,
+      ty: 0,
     };
   } finally {
     host.remove();
@@ -291,13 +218,11 @@ function buildPlacedProbeFromSource(source: { body: string; preamble: string }, 
     .map((pin) => pin.name)
     .filter((name) => !['START', 'END', 'reference', 'center'].includes(name));
   if (def.scaleFamily === 'amplifiers' && !pinNames.includes('out')) pinNames.push('out');
-  const markers = assignMarkerColors(['__REFERENCE__', '__BBOX_NW__', '__BBOX_SE__', ...(pinNames.length > 0 ? pinNames : ['reference'])]);
+  const markers = assignMarkerColors(['__REFERENCE__', ...(pinNames.length > 0 ? pinNames : ['reference'])]);
   markers[0].target = '';
-  markers[1].target = 'north west';
-  markers[2].target = 'south east';
   const markerLines = buildMarkerLines(nodeName, markers);
   if (pinNames.length === 0) {
-    markerLines.splice(3, markerLines.length - 3, `\\fill[${markers[3].latexColorName}] (0,0) circle[radius=0.08];`);
+    markerLines.splice(1, markerLines.length - 1, `\\fill[${markers[1].latexColorName}] (0,0) circle[radius=0.08];`);
   }
 
   const displayLatex = [
@@ -370,13 +295,11 @@ function buildPlacedGhostProbe(source: { body: string; preamble: string }, def: 
     .map((pin) => pin.name)
     .filter((name) => !['START', 'END', 'reference', 'center'].includes(name));
   if (def.scaleFamily === 'amplifiers' && !pinNames.includes('out')) pinNames.push('out');
-  const markers = assignMarkerColors(['__REFERENCE__', '__BBOX_NW__', '__BBOX_SE__', ...(pinNames.length > 0 ? pinNames : ['reference'])]);
+  const markers = assignMarkerColors(['__REFERENCE__', ...(pinNames.length > 0 ? pinNames : ['reference'])]);
   markers[0].target = '';
-  markers[1].target = 'north west';
-  markers[2].target = 'south east';
   const markerLines = buildMarkerLines(nodeName, markers);
   if (pinNames.length === 0) {
-    markerLines.splice(3, markerLines.length - 3, `\\fill[${markers[3].latexColorName}] (0,0) circle[radius=0.08];`);
+    markerLines.splice(1, markerLines.length - 1, `\\fill[${markers[1].latexColorName}] (0,0) circle[radius=0.08];`);
   }
   const displayLatex = [
     '\\documentclass[tikz,border=2pt]{standalone}',
@@ -592,48 +515,36 @@ export class ComponentProbeService {
   }
 
   private async fetchProbe(request: ProbeRequest): Promise<ComponentRenderProbe | null> {
-    const response = await fetch(`${RENDER_SERVER_URL}/render`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ latex: request.latex }),
-      signal: AbortSignal.timeout(30000),
-    });
-    const data = await response.json() as { svg?: string; tx?: number; ty?: number };
-    if (!data.svg) return null;
-    const measured = measureProbeSvg(data.svg, data.tx ?? 0, data.ty ?? 0, request.markers);
-    if (!measured) return null;
-    if (!request.displayLatex) return measured;
-
-    try {
-      const displayResponse = await fetch(`${RENDER_SERVER_URL}/render`, {
+    const [markerResponse, displayResponse] = await Promise.all([
+      fetch(`${RENDER_SERVER_URL}/render`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ latex: request.latex }),
+        signal: AbortSignal.timeout(30000),
+      }),
+      request.displayLatex ? fetch(`${RENDER_SERVER_URL}/render`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ latex: request.displayLatex }),
         signal: AbortSignal.timeout(30000),
-      });
+      }) : Promise.resolve(null),
+    ]);
+
+    const markerData = await markerResponse.json() as { svg?: string };
+    if (!markerData.svg) return null;
+
+    const measured = measureProbeSvg(markerData.svg, request.markers);
+    if (!measured) return null;
+
+    if (displayResponse) {
       const displayData = await displayResponse.json() as { svg?: string; tx?: number; ty?: number };
       if (displayData.svg) {
-        const displayTx = displayData.tx ?? measured.tx;
-        const displayTy = displayData.ty ?? measured.ty;
-        const isReferenceAnchored = request.markers.some((marker) => marker.name === '__REFERENCE__');
-        if (!isReferenceAnchored) {
-          const dx = (measured.tx - displayTx) * PT_TO_PX;
-          const dy = (measured.ty - displayTy) * PT_TO_PX;
-          measured.pinOffsets = measured.pinOffsets.map((pin) => ({
-            ...pin,
-            x: pin.x + dx,
-            y: pin.y + dy,
-          }));
-          measured.bboxLeft += dx;
-          measured.bboxTop += dy;
-        }
-        measured.tx = displayTx;
-        measured.ty = displayTy;
         measured.svgMarkup = displayData.svg;
+        measured.tx = displayData.tx ?? measured.tx;
+        measured.ty = displayData.ty ?? measured.ty;
       }
-    } catch {
-      // Keep the measured+stripped SVG as fallback.
     }
+
     return measured;
   }
 }

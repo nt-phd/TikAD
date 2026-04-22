@@ -18,7 +18,7 @@ import type { CircuitDocument } from '../model/CircuitDocument';
 import { SELECTION_COLOR, GHOST_OPACITY } from '../constants';
 import { scaleState } from './ScaleState';
 import { createCircle, createGroup, createLine, createRect } from '../utils/svg';
-import { getBipoleBodyMetrics, getPlacedComponentMetrics } from './ComponentGeometry';
+import { getBipoleBodyMetrics } from './ComponentGeometry';
 import { componentProbeService, type ComponentRenderProbe } from './ComponentProbeService';
 import type { ClipboardEntry } from '../tools/SelectionClipboard';
 
@@ -195,12 +195,7 @@ export class GhostRenderer {
       this.setLatexGhostPreview(null);
     }
     const g = createGroup('ghost-monopole');
-    if (!probe) {
-      const ghost = this.buildPlacedComponentSelection(position.x, position.y, def, rotation, true);
-      if (ghost) g.appendChild(ghost);
-    } else {
-      g.appendChild(this.crossAt(position.x * this.gs, position.y * this.gs, this.gs * OVERLAY_MARKER_RADIUS, GHOST_LINE_OPACITY, OVERLAY_MARKER_COLOR));
-    }
+    g.appendChild(this.crossAt(position.x * this.gs, position.y * this.gs, this.gs * OVERLAY_MARKER_RADIUS, GHOST_LINE_OPACITY, OVERLAY_MARKER_COLOR));
     return g;
   }
 
@@ -214,13 +209,14 @@ export class GhostRenderer {
         if (entry.item.type === 'bipole') {
           g.appendChild(this.buildSingleBipoleSelection(entry.item, def, SELECTION_COLOR));
         } else {
-          g.appendChild(this.buildPlacedComponentSelection(
+          const clipGroup = this.buildPlacedComponentSelection(
             entry.item.position.x,
             entry.item.position.y,
             def,
             entry.item.rotation,
             false,
-          ));
+          );
+          if (clipGroup) g.appendChild(clipGroup);
         }
         continue;
       }
@@ -277,6 +273,7 @@ export class GhostRenderer {
         color,
         true,
       );
+      if (!bodyGroup) return null;
       if (comp.positionSequence) {
         const group = createGroup('sel-component-group');
         group.appendChild(bodyGroup);
@@ -392,7 +389,7 @@ export class GhostRenderer {
         this.deletePreviewGroup.appendChild(this.buildSingleBipoleSelection(comp, def, DELETE_PREVIEW_COLOR));
         return;
       }
-      this.deletePreviewGroup.appendChild(this.buildPlacedComponentSelection(
+      const deleteGroup = this.buildPlacedComponentSelection(
         comp.position.x,
         comp.position.y,
         def,
@@ -400,7 +397,8 @@ export class GhostRenderer {
         false,
         id,
         DELETE_PREVIEW_COLOR,
-      ));
+      );
+      if (deleteGroup) this.deletePreviewGroup.appendChild(deleteGroup);
       return;
     }
     const wire = this.doc.getWire(id);
@@ -578,48 +576,16 @@ export class GhostRenderer {
     selectionId?: string,
     color: string = SELECTION_COLOR,
     showAnchorMarker = true,
-  ): SVGGElement {
+  ): SVGGElement | null {
     const gs = this.gs;
     const cx = x * gs;
     const cy = y * gs;
     const selectedComp = selectionId ? this.doc.getComponent(selectionId) : undefined;
-    const probe = ghost
-      ? null
-      : selectionId && selectedComp
-        ? componentProbeService.getSelectionProbe(selectionId, selectedComp, def, () => this.renderSelection())
-        : null;
-    if (probe) {
-      const anchorX = cx;
-      const anchorY = cy;
-      const g = this.buildProbeSelectionGroup(anchorX, anchorY, probe, ghost, rotation, color, showAnchorMarker);
-      return g;
-    }
-    const { width, height, leftOffset, topOffset } = getPlacedComponentMetrics(def, gs);
-    const anchorX = cx;
-    const anchorY = cy;
-    const left = anchorX + leftOffset;
-    const top = anchorY + topOffset;
-    const g = createGroup('sel-point');
-    g.appendChild(createRect(left, top, width, height, ghost ? {
-      fill: color,
-      opacity: OVERLAY_FILL_OPACITY,
-    } : {
-      fill: color,
-      opacity: OVERLAY_FILL_OPACITY,
-      stroke: color,
-      'stroke-width': OVERLAY_STROKE_WIDTH,
-      'vector-effect': 'non-scaling-stroke',
-    }));
-    if (showAnchorMarker) {
-      g.appendChild(this.crossAt(
-        anchorX,
-        anchorY,
-        gs * OVERLAY_MARKER_RADIUS,
-        ghost ? GHOST_LINE_OPACITY : SELECTION_LINE_OPACITY,
-        color,
-      ));
-    }
-    return g;
+    const probe = selectionId && selectedComp
+      ? componentProbeService.getSelectionProbe(selectionId, selectedComp, def, () => this.renderSelection())
+      : null;
+    if (!probe) return null;
+    return this.buildProbeSelectionGroup(cx, cy, probe, ghost, rotation, color, showAnchorMarker);
   }
 
   private buildProbeSelectionGroup(
