@@ -4,7 +4,7 @@
 
 Draw visually like in a CAD tool, then export clean **LaTeX** code or razor-sharp **SVG** graphics ready for papers, theses, slides, Word documents, and websites.
 
-> **Live app:** [tikad.bsproj.it](https://tikad.bsproj.it) &nbsp;·&nbsp; **Landing page:** [tikad.app](https://tikad.app)
+**[tikad.app](https://tikad.app)** &nbsp;·&nbsp; [Open the editor](https://tikad.bsproj.it)
 
 ---
 
