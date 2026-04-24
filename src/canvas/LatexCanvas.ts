@@ -26,7 +26,7 @@ import { HitTester } from './HitTester';
 import {
   GRID_SIZE, TIKZ_PT_PER_UNIT, RENDER_SERVER_URL,
   GRID_COLOR_MINOR, GRID_COLOR_MAJOR,
-  ZOOM_STEP,
+  MIN_ZOOM, MAX_ZOOM, ZOOM_STEP,
 } from '../constants';
 import { scaleState } from './ScaleState';
 import { createSvgElement } from '../utils/svg';
@@ -330,7 +330,7 @@ export class LatexCanvas {
     const availableWidth = Math.max(1, rect.width - padding * 2);
     const availableHeight = Math.max(1, rect.height - padding * 2);
     const fitZoom = Math.min(availableWidth / content.width, availableHeight / content.height);
-    const clampedZoom = Math.max(0.1, Math.min(5, fitZoom));
+    const clampedZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, fitZoom));
     this.view.reset(clampedZoom);
     this.view.pan(
       (rect.width - content.width * clampedZoom) / 2 - content.left * clampedZoom,

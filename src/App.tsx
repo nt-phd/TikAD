@@ -1171,6 +1171,7 @@ function LibraryCommandView({
         disableEnforceFocus
         disableRestoreFocus
         id="library-popover"
+        keepMounted
         onClose={close}
         open={open}
         transformOrigin={{ horizontal: 'left', vertical: 'top' }}

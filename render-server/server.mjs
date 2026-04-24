@@ -207,7 +207,7 @@ function buildAnchorDiagnosticSource(latexBody, anchors) {
   const pointLines = pointMarkers
     .map((marker) => {
       const target = marker.anchor === 'reference' ? marker.nodeName : `${marker.nodeName}.${marker.anchor}`;
-      return `\\fill[${marker.latexColorName},opacity=0] (${target}) circle[radius=0.08];`;
+      return `\\fill[${marker.latexColorName}] (${target}) circle[radius=0.08];`;
     })
     .join('\n');
   const boundsLines = boundsMarkers
@@ -216,10 +216,10 @@ function buildAnchorDiagnosticSource(latexBody, anchors) {
       if (marker.corner === 'south west') {
         return [
           `\\node[fit=(${marker.nodeName}),inner sep=0pt,outer sep=0pt,draw=none] (${fitNode}) {};`,
-          `\\fill[${marker.latexColorName},opacity=0] (${fitNode}.south west) circle[radius=0.08];`,
+          `\\fill[${marker.latexColorName}] (${fitNode}.south west) circle[radius=0.08];`,
         ].join('\n');
       }
-      return `\\fill[${marker.latexColorName},opacity=0] (${fitNode}.north east) circle[radius=0.08];`;
+      return `\\fill[${marker.latexColorName}] (${fitNode}.north east) circle[radius=0.08];`;
     })
     .join('\n');
   const endToken = '\\end{tikzpicture}';
@@ -230,6 +230,47 @@ function buildAnchorDiagnosticSource(latexBody, anchors) {
     markers: pointMarkers,
     boundsMarkers,
   };
+}
+
+function normalizeColor(value) {
+  const input = (value ?? '').trim().toLowerCase();
+  if (!input) return '';
+  const hex3 = input.match(/^#([0-9a-f]{3})$/i);
+  if (hex3) {
+    const [r, g, b] = hex3[1].split('');
+    return `#${r}${r}${g}${g}${b}${b}`;
+  }
+  const hex6 = input.match(/^#([0-9a-f]{6})$/i);
+  if (hex6) return `#${hex6[1]}`;
+  const rgb = input.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (rgb) {
+    const toHex = (n) => Math.max(0, Math.min(255, Number.parseInt(n, 10))).toString(16).padStart(2, '0');
+    return `#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`;
+  }
+  const rgbPercent = input.match(/^rgba?\(([\d.]+)%\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/);
+  if (rgbPercent) {
+    const toHex = (n) => {
+      const value = Math.max(0, Math.min(255, Math.round((Number.parseFloat(n) / 100) * 255)));
+      return value.toString(16).padStart(2, '0');
+    };
+    return `#${toHex(rgbPercent[1])}${toHex(rgbPercent[2])}${toHex(rgbPercent[3])}`;
+  }
+  return input.replace(/\s+/g, '');
+}
+
+function stripDiagnosticMarkers(svgText, diagnostic) {
+  if (!diagnostic) return svgText;
+  const markerColors = new Set(
+    [...diagnostic.markers, ...diagnostic.boundsMarkers].map((marker) => normalizeColor(marker.color)),
+  );
+  const dom = new JSDOM(svgText, { contentType: 'image/svg+xml' });
+  const doc = dom.window.document;
+  const elements = doc.querySelectorAll('circle, path, ellipse, rect');
+  for (const el of elements) {
+    const fill = normalizeColor(el.getAttribute('fill'));
+    if (markerColors.has(fill)) el.remove();
+  }
+  return doc.documentElement.outerHTML;
 }
 
 const domPurifyWindow = new JSDOM('').window;
@@ -367,15 +408,16 @@ async function renderLatex(latexBody, anchors = []) {
     await runCommand('pdf2svg', ['circuit.pdf', 'circuit.svg', '1'], dir, PDF2SVG_TIMEOUT_MS);
     const svgMs = Date.now() - svgStartedAt;
 
-    const svg = sanitizeSvg(await readFile(join(dir, 'circuit.svg'), 'utf8'));
-    const match = svg.match(/transform="matrix\(1,\s*0,\s*0,\s*-1,\s*([\d.+-]+),\s*([\d.+-]+)\)"/);
+    const measuredSvg = sanitizeSvg(await readFile(join(dir, 'circuit.svg'), 'utf8'));
+    const visibleSvg = stripDiagnosticMarkers(measuredSvg, diagnostic);
+    const match = measuredSvg.match(/transform="matrix\(1,\s*0,\s*0,\s*-1,\s*([\d.+-]+),\s*([\d.+-]+)\)"/);
     const tx = match ? parseFloat(match[1]) : 0;
     const ty = match ? parseFloat(match[2]) : 0;
     const totalMs = Date.now() - startedAt;
-    log('render_success', { compileMs, svgBytes: svg.length, svgMs, totalMs });
-    const result = { svg, tx, ty };
+    log('render_success', { compileMs, svgBytes: measuredSvg.length, svgMs, totalMs });
+    const result = { svg: visibleSvg, tx, ty };
     if (diagnostic) {
-      result.anchorSvg = svg;
+      result.anchorSvg = measuredSvg;
       result.anchorTx = tx;
       result.anchorTy = ty;
       result.anchorMarkers = diagnostic.markers.map(({ latexColorName, ...marker }) => marker);
