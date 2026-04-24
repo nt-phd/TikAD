@@ -353,8 +353,9 @@ export class LatexCanvas {
           for (const bound of data.measuredBounds ?? []) {
             bounds.set(bound.componentId, { ...bound });
           }
-          if (points.size > 0 || bounds.size > 0) this.onAnchorGeometryMeasured?.(points, bounds);
+          this.onAnchorGeometryMeasured?.(points, bounds);
         }
+        if (data.anchorError) console.warn('[LatexCanvas] probe warnings:', data.anchorError);
         this.showError(null);
       } else {
         console.warn('[LatexCanvas] render error:', data.error);

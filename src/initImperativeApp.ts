@@ -726,7 +726,8 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
   };
 
   const invalidateRenderDerivedGeometry = () => {
-    circuitDoc.clearMeasuredSymbolPoints();
+    // Keep last measured geometry until the next successful probe response.
+    // This avoids pin-marker disappearance during transient render/probe failures.
   };
 
   const emitSourceChanged = (reason: string) => {

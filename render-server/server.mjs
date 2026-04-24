@@ -17,7 +17,7 @@ import http from 'http';
 import { spawn } from 'child_process';
 import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
-import { mkdtemp, writeFile, readFile, rm } from 'fs/promises';
+import { mkdtemp, writeFile, readFile, rm, access } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -171,6 +171,36 @@ function buildAnchorProbeSource(latexBody, anchors) {
     \\typeout{TIKAD_POINT|#1|\\tikadX|\\tikadY}%
   };%
 }
+\\newcommand{\\tikadProbeNodePointSafe}[2]{%
+  \\begingroup
+  \\def\\tikadNode{#2}%
+  \\ifcsname pgf@sh@ns@\\tikadNode\\endcsname
+    \\tikadProbePoint{#1}{#2}%
+  \\else
+    \\typeout{TIKAD_SKIP|#1|point|#2|node-not-found}%
+  \\fi
+  \\endgroup
+}
+\\newcommand{\\tikadProbePointSafe}[3]{%
+  \\begingroup
+  \\def\\tikadNode{#2}%
+  \\def\\tikadAnchor{#3}%
+  \\ifcsname pgf@sh@ns@\\tikadNode\\endcsname
+    \\edef\\tikadShapeName{\\csname pgf@sh@ns@\\tikadNode\\endcsname}%
+    \\ifcsname pgf@anchor@\\tikadShapeName @\\tikadAnchor\\endcsname
+      \\tikadProbePoint{#1}{#2.#3}%
+    \\else
+      \\ifcsname pgf@anchor@generic@\\tikadAnchor\\endcsname
+        \\tikadProbePoint{#1}{#2.#3}%
+      \\else
+        \\typeout{TIKAD_SKIP|#1|point|#2.#3|anchor-not-found}%
+      \\fi
+    \\fi
+  \\else
+    \\typeout{TIKAD_SKIP|#1|point|#2.#3|node-not-found}%
+  \\fi
+  \\endgroup
+}
 \\newcommand{\\tikadProbeBounds}[2]{%
   \\node[fit=(#2),inner sep=0pt,outer sep=0pt,draw=none] (tikadFit#1) {};
   \\path let \\p1=(tikadFit#1.south west), \\p2=(tikadFit#1.north east) in \\pgfextra{%
@@ -180,6 +210,16 @@ function buildAnchorProbeSource(latexBody, anchors) {
     \\pgfmathsetmacro{\\tikadYNE}{\\y2/1cm}%
     \\typeout{TIKAD_BOUNDS|#1|\\tikadXSW|\\tikadYSW|\\tikadXNE|\\tikadYNE}%
   };%
+}
+\\newcommand{\\tikadProbeBoundsSafe}[2]{%
+  \\begingroup
+  \\def\\tikadNode{#2}%
+  \\ifcsname pgf@sh@ns@\\tikadNode\\endcsname
+    \\tikadProbeBounds{#1}{#2}%
+  \\else
+    \\typeout{TIKAD_SKIP|#1|bounds|#2|node-not-found}%
+  \\fi
+  \\endgroup
 }
 `.trim();
   const documentIndex = source.indexOf('\\begin{document}');
@@ -194,7 +234,9 @@ function buildAnchorProbeSource(latexBody, anchors) {
       const target = probe.anchor === 'reference' ? probe.nodeName : `${probe.nodeName}.${probe.anchor}`;
       return [
         `\\typeout{TIKAD_PROBE_TARGET|${probe.id}|${target}}`,
-        `\\tikadProbePoint{${probe.id}}{${target}}`,
+        probe.anchor === 'reference'
+          ? `\\tikadProbeNodePointSafe{${probe.id}}{${probe.nodeName}}`
+          : `\\tikadProbePointSafe{${probe.id}}{${probe.nodeName}}{${probe.anchor}}`,
       ].join('\n');
     })
     .join('\n');
@@ -202,7 +244,7 @@ function buildAnchorProbeSource(latexBody, anchors) {
     .map((probe) => {
       return [
         `\\typeout{TIKAD_BOUNDS_TARGET|${probe.id}|${probe.nodeName}}`,
-        `\\tikadProbeBounds{${probe.id}}{${probe.nodeName}}`,
+        `\\tikadProbeBoundsSafe{${probe.id}}{${probe.nodeName}}`,
       ].join('\n');
     })
     .join('\n');
@@ -220,6 +262,7 @@ function parseProbeResults(logText, probeContext) {
   const pointById = new Map();
   const boundsById = new Map();
   const probeTargetById = new Map();
+  const skippedById = new Map();
   for (const rawLine of logText.split('\n')) {
     const line = rawLine.trim();
     if (!line.startsWith('TIKAD_')) continue;
@@ -247,6 +290,11 @@ function parseProbeResults(logText, probeContext) {
     const boundsTargetMatch = /^TIKAD_BOUNDS_TARGET\|([^|]+)\|(.+)$/.exec(line);
     if (boundsTargetMatch) {
       probeTargetById.set(boundsTargetMatch[1], boundsTargetMatch[2]);
+      continue;
+    }
+    const skipMatch = /^TIKAD_SKIP\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)$/.exec(line);
+    if (skipMatch) {
+      skippedById.set(skipMatch[1], { kind: skipMatch[2], target: skipMatch[3], reason: skipMatch[4] });
     }
   }
 
@@ -291,19 +339,29 @@ function parseProbeResults(logText, probeContext) {
   }
 
   const missingPointTargets = probeContext.pointProbes
-    .filter((probe) => !pointById.has(probe.id))
+    .filter((probe) => !pointById.has(probe.id) && !skippedById.has(probe.id))
     .map((probe) => probeTargetById.get(probe.id))
     .filter(Boolean);
   const missingBoundsTargets = probeContext.boundsProbes
-    .filter((probe) => !boundsById.has(probe.id))
+    .filter((probe) => !boundsById.has(probe.id) && !skippedById.has(probe.id))
     .map((probe) => probeTargetById.get(probe.id))
     .filter(Boolean);
+  const skippedPoints = probeContext.pointProbes
+    .map((probe) => skippedById.get(probe.id))
+    .filter((entry) => entry?.kind === 'point')
+    .map((entry) => `${entry.target} (${entry.reason})`);
+  const skippedBounds = probeContext.boundsProbes
+    .map((probe) => skippedById.get(probe.id))
+    .filter((entry) => entry?.kind === 'bounds')
+    .map((entry) => `${entry.target} (${entry.reason})`);
 
   return {
     measuredPoints,
     measuredBounds,
     missingPointTargets,
     missingBoundsTargets,
+    skippedPoints,
+    skippedBounds,
   };
 }
 
@@ -425,6 +483,46 @@ function runCommand(cmd, args, cwd, timeoutMs) {
   });
 }
 
+function runCommandAllowFailure(cmd, args, cwd, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      metrics.timeouts += 1;
+      child.kill('SIGKILL');
+      if (!settled) {
+        settled = true;
+        reject(new Error(`${cmd} timed out after ${timeoutMs}ms`));
+      }
+    }, timeoutMs);
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    });
+
+    child.on('close', (code, signal) => {
+      clearTimeout(timer);
+      if (settled) return;
+      settled = true;
+      resolve({ code: code ?? 1, signal, stdout, stderr });
+    });
+  });
+}
+
 async function renderLatex(latexBody, anchors = []) {
   const dir = await mkdtemp(join(tmpdir(), 'circuitikz-'));
   const startedAt = Date.now();
@@ -435,10 +533,29 @@ async function renderLatex(latexBody, anchors = []) {
     await writeFile(texFile, source, 'utf8');
 
     const compileStartedAt = Date.now();
-    await runCommand('pdflatex', ['-interaction=nonstopmode', '-halt-on-error', 'circuit.tex'], dir, PDFLATEX_TIMEOUT_MS);
+    const compileResult = await runCommandAllowFailure(
+      'pdflatex',
+      ['-interaction=nonstopmode', 'circuit.tex'],
+      dir,
+      PDFLATEX_TIMEOUT_MS,
+    );
     const compileMs = Date.now() - compileStartedAt;
     const logText = await readFile(join(dir, 'circuit.log'), 'utf8').catch(() => '');
     const probeResults = probeContext ? parseProbeResults(logText, probeContext) : null;
+
+    if (compileResult.code !== 0) {
+      const pdfPath = join(dir, 'circuit.pdf');
+      let hasPdf = false;
+      try {
+        await access(pdfPath);
+        hasPdf = true;
+      } catch {
+        hasPdf = false;
+      }
+      if (!hasPdf) {
+        throw new Error(compileResult.stderr || compileResult.stdout || `pdflatex failed with code ${compileResult.code}`);
+      }
+    }
 
     const svgStartedAt = Date.now();
     await runCommand('pdf2svg', ['circuit.pdf', 'circuit.svg', '1'], dir, PDF2SVG_TIMEOUT_MS);
@@ -454,8 +571,19 @@ async function renderLatex(latexBody, anchors = []) {
     if (probeResults) {
       result.measuredPoints = probeResults.measuredPoints;
       result.measuredBounds = probeResults.measuredBounds;
-      if (probeResults.missingPointTargets.length > 0 || probeResults.missingBoundsTargets.length > 0) {
+      if (
+        probeResults.skippedPoints.length > 0 ||
+        probeResults.skippedBounds.length > 0 ||
+        probeResults.missingPointTargets.length > 0 ||
+        probeResults.missingBoundsTargets.length > 0
+      ) {
         result.anchorError = [
+          probeResults.skippedPoints.length > 0
+            ? `skipped point probes: ${probeResults.skippedPoints.join(', ')}`
+            : null,
+          probeResults.skippedBounds.length > 0
+            ? `skipped bounds probes: ${probeResults.skippedBounds.join(', ')}`
+            : null,
           probeResults.missingPointTargets.length > 0
             ? `missing point probes: ${probeResults.missingPointTargets.join(', ')}`
             : null,
