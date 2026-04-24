@@ -18,16 +18,6 @@ Draw visually like in a CAD tool, then export clean **LaTeX** code or razor-shar
 - **No account required** — open the app and start drawing immediately
 - **Fully open source** — every line of code is public on GitHub
 
-## Tech stack
-
-| Layer | Technology |
-|---|---|
-| Frontend | React 19, TypeScript, Vite |
-| UI components | MUI (Material UI) v7 |
-| Code editor | CodeMirror 6 |
-| Render server | Node.js + Tectonic (LaTeX engine) |
-| Component catalog | Built from the CircuitikZ package |
-
 ## Development
 
 Install dependencies and start both the app and the render server:
