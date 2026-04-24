@@ -1,6 +1,8 @@
 import type { GridPoint, BipoleInstance, MonopoleInstance, SourceCoordinateTranslation, WireInstance, DrawPathInstance } from '../types';
 import { BaseTool, type SnapResult } from './BaseTool';
 import type { SelectionState } from '../model/SelectionState';
+import { formatCoord } from '../codegen/CoordFormatter';
+import { formatEndpoint } from '../codegen/TikzEndpointFormatter';
 
 export class SelectTool extends BaseTool {
   private static readonly BIPOLE_ENDPOINT_HIT_RADIUS = 0.5;
@@ -27,6 +29,7 @@ export class SelectTool extends BaseTool {
     control1?: GridPoint;
     control2?: GridPoint;
   }>();
+  private dragSingleSnapSelectionId: string | null = null;
   private marqueeBaseSelection = new Set<string>();
   private marqueeMode: 'replace' | 'add' | 'toggle' = 'replace';
 
@@ -161,6 +164,7 @@ export class SelectTool extends BaseTool {
       this.dragWireHandle = null;
 
       this.dragOriginalPositions.clear();
+      this.dragSingleSnapSelectionId = null;
       for (const id of this.selection.getSelectedIds()) {
         const comp = this.ctx.getDocument().getComponent(id);
         if (comp) {
@@ -212,6 +216,14 @@ export class SelectTool extends BaseTool {
         }
       }
       this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+      if (this.selection.getSelectedIds().length === 1) {
+        const selectedId = this.selection.getSelectedIds()[0];
+        const comp = this.ctx.getDocument().getComponent(selectedId);
+        const drawing = this.ctx.getDocument().getDrawing(selectedId);
+        if ((comp && (comp.type === 'monopole' || comp.type === 'node')) || drawing?.kind === 'text' || drawing?.kind === 'circle') {
+          this.dragSingleSnapSelectionId = selectedId;
+        }
+      }
     } else {
       this.isDragging = false;
       this.isMarqueeSelecting = true;
@@ -247,7 +259,6 @@ export class SelectTool extends BaseTool {
     if (!this.isDragging || !this.dragStartGrid) return;
     const dx = gridPt.x - this.dragStartGrid.x;
     const dy = gridPt.y - this.dragStartGrid.y;
-    if (dx === 0 && dy === 0) return;
 
     this.hasDragged = true;
     this.dragDelta = { x: dx, y: dy };
@@ -275,6 +286,7 @@ export class SelectTool extends BaseTool {
       const drawing = doc.getDrawing(this.dragDrawingHandle.id);
       const orig = this.dragOriginalPositions.get(this.dragDrawingHandle.id);
       if (drawing && orig) {
+        this.ctx.ghost.setTransientPointRef(`drawing:${drawing.id}:${this.dragDrawingHandle.handle}`, ref);
         switch (drawing.kind) {
           case 'line':
           case 'arrow':
@@ -320,15 +332,40 @@ export class SelectTool extends BaseTool {
         const originalPoint = sourcePoints[this.dragWireHandle.index];
         if (originalPoint) {
           nextPoints[this.dragWireHandle.index] = { x: gridPt.x, y: gridPt.y };
+          const sequenceSource = wire.pathSequences && wire.pathSequences.length === sourcePoints.length
+            ? wire.pathSequences
+            : sourcePoints.map((point, index, points) => this.singleSequence(
+              point,
+              index === 0 ? wire.startRef : index === points.length - 1 ? wire.endRef : undefined,
+            ));
+          const nextSequences = sequenceSource.map((sequence) => ({
+            ...sequence,
+            point: { ...sequence.point },
+            corners: sequence.corners.map((corner) => ({ ...corner, point: { ...corner.point } })),
+          }));
+          const seq = nextSequences[this.dragWireHandle.index];
+          if (seq) {
+            seq.point = { x: gridPt.x, y: gridPt.y };
+            const lastCorner = seq.corners.length - 1;
+            if (lastCorner >= 0) {
+              seq.corners[lastCorner] = {
+                ...seq.corners[lastCorner],
+                kind: ref ? 'reference' : 'absolute',
+                point: { x: gridPt.x, y: gridPt.y },
+                ref,
+              };
+            }
+            seq.ref = ref;
+          }
+          wire.pathSequences = nextSequences;
           if (orig.pathPoints && wire.operators && wire.operators.length === orig.pathPoints.length - 1) {
             wire.pathPoints = nextPoints;
             wire.points = this.rebuildExpandedWirePoints(nextPoints, wire.operators);
           } else {
             wire.points = nextPoints;
-            wire.pathPoints = undefined;
-            wire.operators = undefined;
+            wire.pathPoints = nextPoints;
+            wire.operators = wire.operators ?? new Array(Math.max(0, nextPoints.length - 1)).fill('--');
           }
-          wire.pathSequences = undefined;
           if (this.dragWireHandle.index === 0) wire.startRef = ref;
           if (this.dragWireHandle.index === sourcePoints.length - 1) wire.endRef = ref;
           this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
@@ -342,10 +379,11 @@ export class SelectTool extends BaseTool {
       if (dp && orig?.drawPathPositions) {
         const idx = this.dragDrawPathHandle.index;
         const seq = dp.positionSequences[idx];
+        const markerKind: 'reference' | 'absolute' = ref ? 'reference' : 'absolute';
         const updatedCorners = seq.corners.map((c, ci) =>
-          ci === seq.corners.length - 1 ? { ...c, point: gridPt } : c,
+          ci === seq.corners.length - 1 ? { ...c, kind: markerKind, point: gridPt, ref } : c,
         );
-        dp.positionSequences[idx] = { ...seq, point: gridPt, corners: updatedCorners };
+        dp.positionSequences[idx] = { ...seq, point: gridPt, corners: updatedCorners, ref };
         if (idx === 0) dp.startRef = ref;
         if (idx === dp.positionSequences.length - 1) dp.endRef = ref;
         dp.points = this.rebuildDrawPathPoints(dp);
@@ -363,7 +401,13 @@ export class SelectTool extends BaseTool {
         (comp as BipoleInstance).startSequence = undefined;
         (comp as BipoleInstance).endSequence = undefined;
       } else if (comp && (comp.type === 'monopole' || comp.type === 'node') && orig.position) {
-        (comp as MonopoleInstance).position = { x: orig.position.x + dx, y: orig.position.y + dy };
+        if (this.dragSingleSnapSelectionId === id) {
+          (comp as MonopoleInstance).position = { x: gridPt.x, y: gridPt.y };
+          (comp as MonopoleInstance).positionSequence = this.singleSequence({ x: gridPt.x, y: gridPt.y }, ref);
+        } else {
+          (comp as MonopoleInstance).position = { x: orig.position.x + dx, y: orig.position.y + dy };
+          (comp as MonopoleInstance).positionSequence = undefined;
+        }
       } else {
         const wire = doc.getWire(id);
         if (wire && orig.points) {
@@ -403,10 +447,24 @@ export class SelectTool extends BaseTool {
               }
               break;
             case 'text':
-              if (orig.position) drawing.position = { x: orig.position.x + dx, y: orig.position.y + dy };
+              if (orig.position) {
+                if (this.dragSingleSnapSelectionId === id) {
+                  this.ctx.ghost.setTransientPointRef(`drawing:${drawing.id}:position`, ref);
+                }
+                drawing.position = this.dragSingleSnapSelectionId === id
+                  ? { x: gridPt.x, y: gridPt.y }
+                  : { x: orig.position.x + dx, y: orig.position.y + dy };
+              }
               break;
             case 'circle':
-              if (orig.center) drawing.center = { x: orig.center.x + dx, y: orig.center.y + dy };
+              if (orig.center) {
+                if (this.dragSingleSnapSelectionId === id) {
+                  this.ctx.ghost.setTransientPointRef(`drawing:${drawing.id}:center`, ref);
+                }
+                drawing.center = this.dragSingleSnapSelectionId === id
+                  ? { x: gridPt.x, y: gridPt.y }
+                  : { x: orig.center.x + dx, y: orig.center.y + dy };
+              }
               break;
             case 'bezier':
               if (orig.start && orig.end && orig.control1 && orig.control2) {
@@ -424,7 +482,7 @@ export class SelectTool extends BaseTool {
     this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
   }
 
-  onMouseUp(_snap: SnapResult, _e: MouseEvent): void {
+  onMouseUp(snap: SnapResult, _e: MouseEvent): void {
     if (this.isMarqueeSelecting) {
       if (!this.hasDragged) {
         if (this.marqueeMode === 'replace') {
@@ -441,13 +499,132 @@ export class SelectTool extends BaseTool {
     }
 
     if (this.hasDragged) {
-      const sourceTranslations = this.buildSourceTranslations();
+      if (this.tryCommitStructuredSelection(snap)) {
+        this.resetDragState();
+        return;
+      }
+      const sourceTranslations = this.buildSourceTranslations(snap);
       if (sourceTranslations.length > 0) {
         this.ctx.emit({ type: 'document-changed', sourceTranslations });
       } else {
         this.ctx.emit({ type: 'document-changed' });
       }
     }
+    this.resetDragState();
+  }
+
+  private tryCommitStructuredSelection(finalSnap: SnapResult): boolean {
+    const doc = this.ctx.getDocument();
+
+    if (this.dragBipoleEndpoint) {
+      const comp = doc.getComponent(this.dragBipoleEndpoint.id);
+      const statement = this.ctx.getEditableStatementModel(this.dragBipoleEndpoint.id);
+      if (comp?.type !== 'bipole' || !statement || statement.command === 'node') return false;
+      statement.positionTexts = [
+        formatEndpoint(comp.start, comp.startRef),
+        formatEndpoint(comp.end, comp.endRef),
+      ];
+      this.ctx.applyEditableStatement(statement);
+      return true;
+    }
+
+    if (this.dragWireHandle) {
+      const wire = doc.getWire(this.dragWireHandle.id);
+      const statement = this.ctx.getEditableStatementModel(this.dragWireHandle.id);
+      if (!wire || !statement || statement.command === 'node') return false;
+      const points = wire.pathPoints && wire.pathPoints.length > 0 ? wire.pathPoints : wire.points;
+      if (points.length === 0) return false;
+      statement.positionTexts = points.map((point, index) =>
+        formatEndpoint(point, wire.pathSequences?.[index]?.ref ?? (
+          index === 0 ? wire.startRef : index === points.length - 1 ? wire.endRef : undefined
+        )),
+      );
+      this.ctx.applyEditableStatement(statement);
+      return true;
+    }
+
+    if (this.dragDrawPathHandle) {
+      const dp = doc.getDrawPath(this.dragDrawPathHandle.id);
+      const statement = this.ctx.getEditableStatementModel(this.dragDrawPathHandle.id);
+      if (!dp || !statement || statement.command === 'node') return false;
+      statement.positionTexts = dp.positionSequences.map((sequence, index) =>
+        formatEndpoint(
+          sequence.point,
+          sequence.ref ?? (index === 0 ? dp.startRef : index === dp.positionSequences.length - 1 ? dp.endRef : undefined),
+        ),
+      );
+      this.ctx.applyEditableStatement(statement);
+      return true;
+    }
+
+    if (this.dragDrawingHandle) {
+      const drawing = doc.getDrawing(this.dragDrawingHandle.id);
+      const statement = this.ctx.getEditableStatementModel(this.dragDrawingHandle.id);
+      if (!drawing || !statement) return false;
+      switch (drawing.kind) {
+        case 'text':
+          if (statement.command !== 'node') return false;
+          statement.positionTexts = [formatEndpoint(drawing.position, finalSnap.ref)];
+          const nodeSegment = statement.segments.find((segment) => segment.kind === 'node');
+          if (nodeSegment && nodeSegment.kind === 'node') {
+            nodeSegment.positionText = statement.positionTexts[0];
+          }
+          this.ctx.applyEditableStatement(statement);
+          return true;
+        case 'line':
+        case 'arrow':
+        case 'rectangle':
+          statement.positionTexts = [formatCoord(drawing.start), formatCoord(drawing.end)];
+          this.ctx.applyEditableStatement(statement);
+          return true;
+        case 'circle':
+          statement.positionTexts = [formatCoord(drawing.center)];
+          this.ctx.applyEditableStatement(statement);
+          return true;
+        case 'bezier':
+          statement.positionTexts = [
+            formatCoord(drawing.start),
+            formatCoord(drawing.control1),
+            formatCoord(drawing.control2),
+            formatCoord(drawing.end),
+          ];
+          this.ctx.applyEditableStatement(statement);
+          return true;
+      }
+    }
+
+    if (!this.dragSingleSnapSelectionId) return false;
+    const id = this.dragSingleSnapSelectionId;
+    const comp = doc.getComponent(id);
+    const drawing = doc.getDrawing(id);
+    const statement = this.ctx.getEditableStatementModel(id);
+    if (!statement) return false;
+    if (comp && (comp.type === 'monopole' || comp.type === 'node')) {
+      const nextPositionText = formatEndpoint(comp.position, finalSnap.ref);
+      if (statement.command !== 'node') return false;
+      statement.positionTexts = [nextPositionText];
+      const nodeSegment = statement.segments.find((segment) => segment.kind === 'node');
+      if (nodeSegment && nodeSegment.kind === 'node') {
+        nodeSegment.positionText = nextPositionText;
+      }
+      this.ctx.applyEditableStatement(statement);
+      return true;
+    }
+    if (drawing?.kind === 'text') {
+      const nextPositionText = formatEndpoint(drawing.position, finalSnap.ref);
+      if (statement.command !== 'node') return false;
+      statement.positionTexts = [nextPositionText];
+      const nodeSegment = statement.segments.find((segment) => segment.kind === 'node');
+      if (nodeSegment && nodeSegment.kind === 'node') {
+        nodeSegment.positionText = nextPositionText;
+      }
+      this.ctx.applyEditableStatement(statement);
+      return true;
+    }
+    return false;
+  }
+
+  private resetDragState(): void {
     this.isDragging = false;
     this.hasDragged = false;
     this.dragStartGrid = null;
@@ -456,7 +633,9 @@ export class SelectTool extends BaseTool {
     this.dragDrawingHandle = null;
     this.dragWireHandle = null;
     this.dragDrawPathHandle = null;
+    this.dragSingleSnapSelectionId = null;
     this.dragOriginalPositions.clear();
+    this.ctx.ghost.clearTransientPointRefs();
   }
 
   onKeyDown(e: KeyboardEvent): void {
@@ -582,13 +761,49 @@ export class SelectTool extends BaseTool {
     return expanded;
   }
 
-  private buildSourceTranslations(): SourceCoordinateTranslation[] {
+  private singleSequence(point: GridPoint, ref?: SnapResult['ref']) {
+    return {
+      corners: [{
+        kind: ref ? 'reference' as const : 'absolute' as const,
+        point: { ...point },
+        ref,
+      }],
+      point: { ...point },
+      ref,
+    };
+  }
+
+  private buildSourceTranslations(finalSnap?: SnapResult): SourceCoordinateTranslation[] {
     if (!this.dragBipoleEndpoint && !this.dragDrawingHandle && !this.dragWireHandle && !this.dragDrawPathHandle) {
-      return this.selection.getSelectedIds().map((id) => ({
-        id,
-        dx: this.dragDelta.x,
-        dy: this.dragDelta.y,
-      }));
+      return this.selection.getSelectedIds().map((id) => {
+        const comp = this.ctx.getDocument().getComponent(id);
+        const drawing = this.ctx.getDocument().getDrawing(id);
+        if (this.dragSingleSnapSelectionId === id) {
+          const targetPoint = comp && (comp.type === 'monopole' || comp.type === 'node')
+            ? comp.position
+            : drawing?.kind === 'text'
+              ? drawing.position
+              : drawing?.kind === 'circle'
+                ? drawing.center
+                : undefined;
+          if (targetPoint && finalSnap) {
+            const orig = this.dragOriginalPositions.get(id);
+            const matchPoint = orig?.position ?? orig?.center;
+            return {
+              id,
+              matchPoint,
+              targetPoint: { ...targetPoint },
+              dx: targetPoint.x - (matchPoint?.x ?? 0),
+              dy: targetPoint.y - (matchPoint?.y ?? 0),
+            };
+          }
+        }
+        return {
+          id,
+          dx: this.dragDelta.x,
+          dy: this.dragDelta.y,
+        };
+      });
     }
 
     const doc = this.ctx.getDocument();
@@ -602,6 +817,7 @@ export class SelectTool extends BaseTool {
       return [{
         id: comp.id,
         matchPoint: from,
+        targetPoint: { ...to },
         dx: to.x - from.x,
         dy: to.y - from.y,
       }];
@@ -617,6 +833,7 @@ export class SelectTool extends BaseTool {
       return [{
         id: drawing.id,
         matchPoint: from,
+        targetPoint: { ...to },
         dx: to.x - from.x,
         dy: to.y - from.y,
       }];
@@ -634,6 +851,7 @@ export class SelectTool extends BaseTool {
       return [{
         id: wire.id,
         matchPoint: from,
+        targetPoint: { ...to },
         dx: to.x - from.x,
         dy: to.y - from.y,
       }];
@@ -650,6 +868,7 @@ export class SelectTool extends BaseTool {
       return [{
         id: dp.id,
         matchPoint: from,
+        targetPoint: { ...to },
         dx: to.x - from.x,
         dy: to.y - from.y,
       }];

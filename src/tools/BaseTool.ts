@@ -4,6 +4,7 @@ import type { HitTester } from '../canvas/HitTester';
 import type { ComponentDef } from '../types';
 import type { ClipboardPayload } from './SelectionClipboard';
 import type { SnapResult } from '../canvas/SnapEngine';
+import type { EditableStatement } from '../types';
 
 export type { SnapResult };
 
@@ -18,6 +19,8 @@ export interface ToolContext {
   /** Delete model elements and their corresponding LaTeX source lines. */
   deleteElements: (ids: string[]) => void;
   placeClipboard: (payload: ClipboardPayload, target: GridPoint) => void;
+  getEditableStatementModel: (id: string) => EditableStatement | null;
+  applyEditableStatement: (statement: EditableStatement) => void;
   undo: () => void;
   redo: () => void;
 }

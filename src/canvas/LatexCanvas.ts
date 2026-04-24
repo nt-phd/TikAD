@@ -14,7 +14,7 @@
  *   Scale factor: GRID_SIZE px = TIKZ_PT_PER_UNIT pt  (20px per TikZ unit = 1cm)
  */
 
-import type { GridPoint, ScreenPoint } from '../types';
+import type { GridPoint, RenderComponentBounds, RenderSymbolPoint, ScreenPoint } from '../types';
 import type { LatexDocument } from '../model/LatexDocument';
 import type { CircuitDocument } from '../model/CircuitDocument';
 import type { ComponentRegistry } from '../definitions/ComponentRegistry';
@@ -38,7 +38,14 @@ const ZOOM_LEVELS = [1, 2, 3, 4, 5];
 
 interface AnchorRenderRequest {
   anchor: string;
+  componentId: string;
+  defId: string;
+  ghost: boolean;
+  kind: 'reference' | 'pin' | 'anchor';
+  names: string[];
   nodeName: string;
+  role: string;
+  snap: boolean;
 }
 
 interface AnchorRenderMarker extends AnchorRenderRequest {
@@ -46,7 +53,17 @@ interface AnchorRenderMarker extends AnchorRenderRequest {
   key: string;
 }
 
+interface BoundsRenderMarker {
+  color: string;
+  componentId: string;
+  corner: 'south west' | 'north east';
+  defId: string;
+  key: string;
+  nodeName: string;
+}
+
 interface RenderResponse {
+  boundsMarkers?: BoundsRenderMarker[];
   anchorError?: string;
   anchorMarkers?: AnchorRenderMarker[];
   anchorSvg?: string;
@@ -84,6 +101,48 @@ function normalizeColor(value: string | null): string {
   return input.replace(/\s+/g, '');
 }
 
+function parseLineIndexFromComponentId(id: string): number | null {
+  const match = /^line:(\d+):/.exec(id);
+  if (!match) return null;
+  const value = Number.parseInt(match[1], 10);
+  return Number.isFinite(value) ? value : null;
+}
+
+function extractNumberInputsFromOptions(optionsText?: string): number | null {
+  if (!optionsText) return null;
+  const match = /(?:^|,)\s*(?:\/tikz\/)?number inputs\s*=\s*(\d+)\b/i.exec(optionsText);
+  if (!match) return null;
+  const value = Number.parseInt(match[1], 10);
+  return Number.isFinite(value) ? value : null;
+}
+
+function extractScopedNumberInputs(body: string, maxLineIndex: number | null): number | null {
+  const lines = body.split('\n');
+  const limit = maxLineIndex == null ? lines.length - 1 : Math.min(maxLineIndex, lines.length - 1);
+  let current: number | null = null;
+  for (let index = 0; index <= limit; index += 1) {
+    const line = lines[index];
+    const ctikzMatches = line.matchAll(/\\ctikzset\s*\{([^}]*)\}/g);
+    for (const match of ctikzMatches) {
+      const value = extractNumberInputsFromOptions(match[1]);
+      if (value != null) current = value;
+    }
+  }
+  return current;
+}
+
+function getNumberedInputIndex(name: string): number | null {
+  const match = /^(?:b?in)\s+(\d+)$/i.exec(name.trim());
+  if (!match) return null;
+  const value = Number.parseInt(match[1], 10);
+  return Number.isFinite(value) ? value : null;
+}
+
+function normalizeLogicPortInputCount(value: number | null): number {
+  if (value == null || value <= 0) return 2;
+  return Math.max(2, value);
+}
+
 export class LatexCanvas {
   readonly view: ViewTransform;
   readonly snap: SnapEngine;
@@ -116,7 +175,7 @@ export class LatexCanvas {
   private axisYPath!: SVGPathElement;
   private interactionRect!: SVGRectElement;
   private ghostSvgNonce = 0;
-  onAnchorGeometryMeasured: ((points: Map<string, GridPoint>) => void) | null = null;
+  onAnchorGeometryMeasured: ((points: Map<string, RenderSymbolPoint>, bounds: Map<string, RenderComponentBounds>) => void) | null = null;
 
   // Pan/zoom
   private spaceHeld = false;
@@ -158,6 +217,7 @@ export class LatexCanvas {
 
     this.pinTooltipDiv = document.createElement('div');
     this.pinTooltipDiv.className = 'canvas-pin-tooltip';
+    this.pinTooltipDiv.style.whiteSpace = 'pre-line';
     this.pinTooltipDiv.hidden = true;
     container.appendChild(this.pinTooltipDiv);
 
@@ -325,7 +385,10 @@ export class LatexCanvas {
         this.injectSvg(data.svg, data.tx ?? 0, data.ty ?? 0);
         if (data.anchorSvg && data.anchorMarkers) {
           const points = this.measureAnchorSvg(data.anchorSvg, data.anchorMarkers, data.anchorTx ?? 0, data.anchorTy ?? 0);
-          if (points.size > 0) this.onAnchorGeometryMeasured?.(points);
+          const bounds = data.boundsMarkers
+            ? this.measureBoundsSvg(data.anchorSvg, data.boundsMarkers, data.anchorTx ?? 0, data.anchorTy ?? 0)
+            : new Map<string, RenderComponentBounds>();
+          if (points.size > 0 || bounds.size > 0) this.onAnchorGeometryMeasured?.(points, bounds);
         }
         this.showError(null);
       } else {
@@ -348,17 +411,60 @@ export class LatexCanvas {
       if (comp.type === 'bipole' || !comp.nodeName) continue;
       const def = this.registry.get(comp.defId);
       if (!def) continue;
-      const names = new Set<string>([
-        'reference',
-        ...(def.anchorNames ?? []),
-        ...(def.symbolPins ?? []).map((pin) => pin.name),
-      ]);
-      for (const anchor of names) {
+      const geometry = def.geometry;
+      const instanceNumberInputs =
+        extractNumberInputsFromOptions(comp.props.options)
+        ?? extractScopedNumberInputs(this.latexDoc.body, parseLineIndexFromComponentId(comp.id));
+      const effectiveNumberInputs = normalizeLogicPortInputCount(instanceNumberInputs);
+      const shouldIncludePoint = (point: { name: string; names: string[] }) => {
+        const numberedIndices = [point.name, ...point.names]
+          .map((name) => getNumberedInputIndex(name))
+          .filter((value): value is number => value != null);
+        if (numberedIndices.length === 0) return true;
+        return numberedIndices.some((value) => value <= effectiveNumberInputs);
+      };
+      const referencePoint = geometry?.reference ?? {
+        name: 'reference',
+        tikz: 'reference',
+        role: 'reference',
+        required: true,
+        snap: false,
+        ghost: true,
+        sources: [],
+      };
+      const groupedPinNames = new Set((geometry?.pinGroups ?? []).flatMap((group) => group.names));
+      const points = [
+        { ...referencePoint, kind: 'reference' as const, names: ['reference'] },
+        ...(geometry?.pinGroups ?? []).map((group) => {
+          const representative = geometry?.pins.find((point) => point.name === group.names[0]);
+          const fallback = geometry?.pins.find((point) => group.names.includes(point.name));
+          const point = representative ?? fallback;
+          return point ? { ...point, kind: 'pin' as const, names: [...group.names] } : null;
+        })
+          .filter((point): point is NonNullable<typeof point> => Boolean(point))
+          .filter((point) => shouldIncludePoint(point)),
+        ...(geometry?.pins ?? [])
+          .filter((point) => !groupedPinNames.has(point.name))
+          .filter((point) => shouldIncludePoint({ name: point.name, names: [point.name] }))
+          .map((point) => ({ ...point, kind: 'pin' as const, names: [point.name] })),
+      ];
+      for (const point of points) {
+        const anchor = point.kind === 'reference' ? 'reference' : (point.tikz || point.name);
         if (!anchor || anchor === 'START' || anchor === 'END') continue;
-        const key = anchor === 'reference' ? comp.nodeName : `${comp.nodeName}.${anchor}`;
+        const key = point.kind === 'reference' ? comp.nodeName : `${comp.nodeName}.${anchor}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        requests.push({ nodeName: comp.nodeName, anchor });
+        requests.push({
+          nodeName: comp.nodeName,
+          anchor,
+          componentId: comp.id,
+          defId: comp.defId,
+          kind: point.kind,
+          names: [...point.names],
+          role: point.role,
+          snap: point.snap,
+          ghost: point.ghost,
+        });
       }
     }
     return requests;
@@ -369,8 +475,8 @@ export class LatexCanvas {
     markers: AnchorRenderMarker[],
     tx: number,
     ty: number,
-  ): Map<string, GridPoint> {
-    const points = new Map<string, GridPoint>();
+  ): Map<string, RenderSymbolPoint> {
+    const points = new Map<string, RenderSymbolPoint>();
     if (markers.length === 0) return points;
     const parser = new DOMParser();
     const doc = parser.parseFromString(svgText, 'image/svg+xml');
@@ -394,15 +500,96 @@ export class LatexCanvas {
         const box = el.getBBox();
         const centerX = box.x + box.width / 2;
         const centerY = box.y + box.height / 2;
-        points.set(marker.key, {
+        const resolvedPoint = {
           x: ((centerX - tx) * ptToPx) / gs,
           y: ((centerY - ty) * ptToPx) / gs,
-        });
+        };
+        const names = marker.names?.length ? marker.names : [marker.anchor];
+        for (const name of names) {
+          const key = marker.kind === 'reference' || name === 'reference'
+            ? marker.nodeName
+            : `${marker.nodeName}.${name}`;
+          points.set(key, {
+            key,
+            nodeName: marker.nodeName,
+            anchor: name,
+            componentId: marker.componentId,
+            defId: marker.defId,
+            kind: marker.kind,
+            names: [...names],
+            role: marker.role,
+            snap: marker.snap,
+            ghost: marker.ghost,
+            point: { ...resolvedPoint },
+          });
+        }
       }
     } finally {
       host.remove();
     }
     return points;
+  }
+
+  private measureBoundsSvg(
+    svgText: string,
+    markers: BoundsRenderMarker[],
+    tx: number,
+    ty: number,
+  ): Map<string, RenderComponentBounds> {
+    const bounds = new Map<string, RenderComponentBounds>();
+    if (markers.length === 0) return bounds;
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgText, 'image/svg+xml');
+    const svg = doc.querySelector('svg');
+    if (!svg) return bounds;
+
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
+    host.appendChild(document.importNode(svg, true));
+    document.body.appendChild(host);
+
+    try {
+      const liveSvg = host.querySelector('svg')!;
+      const markerColorMap = new Map(markers.map((marker) => [normalizeColor(marker.color), marker]));
+      const corners = new Map<string, { componentId: string; defId: string; nodeName: string; northEast?: GridPoint; southWest?: GridPoint }>();
+      const ptToPx = BASE_PT_TO_PX;
+      const gs = scaleState.effectiveGridSize;
+      for (const el of liveSvg.querySelectorAll<SVGGraphicsElement>('circle, path, ellipse, rect')) {
+        const fill = normalizeColor(el.getAttribute('fill'));
+        const marker = markerColorMap.get(fill);
+        if (!marker) continue;
+        const box = el.getBBox();
+        const centerX = box.x + box.width / 2;
+        const centerY = box.y + box.height / 2;
+        const point = {
+          x: ((centerX - tx) * ptToPx) / gs,
+          y: ((centerY - ty) * ptToPx) / gs,
+        };
+        const current = corners.get(marker.key) ?? {
+          componentId: marker.componentId,
+          defId: marker.defId,
+          nodeName: marker.nodeName,
+        };
+        if (marker.corner === 'south west') current.southWest = point;
+        else current.northEast = point;
+        corners.set(marker.key, current);
+      }
+      for (const [key, entry] of corners) {
+        if (!entry.southWest || !entry.northEast) continue;
+        bounds.set(key, {
+          componentId: entry.componentId,
+          defId: entry.defId,
+          nodeName: entry.nodeName,
+          left: entry.southWest.x,
+          top: entry.northEast.y,
+          width: entry.northEast.x - entry.southWest.x,
+          height: entry.southWest.y - entry.northEast.y,
+        });
+      }
+    } finally {
+      host.remove();
+    }
+    return bounds;
   }
 
   private injectSvg(svgText: string, tx: number, ty: number): void {

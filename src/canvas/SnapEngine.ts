@@ -1,5 +1,4 @@
 import type { ConnectionRef, GridPoint } from '../types';
-import type { TikzGeometryState } from '../codegen/TikzGeometryStore';
 import { scaleState } from './ScaleState';
 
 export interface SnapResult {
@@ -7,19 +6,18 @@ export interface SnapResult {
   ref?: ConnectionRef;
 }
 
-const PIN_SNAP_RADIUS = 0.5;
-
 export class SnapEngine {
   connectionSnapEnabled = true;
 
-  snap(raw: GridPoint, geometry?: TikzGeometryState): SnapResult {
+  snap(raw: GridPoint, symbolPoints?: Map<string, GridPoint>): SnapResult {
     const gridPoint = this.snapToGrid(raw);
-    if (!this.connectionSnapEnabled || !geometry) return { point: gridPoint };
+    if (!this.connectionSnapEnabled || !symbolPoints) return { point: gridPoint };
 
+    const pinSnapRadius = 0.5 * scaleState.gridPitch;
     let best: SnapResult | null = null;
-    let bestDist = PIN_SNAP_RADIUS;
+    let bestDist = pinSnapRadius;
 
-    for (const [key, point] of geometry.symbolPoints) {
+    for (const [key, point] of symbolPoints) {
       const d = Math.hypot(raw.x - point.x, raw.y - point.y);
       if (d > bestDist) continue;
       bestDist = d;

@@ -2,12 +2,10 @@
  * Model-based hit testing — no DOM queries needed.
  * Works in grid coordinates (integer TikZ units).
  */
-import type { ComponentDef, ComponentInstance, DrawingInstance, DrawPathInstance, GridPoint } from '../types';
+import type { ComponentDef, ComponentInstance, DrawingInstance, DrawPathInstance, GridPoint, MonopoleInstance, NodeInstance } from '../types';
 import type { CircuitDocument } from '../model/CircuitDocument';
 import type { ComponentRegistry } from '../definitions/ComponentRegistry';
 import { getBipoleBodyMetrics, getPlacedComponentMetrics } from './ComponentGeometry';
-import { componentProbeService } from './ComponentProbeService';
-import { scaleState } from './ScaleState';
 
 const HIT_THRESHOLD = 0.5; // grid units
 
@@ -115,7 +113,8 @@ function distanceToDrawing(drawing: DrawingInstance, pt: GridPoint): number {
 }
 
 function getPlacedHitMetrics(
-  comp: ComponentInstance,
+  comp: MonopoleInstance | NodeInstance,
+  doc: CircuitDocument,
   def: ComponentDef,
 ): {
   height: number;
@@ -123,19 +122,15 @@ function getPlacedHitMetrics(
   topOffset: number;
   width: number;
 } {
-  if (comp.type !== 'bipole') {
-    const probe = componentProbeService.getPlacedGhostProbe(def, comp.rotation ?? 0, () => {});
-    if (probe) {
-      const gs = scaleState.effectiveGridSize;
-      return {
-        height: probe.bboxHeight / gs,
-        leftOffset: probe.bboxLeft / gs,
-        topOffset: probe.bboxTop / gs,
-        width: probe.bboxWidth / gs,
-      };
-    }
+  const measuredBounds = doc.getMeasuredComponentBounds(comp.id);
+  if (measuredBounds) {
+    return {
+      width: measuredBounds.width,
+      height: measuredBounds.height,
+      leftOffset: measuredBounds.left - comp.position.x,
+      topOffset: measuredBounds.top - comp.position.y,
+    };
   }
-
   const { width, height, leftOffset, topOffset } = getPlacedComponentMetrics(def, 1);
   return { width, height, leftOffset, topOffset };
 }
@@ -216,7 +211,7 @@ export class HitTester {
       } else if (comp.type === 'monopole' || comp.type === 'node') {
         const def = this.registry.get(comp.defId);
         if (!def) continue;
-        const { width, height, leftOffset, topOffset } = getPlacedHitMetrics(comp, def);
+        const { width, height, leftOffset, topOffset } = getPlacedHitMetrics(comp, this.doc, def);
         const angle = -(comp.rotation ?? 0) * Math.PI / 180;
         const relX = gridPt.x - comp.position.x;
         const relY = gridPt.y - comp.position.y;
@@ -295,7 +290,7 @@ export class HitTester {
 
       const def = this.registry.get(comp.defId);
       if (!def) continue;
-      const { width, height, leftOffset, topOffset } = getPlacedHitMetrics(comp, def);
+      const { width, height, leftOffset, topOffset } = getPlacedHitMetrics(comp, this.doc, def);
       const leftLocal = leftOffset;
       const topLocal = topOffset;
       const angle = (comp.rotation ?? 0) * Math.PI / 180;

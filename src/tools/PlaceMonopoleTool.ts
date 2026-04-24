@@ -1,10 +1,11 @@
-import type { GridPoint, Rotation } from '../types';
+import type { ConnectionRef, GridPoint, Rotation } from '../types';
 import { BaseTool, type SnapResult } from './BaseTool';
-import { formatCoord } from '../codegen/CoordFormatter';
+import { formatEndpoint } from '../codegen/TikzEndpointFormatter';
 
 export class PlaceMonopoleTool extends BaseTool {
   private rotation: Rotation = 0;
   private lastGridPt: GridPoint | null = null;
+  private lastRef: ConnectionRef | undefined = undefined;
 
   constructor(ctx: import('./BaseTool').ToolContext, private defId: string) {
     super(ctx);
@@ -16,24 +17,23 @@ export class PlaceMonopoleTool extends BaseTool {
 
   private rebuildGhost(): void {
     if (!this.lastGridPt) return;
-    this.ctx.ghost.onGhostProbeReady = () => this.rebuildGhost();
-    this.ctx.ghost.setGhostElement(this.ctx.ghost.buildMonopoleGhost(this.defId, this.lastGridPt, this.rotation));
+    this.ctx.ghost.setGhostElement(this.ctx.ghost.buildMonopoleGhost(this.defId, this.lastGridPt, this.rotation, this.lastRef));
   }
 
-  onMouseDown({ point: gridPt }: SnapResult, e: MouseEvent): void {
+  onMouseDown({ point: gridPt, ref }: SnapResult, e: MouseEvent): void {
     if (e.button !== 0) {
       this.ctx.ghost.setGhostElement(null);
       return;
     }
     const tikzName = this.ctx.getDef(this.defId)?.tikzName ?? this.defId;
     const nodeName = this.ctx.getDocument().nextNodeName();
-    this.ctx.appendLine(`\\node[${tikzName}](${nodeName}) at ${formatCoord(gridPt)} {};`);
+    this.ctx.appendLine(`\\node[${tikzName}](${nodeName}) at ${formatEndpoint(gridPt, ref)} {};`);
   }
 
-  onMouseMove({ point: gridPt }: SnapResult, _e: MouseEvent): void {
+  onMouseMove({ point: gridPt, ref }: SnapResult, _e: MouseEvent): void {
     this.lastGridPt = gridPt;
-    this.ctx.ghost.onGhostProbeReady = () => this.rebuildGhost();
-    const ghost = this.ctx.ghost.buildMonopoleGhost(this.defId, gridPt, this.rotation);
+    this.lastRef = ref;
+    const ghost = this.ctx.ghost.buildMonopoleGhost(this.defId, gridPt, this.rotation, ref);
     this.ctx.ghost.setGhostElement(ghost);
   }
 
@@ -48,6 +48,7 @@ export class PlaceMonopoleTool extends BaseTool {
   deactivate(): void {
     this.rotation = 0;
     this.lastGridPt = null;
+    this.lastRef = undefined;
     super.deactivate();
   }
 }

@@ -1,10 +1,5 @@
-import type { ConnectionRef, GridPoint, WireInstance } from '../types';
-import { formatCoord } from './CoordFormatter';
-
-function formatEndpoint(point: GridPoint, ref?: ConnectionRef): string {
-  if (!ref) return formatCoord(point);
-  return ref.anchor === 'reference' ? `(${ref.nodeName})` : `(${ref.nodeName}.${ref.anchor})`;
-}
+import type { GridPoint, WireInstance } from '../types';
+import { formatEndpoint } from './TikzEndpointFormatter';
 
 function isHorizontal(a: GridPoint, b: GridPoint): boolean {
   return a.y === b.y && a.x !== b.x;
@@ -38,19 +33,23 @@ function chooseCornerOperator(
 }
 
 export function emitWirePath(wire: WireInstance): string {
+  const refForPathIndex = (index: number, total: number) =>
+    (wire.pathSequences && wire.pathSequences.length === total ? wire.pathSequences[index]?.ref : undefined)
+    ?? (index === 0 ? wire.startRef : index === total - 1 ? wire.endRef : undefined);
+
   if (wire.pathPoints && wire.pathPoints.length > 0 && (!wire.operators || wire.operators.length === 0)) {
     return wire.pathPoints
       .map((point, index, points) => formatEndpoint(
         point,
-        index === 0 ? wire.startRef : index === points.length - 1 ? wire.endRef : undefined,
+        refForPathIndex(index, points.length),
       ))
       .join(' ');
   }
   if (wire.points.length < 2) return '';
   if (wire.operators && wire.pathPoints && wire.pathPoints.length === wire.operators.length + 1) {
-    const parts: string[] = [formatEndpoint(wire.pathPoints[0], wire.startRef)];
+    const parts: string[] = [formatEndpoint(wire.pathPoints[0], refForPathIndex(0, wire.pathPoints.length))];
     for (let i = 0; i < wire.operators.length; i++) {
-      const ref = i === wire.operators.length - 1 ? wire.endRef : undefined;
+      const ref = refForPathIndex(i + 1, wire.pathPoints.length);
       parts.push(wire.operators[i], formatEndpoint(wire.pathPoints[i + 1], ref));
     }
     return parts.join(' ');

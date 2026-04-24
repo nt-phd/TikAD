@@ -10,9 +10,8 @@ import { LatexCanvas } from './canvas/LatexCanvas';
 import { ToolManager } from './tools/ToolManager';
 import { parseCircuiTikZ, lineIndexFromId } from './codegen/CircuiTikZParser';
 import { extractCtikzScales, extractTikzScale, scaleState } from './canvas/ScaleState';
-import { componentProbeService } from './canvas/ComponentProbeService';
-import type { ComponentRenderProbe } from './canvas/ComponentProbeService';
 import { formatCoord } from './codegen/CoordFormatter';
+import { formatEndpoint } from './codegen/TikzEndpointFormatter';
 import { formatLabel } from './codegen/LabelFormatter';
 import { emitWirePath } from './codegen/WirePathEmitter';
 import { emitPlacedNodeLine } from './codegen/NodeEmitter';
@@ -150,11 +149,6 @@ function terminalString(start?: TerminalMark, end?: TerminalMark): string {
       end === 'rectjoinfill' ? '.' :
       '';
   return `${s}-${e}`;
-}
-
-function formatEndpoint(point: { x: number; y: number }, ref?: { nodeName: string; anchor: string }): string {
-  if (!ref) return formatCoord(point);
-  return ref.anchor === 'reference' ? `(${ref.nodeName})` : `(${ref.nodeName}.${ref.anchor})`;
 }
 
 function emitComponentLine(comp: ComponentInstance): string | null {
@@ -444,6 +438,12 @@ function translateAbsoluteNumericPoint(rawPoint: string, dx: number, dy: number)
   return `${match[1]}${match[2]}${formatTranslatedNumber(translatedX)}${match[4]},${match[5]}${formatTranslatedNumber(translatedY)}${match[7]}${match[8]}`;
 }
 
+function replaceAbsoluteNumericPoint(rawPoint: string, targetPoint: GridPoint): string | null {
+  const match = rawPoint.match(/^(\()(\s*)([+-]?(?:\d+(?:\.\d+)?|\.\d+))(\s*),(\s*)([+-]?(?:\d+(?:\.\d+)?|\.\d+))(\s*)(\))$/);
+  if (!match) return null;
+  return `${match[1]}${match[2]}${formatTranslatedNumber(targetPoint.x)}${match[4]},${match[5]}${formatTranslatedNumber(-targetPoint.y)}${match[7]}${match[8]}`;
+}
+
 function pointsEqual(a: GridPoint, b: GridPoint): boolean {
   return Math.abs(a.x - b.x) < 1e-9 && Math.abs(a.y - b.y) < 1e-9;
 }
@@ -489,7 +489,11 @@ function translateAbsoluteNumericCoordinatesInLine(line: string, translations: S
       const match = parsedPoint
         ? translations.find((translation) => !translation.matchPoint || pointsEqual(parsedPoint, translation.matchPoint))
         : undefined;
-      translated = match ? translateAbsoluteNumericPoint(point.point.raw, match.dx, match.dy) : null;
+      translated = match
+        ? (match.targetPoint
+            ? replaceAbsoluteNumericPoint(point.point.raw, match.targetPoint)
+            : translateAbsoluteNumericPoint(point.point.raw, match.dx, match.dy))
+        : null;
     }
     result += translated ?? point.point.raw;
     cursor = point.end;
@@ -621,8 +625,6 @@ export interface ImperativeAppHandle {
   getFullLatexSource: () => string;
   loadFullLatexSource: (source: string) => void;
   getRenderedSvg: () => string | null;
-  getLibraryPreviewProbe: (defId: string, onResolved: () => void) => ComponentRenderProbe | null;
-  warmLibraryPreviewProbes: (onResolved: () => void) => void;
   getInUseDefIds: () => string[];
   getSelectedComponent: () => ComponentInstance | undefined;
   getSelectedDrawing: () => DrawingInstance | undefined;
@@ -666,6 +668,7 @@ export interface ImperativeAppHandle {
   onToolChange: (fn: (tool: ToolType, defId?: string) => void) => () => void;
   onSelectionChange: (fn: (selectedIds: string[], source?: 'canvas' | 'code' | 'programmatic') => void) => () => void;
   onBodyChange: (fn: () => void) => () => void;
+  onSourceChange: (fn: () => void) => () => void;
   onGeometryChange: (fn: () => void) => () => void;
   onDocumentChange: (fn: () => void) => () => void;
   onLatexEdited: (fn: () => void) => () => void;
@@ -692,7 +695,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
   let suppressCodeCaretSelection = false;
 
   const canvas = new LatexCanvas(canvasContainer, latexDoc, circuitDoc, registry, selection);
-  componentProbeService.configure(() => ({ body: latexDoc.body, preamble: latexDoc.preamble }));
 
   const syncTikzScale = () => {
     scaleState.tikzScale = extractTikzScale(latexDoc.body);
@@ -719,21 +721,63 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     eventBus.emit({ type: 'selection-changed', selectedIds: next, source });
   };
 
-  const parseCurrentBody = () => {
-    parseCircuiTikZ(latexDoc.body, circuitDoc, registry);
+  const parseCurrentBody = (options: { preserveMeasuredComponentBounds?: boolean; preserveMeasuredSymbolPoints?: boolean } = {}) => {
+    parseCircuiTikZ(latexDoc.body, circuitDoc, registry, options);
   };
 
   const invalidateRenderDerivedGeometry = () => {
-    componentProbeService.invalidate();
     circuitDoc.clearMeasuredSymbolPoints();
   };
 
-  canvas.onAnchorGeometryMeasured = (points) => {
+  const emitSourceChanged = (reason: string) => {
+    eventBus.emit({ type: 'source-changed', reason });
+  };
+
+  const emitBodyChanged = (reason: string) => {
+    eventBus.emit({ type: 'body-changed' });
+    emitSourceChanged(reason);
+  };
+
+  const namedNodeGeometrySignature = (): string => {
+    return circuitDoc.components
+      .filter((comp): comp is Exclude<(typeof circuitDoc.components)[number], { type: 'bipole' }> => {
+        return comp.type !== 'bipole' && Boolean(comp.nodeName);
+      })
+      .map((comp) => `${comp.id}:${comp.defId}:${comp.nodeName}`)
+      .sort()
+      .join('|');
+  };
+
+  canvas.onAnchorGeometryMeasured = (points, bounds) => {
+    const beforeSignature = namedNodeGeometrySignature();
     circuitDoc.setMeasuredSymbolPoints(points);
-    parseCurrentBody();
+    for (const comp of circuitDoc.components) {
+      if (comp.type === 'bipole' || !comp.nodeName) continue;
+      const def = registry.get(comp.defId);
+      const reference = def?.geometry?.reference;
+      if (!reference?.snap) continue;
+      if (circuitDoc.getMeasuredSymbolPoint(comp.nodeName, 'reference')) continue;
+      circuitDoc.upsertMeasuredSymbolPoint({
+        key: comp.nodeName,
+        nodeName: comp.nodeName,
+        anchor: 'reference',
+        names: ['reference'],
+        point: { ...comp.position },
+        kind: 'reference',
+        role: 'reference',
+        snap: true,
+        ghost: true,
+        componentId: comp.id,
+        defId: comp.defId,
+      });
+    }
+    circuitDoc.setMeasuredComponentBounds(bounds);
+    parseCurrentBody({ preserveMeasuredSymbolPoints: true, preserveMeasuredComponentBounds: true });
+    const afterSignature = namedNodeGeometrySignature();
     reconcileSelection('programmatic');
     canvas.refresh();
     eventBus.emit({ type: 'geometry-changed' });
+    if (afterSignature !== beforeSignature) canvas.scheduleRender();
   };
 
   const getResolvedStatementPositions = (id: string): Array<string | null> => {
@@ -748,7 +792,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     invalidateRenderDerivedGeometry();
     parseCurrentBody();
     reconcileSelection('programmatic');
-    eventBus.emit({ type: 'body-changed' });
+    emitBodyChanged('full-source-loaded');
     canvas.refresh();
   };
 
@@ -771,7 +815,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       syncTikzScale();
       invalidateRenderDerivedGeometry();
       parseCurrentBody();
-      eventBus.emit({ type: 'body-changed' });
+      emitBodyChanged('append-line');
       canvas.refresh();
     },
     deleteElements: (ids: string[]) => {
@@ -790,7 +834,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       parseCurrentBody();
       selection.clear();
       eventBus.emit({ type: 'selection-changed', selectedIds: [], source: 'canvas' });
-      eventBus.emit({ type: 'body-changed' });
+      emitBodyChanged('delete-elements');
       canvas.refresh();
     },
     placeClipboard: (payload, target) => {
@@ -808,7 +852,18 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       const selectedIds = lines.map((_, index) => `line:${appended.startLineIndex + index}`);
       selection.setSelectedIds(selectedIds);
       eventBus.emit({ type: 'selection-changed', selectedIds, source: 'canvas' });
-      eventBus.emit({ type: 'body-changed' });
+      emitBodyChanged('place-clipboard');
+      canvas.refresh();
+    },
+    getEditableStatementModel: (id) => getEditableStatementModel(latexDoc.body, id),
+    applyEditableStatement: (statement) => {
+      pushUndoSnapshot();
+      latexDoc.body = applyEditableStatementToBody(latexDoc.body, statement);
+      syncTikzScale();
+      invalidateRenderDerivedGeometry();
+      parseCurrentBody();
+      reconcileSelection('programmatic');
+      emitBodyChanged('apply-editable-statement');
       canvas.refresh();
     },
     undo: () => {
@@ -883,10 +938,16 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     return sequences;
   };
 
-  // Single place where a LaTeX render is triggered: whenever the body changes.
-  eventBus.on('body-changed', () => {
+  // Single place where render-dependent state reacts to committed source changes.
+  eventBus.on('source-changed', () => {
     canvas.scheduleRender();
     toolManager.activeTool.onBodyChanged();
+    canvas.refresh();
+  });
+
+  eventBus.on('geometry-changed', () => {
+    toolManager.activeTool.onBodyChanged();
+    canvas.refresh();
   });
 
   eventBus.on('selection-changed', (e) => {
@@ -931,7 +992,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       invalidateRenderDerivedGeometry();
       parseCurrentBody();
       reconcileSelection('programmatic');
-      eventBus.emit({ type: 'body-changed' });
+      emitBodyChanged('source-translation');
       canvas.refresh();
       return;
     }
@@ -958,7 +1019,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       const nextSelectedIds = selection.getSelectedIds().map((id) => replaced.idMap.get(id) ?? id);
       selection.setSelectedIds(nextSelectedIds);  // remap IDs before reconcile reads them
       reconcileSelection('programmatic');
-      eventBus.emit({ type: 'body-changed' });
+      emitBodyChanged('document-model');
       canvas.refresh();
       return;
     }
@@ -985,7 +1046,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     latexDoc.body = nextBody;
     syncTikzScale();
     invalidateRenderDerivedGeometry();
-    eventBus.emit({ type: 'body-changed' });
+    emitBodyChanged('document-model');
     canvas.refresh();
   });
 
@@ -997,7 +1058,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     parseCurrentBody();
     selection.setSelectedIds(previousSelection);
     reconcileSelection('programmatic');
-    eventBus.emit({ type: 'body-changed' });
+    emitBodyChanged('code-editor');
     canvas.refresh();
   });
 
@@ -1038,26 +1099,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       eventBus.emit({ type: 'user-edited-latex' });
     },
     getRenderedSvg: () => canvas.getRenderedSvg(),
-    getLibraryPreviewProbe: (defId, onResolved) => {
-      const def = registry.get(defId);
-      if (!def) return null;
-      if (def.placementType === 'bipole') {
-        return componentProbeService.getBipoleGhostProbe(def, {
-          id: '__library_probe__',
-          defId,
-          type: 'bipole',
-          start: { x: 0, y: 0 },
-          end: { x: 2, y: 0 },
-          props: {},
-        }, onResolved, true);
-      }
-      return componentProbeService.getPlacedGhostProbe(def, 0, onResolved, true);
-    },
-    warmLibraryPreviewProbes: (onResolved) => {
-      for (const def of registry.getAll()) {
-        componentProbeService.primeLibraryProbe(def, onResolved);
-      }
-    },
     getInUseDefIds: () => collectInUseDefIdsFromBody(latexDoc.body),
     getSelectedComponent: () => {
       const [id] = selection.getSelectedIds();
@@ -1086,7 +1127,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
         : idsAtLineIndex(circuitDoc, latexDoc.body, statement.sourceLineIndex);
       selection.setSelectedIds(nextSelectedIds);
       reconcileSelection('programmatic');
-      eventBus.emit({ type: 'body-changed' });
+      emitBodyChanged('editable-statement');
       canvas.refresh();
     },
     getDef: (defId) => registry.get(defId),
@@ -1140,7 +1181,9 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     },
     setPreamble: (preamble) => {
       latexDoc.preamble = preamble;
+      syncTikzScale();
       invalidateRenderDerivedGeometry();
+      emitSourceChanged('preamble');
     },
     setBody: (body) => {
       latexDoc.body = body;
@@ -1185,6 +1228,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       fn(event.selectedIds, event.source);
     }),
     onBodyChange: (fn) => eventBus.on('body-changed', fn),
+    onSourceChange: (fn) => eventBus.on('source-changed', fn),
     onGeometryChange: (fn) => eventBus.on('geometry-changed', fn),
     onDocumentChange: (fn) => eventBus.on('document-changed', fn),
     onLatexEdited: (fn) => eventBus.on('user-edited-latex', fn),
@@ -1207,7 +1251,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       pushUndoSnapshot();
       circuitDoc.clear();
       latexDoc.body = DEFAULT_BODY;
-      eventBus.emit({ type: 'body-changed' });
+      emitBodyChanged('clear-document');
       eventBus.emit({ type: 'user-edited-latex' });
     },
     showInfoBanner: (message) => canvas.showInfoBanner(message),

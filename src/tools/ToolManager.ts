@@ -1,4 +1,4 @@
-import type { ToolType, AppEvent, WireRoutingMode } from '../types';
+import type { ComponentInstance, GridPoint, MonopoleInstance, NodeInstance, ToolType, AppEvent, WireRoutingMode } from '../types';
 import { BaseTool, type ToolContext } from './BaseTool';
 import { SelectTool } from './SelectTool';
 import { PlaceBipoleTool } from './PlaceBipoleTool';
@@ -163,9 +163,33 @@ export class ToolManager {
     }
   }
 
+  private currentSnapPoints(): Map<string, GridPoint> {
+    const points = this.ctx.getDocument().getSnappableSymbolPoints();
+    if (this._currentType !== 'select' || this.selection.count === 0) return points;
+
+    const excludedNodeNames = new Set(
+      this.selection.getSelectedIds()
+        .map((id) => this.ctx.getDocument().getComponent(id))
+        .filter((comp): comp is ComponentInstance => Boolean(comp))
+        .filter((comp): comp is NodeInstance | MonopoleInstance => comp.type !== 'bipole')
+        .filter((comp) => Boolean(comp.nodeName))
+        .map((comp) => comp.nodeName as string),
+    );
+    if (excludedNodeNames.size === 0) return points;
+
+    const filtered = new Map<string, GridPoint>();
+    for (const [key, point] of points) {
+      const dotIndex = key.indexOf('.');
+      const nodeName = dotIndex >= 0 ? key.slice(0, dotIndex) : key;
+      if (excludedNodeNames.has(nodeName)) continue;
+      filtered.set(key, point);
+    }
+    return filtered;
+  }
+
   private snapEvent(e: MouseEvent) {
     const raw = this.canvas.eventToGridRaw(e);
-    return this.canvas.snap.snap(raw, this.ctx.getDocument().geometry);
+    return this.canvas.snap.snap(raw, this.currentSnapPoints());
   }
 
   private attachListeners(): void {

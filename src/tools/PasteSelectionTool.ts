@@ -16,7 +16,6 @@ export class PasteSelectionTool extends BaseTool {
   private lastGridPt: GridPoint | null = null;
 
   private renderGhost(gridPt: GridPoint): void {
-    this.ctx.ghost.onGhostProbeReady = () => this.renderGhost(gridPt);
     const entries = previewClipboardAt(this.payload, gridPt);
     this.ctx.ghost.setGhostElement(this.ctx.ghost.buildClipboardGhost(entries));
   }

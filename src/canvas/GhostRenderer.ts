@@ -11,16 +11,18 @@ import type {
   DrawPathInstance,
   ConnectionRef,
   PositionSequencePreview,
+  RenderComponentBounds,
+  RenderSymbolPointGroup,
 } from '../types';
 import type { ComponentRegistry } from '../definitions/ComponentRegistry';
 import type { SelectionState } from '../model/SelectionState';
 import type { CircuitDocument } from '../model/CircuitDocument';
-import { SELECTION_COLOR, GHOST_OPACITY } from '../constants';
+import { SELECTION_COLOR } from '../constants';
 import { scaleState } from './ScaleState';
 import { createCircle, createGroup, createLine, createRect } from '../utils/svg';
-import { getBipoleBodyMetrics } from './ComponentGeometry';
-import { componentProbeService, type ComponentRenderProbe } from './ComponentProbeService';
+import { getBipoleBodyMetrics, getPlacedComponentMetrics } from './ComponentGeometry';
 import type { ClipboardEntry } from '../tools/SelectionClipboard';
+import { formatConnectionRef } from '../codegen/TikzEndpointFormatter';
 
 const OVERLAY_MARKER_COLOR = SELECTION_COLOR;
 const OVERLAY_STROKE_COLOR = SELECTION_COLOR;
@@ -47,7 +49,7 @@ export class GhostRenderer {
   private deletePreviewGroup: SVGGElement;
   private selectionGroup: SVGGElement;
   private hoverGroup: SVGGElement;
-  onGhostProbeReady: (() => void) | null = null;
+  private transientPointRefs = new Map<string, ConnectionRef | undefined>();
 
   constructor(
     private overlaySvg: SVGSVGElement,
@@ -74,6 +76,16 @@ export class GhostRenderer {
     this.ghostGroup.innerHTML = '';
     if (!el) this.setLatexGhostPreview(null);
     if (el) this.ghostGroup.appendChild(el);
+    this.dedupePinMarkers();
+  }
+
+  setTransientPointRef(key: string, ref?: ConnectionRef): void {
+    if (ref) this.transientPointRefs.set(key, ref);
+    else this.transientPointRefs.delete(key);
+  }
+
+  clearTransientPointRefs(): void {
+    this.transientPointRefs.clear();
   }
 
   buildMarqueeGhost(start: GridPoint, end: GridPoint): SVGGElement {
@@ -99,7 +111,13 @@ export class GhostRenderer {
     return g;
   }
 
-  buildBipoleGhost(defId: string, start: GridPoint, end: GridPoint, showLatexPreview = true): SVGGElement | null {
+  buildBipoleGhost(
+    defId: string,
+    start: GridPoint,
+    end: GridPoint,
+    startRef?: ConnectionRef,
+    endRef?: ConnectionRef,
+  ): SVGGElement | null {
     const gs = this.gs;
     const sx = start.x * gs, sy = start.y * gs;
     const ex = end.x   * gs, ey = end.y   * gs;
@@ -110,42 +128,23 @@ export class GhostRenderer {
     const dist = Math.hypot(dx, dy);
     const angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
     if (def) {
-      const ghostComp: BipoleInstance = {
-        id: '__ghost__',
-        defId,
-        type: 'bipole',
-        start,
-        end,
-        props: {},
-      };
-      const probe = showLatexPreview
-        ? componentProbeService.getBipoleGhostProbe(def, ghostComp, () => this.onGhostProbeReady?.())
-        : null;
-      if (probe && showLatexPreview) {
-        this.setLatexGhostPreview({
-          anchorX: sx,
-          anchorY: sy,
-          angleDeg,
-          opacity: GHOST_OPACITY,
-          svgMarkup: probe.svgMarkup,
-          tx: probe.tx,
-          ty: probe.ty,
-        });
-      } else {
-        this.setLatexGhostPreview(null);
-        const { bodyWidth, bodyHeight, bodyX, bodyY } = getBipoleBodyMetrics(def, gs, dist);
-        const body = createGroup('ghost-bipole-body');
-        body.setAttribute('transform', `translate(${sx}, ${sy}) rotate(${angleDeg})`);
-        body.appendChild(createRect(bodyX, bodyY, bodyWidth, bodyHeight, {
-          fill: SELECTION_COLOR,
-          opacity: OVERLAY_FILL_OPACITY,
-        }));
-        g.appendChild(body);
-      }
+      this.setLatexGhostPreview(null);
+      const { bodyWidth, bodyHeight, bodyX, bodyY } = getBipoleBodyMetrics(def, gs, dist);
+      const body = createGroup('ghost-bipole-body');
+      body.setAttribute('transform', `translate(${sx}, ${sy}) rotate(${angleDeg})`);
+      body.appendChild(createRect(bodyX, bodyY, bodyWidth, bodyHeight, {
+        fill: SELECTION_COLOR,
+        opacity: OVERLAY_FILL_OPACITY,
+      }));
+      g.appendChild(body);
     }
     g.appendChild(this.createOverlayLine(sx, sy, ex, ey, { opacity: GHOST_LINE_OPACITY }, SELECTION_COLOR));
-    g.appendChild(this.crossAt(sx, sy, gs * OVERLAY_MARKER_RADIUS, GHOST_LINE_OPACITY, OVERLAY_MARKER_COLOR));
-    g.appendChild(this.crossAt(ex, ey, gs * OVERLAY_MARKER_RADIUS, GHOST_LINE_OPACITY, OVERLAY_MARKER_COLOR));
+    g.appendChild(startRef
+      ? this.tooltipRingAt(sx, sy, gs * OVERLAY_MARKER_RADIUS, formatConnectionRef(startRef), SELECTION_COLOR, GHOST_LINE_OPACITY)
+      : this.crossAt(sx, sy, gs * OVERLAY_MARKER_RADIUS, GHOST_LINE_OPACITY, OVERLAY_MARKER_COLOR));
+    g.appendChild(endRef
+      ? this.tooltipRingAt(ex, ey, gs * OVERLAY_MARKER_RADIUS, formatConnectionRef(endRef), SELECTION_COLOR, GHOST_LINE_OPACITY)
+      : this.crossAt(ex, ey, gs * OVERLAY_MARKER_RADIUS, GHOST_LINE_OPACITY, OVERLAY_MARKER_COLOR));
     return g;
   }
 
@@ -163,7 +162,7 @@ export class GhostRenderer {
       const p = handlePoints[i];
       const ref = i === 0 ? startRef : i === handlePoints.length - 1 ? endRef : undefined;
       if (ref) {
-        g.appendChild(this.tooltipRingAt(p.x * gs, p.y * gs, gs * OVERLAY_MARKER_RADIUS, ref.anchor, SELECTION_COLOR, GHOST_LINE_OPACITY));
+        g.appendChild(this.tooltipRingAt(p.x * gs, p.y * gs, gs * OVERLAY_MARKER_RADIUS, formatConnectionRef(ref), SELECTION_COLOR, GHOST_LINE_OPACITY));
       } else {
         g.appendChild(this.crossAt(p.x * gs, p.y * gs, gs * OVERLAY_MARKER_RADIUS, GHOST_LINE_OPACITY, OVERLAY_MARKER_COLOR));
       }
@@ -179,24 +178,28 @@ export class GhostRenderer {
     return g;
   }
 
-  buildMonopoleGhost(defId: string, position: GridPoint, rotation = 0): SVGGElement | null {
+  buildMonopoleGhost(defId: string, position: GridPoint, rotation = 0, ref?: ConnectionRef): SVGGElement | null {
     const def = this.registry.get(defId);
     if (!def) return null;
-    const probe = componentProbeService.getPlacedGhostProbe(def, rotation, () => this.onGhostProbeReady?.());
-    if (probe) {
-      this.setLatexGhostPreview({
-        anchorX: position.x * this.gs,
-        anchorY: position.y * this.gs,
-        opacity: GHOST_OPACITY,
-        svgMarkup: probe.svgMarkup,
-        tx: probe.tx,
-        ty: probe.ty,
-      });
-    } else {
-      this.setLatexGhostPreview(null);
-    }
+    this.setLatexGhostPreview(null);
     const g = createGroup('ghost-monopole');
-    g.appendChild(this.crossAt(position.x * this.gs, position.y * this.gs, this.gs * OVERLAY_MARKER_RADIUS, GHOST_LINE_OPACITY, OVERLAY_MARKER_COLOR));
+    const metrics = getPlacedComponentMetrics(def, 1);
+    const body = createGroup('ghost-monopole-body');
+    body.setAttribute('transform', `translate(${position.x * this.gs}, ${position.y * this.gs}) rotate(${rotation})`);
+    body.appendChild(createRect(
+      metrics.leftOffset * this.gs,
+      metrics.topOffset * this.gs,
+      metrics.width * this.gs,
+      metrics.height * this.gs,
+      {
+        fill: SELECTION_COLOR,
+        opacity: OVERLAY_FILL_OPACITY,
+      },
+    ));
+    g.appendChild(body);
+    g.appendChild(ref
+      ? this.tooltipRingAt(position.x * this.gs, position.y * this.gs, this.gs * OVERLAY_MARKER_RADIUS, formatConnectionRef(ref), SELECTION_COLOR, GHOST_LINE_OPACITY)
+      : this.crossAt(position.x * this.gs, position.y * this.gs, this.gs * OVERLAY_MARKER_RADIUS, GHOST_LINE_OPACITY, OVERLAY_MARKER_COLOR));
     return g;
   }
 
@@ -239,11 +242,15 @@ export class GhostRenderer {
       const group = this.buildSingleSelectionGroup(id, SELECTION_COLOR);
       if (group) this.selectionGroup.appendChild(group);
     }
+    this.dedupePinMarkers();
   }
 
   setHoverSequences(sequences: PositionSequencePreview[], cursor: GridPoint, tolerance: number): void {
     this.hoverGroup.innerHTML = '';
-    if (sequences.length === 0) return;
+    if (sequences.length === 0) {
+      this.dedupePinMarkers();
+      return;
+    }
     for (const sequence of sequences) {
       for (let index = 0; index < sequence.corners.length; index++) {
         const displayPoint = this.resolveDisplayedCornerPoint(sequence, index);
@@ -253,6 +260,7 @@ export class GhostRenderer {
         this.hoverGroup.appendChild(this.buildCornerMarker(sequence, index, SELECTION_COLOR, GHOST_LINE_OPACITY));
       }
     }
+    this.dedupePinMarkers();
   }
 
 
@@ -427,11 +435,11 @@ export class GhostRenderer {
       case 'line':
       case 'arrow':
         g.appendChild(this.createOverlayLine(drawing.start.x * gs, drawing.start.y * gs, drawing.end.x * gs, drawing.end.y * gs, {}, color));
-        g.appendChild(this.crossAt(drawing.start.x * gs, drawing.start.y * gs, gs * OVERLAY_MARKER_RADIUS, 1, color));
-        g.appendChild(this.crossAt(drawing.end.x * gs, drawing.end.y * gs, gs * OVERLAY_MARKER_RADIUS, 1, color));
+        g.appendChild(this.buildTransientPointMarker(`drawing:${drawing.id}:start`, drawing.start, color));
+        g.appendChild(this.buildTransientPointMarker(`drawing:${drawing.id}:end`, drawing.end, color));
         return g;
       case 'text':
-        g.appendChild(this.crossAt(drawing.position.x * gs, drawing.position.y * gs, gs * OVERLAY_MARKER_RADIUS, 1, color));
+        g.appendChild(this.buildTransientPointMarker(`drawing:${drawing.id}:position`, drawing.position, color));
         return g;
       case 'rectangle': {
         const left = Math.min(drawing.start.x, drawing.end.x) * gs;
@@ -444,8 +452,8 @@ export class GhostRenderer {
           'stroke-width': OVERLAY_STROKE_WIDTH,
           'vector-effect': 'non-scaling-stroke',
         }));
-        g.appendChild(this.crossAt(drawing.start.x * gs, drawing.start.y * gs, gs * OVERLAY_MARKER_RADIUS, 1, color));
-        g.appendChild(this.crossAt(drawing.end.x * gs, drawing.end.y * gs, gs * OVERLAY_MARKER_RADIUS, 1, color));
+        g.appendChild(this.buildTransientPointMarker(`drawing:${drawing.id}:start`, drawing.start, color));
+        g.appendChild(this.buildTransientPointMarker(`drawing:${drawing.id}:end`, drawing.end, color));
         return g;
       }
       case 'circle': {
@@ -458,7 +466,7 @@ export class GhostRenderer {
         circle.setAttribute('stroke-width', String(OVERLAY_STROKE_WIDTH));
         circle.setAttribute('vector-effect', 'non-scaling-stroke');
         g.appendChild(circle);
-        g.appendChild(this.crossAt(drawing.center.x * gs, drawing.center.y * gs, gs * OVERLAY_MARKER_RADIUS, 1, color));
+        g.appendChild(this.buildTransientPointMarker(`drawing:${drawing.id}:center`, drawing.center, color));
         return g;
       }
       case 'bezier': {
@@ -485,13 +493,21 @@ export class GhostRenderer {
         path.setAttribute('stroke-width', String(OVERLAY_STROKE_WIDTH));
         path.setAttribute('vector-effect', 'non-scaling-stroke');
         g.appendChild(path);
-        g.appendChild(this.crossAt(drawing.start.x * gs, drawing.start.y * gs, gs * OVERLAY_MARKER_RADIUS, 1, color));
-        g.appendChild(this.crossAt(drawing.control1.x * gs, drawing.control1.y * gs, gs * OVERLAY_MARKER_RADIUS, 1, color));
-        g.appendChild(this.crossAt(drawing.control2.x * gs, drawing.control2.y * gs, gs * OVERLAY_MARKER_RADIUS, 1, color));
-        g.appendChild(this.crossAt(drawing.end.x * gs, drawing.end.y * gs, gs * OVERLAY_MARKER_RADIUS, 1, color));
+        g.appendChild(this.buildTransientPointMarker(`drawing:${drawing.id}:start`, drawing.start, color));
+        g.appendChild(this.buildTransientPointMarker(`drawing:${drawing.id}:control1`, drawing.control1, color));
+        g.appendChild(this.buildTransientPointMarker(`drawing:${drawing.id}:control2`, drawing.control2, color));
+        g.appendChild(this.buildTransientPointMarker(`drawing:${drawing.id}:end`, drawing.end, color));
         return g;
       }
     }
+  }
+
+  private buildTransientPointMarker(key: string, point: GridPoint, color: string): SVGGElement {
+    const gs = this.gs;
+    const ref = this.transientPointRefs.get(key);
+    return ref
+      ? this.tooltipRingAt(point.x * gs, point.y * gs, gs * OVERLAY_MARKER_RADIUS, formatConnectionRef(ref), color, 1)
+      : this.crossAt(point.x * gs, point.y * gs, gs * OVERLAY_MARKER_RADIUS, 1, color);
   }
 
   private buildSingleBipoleSelection(comp: BipoleInstance, def: ComponentDef, color: string): SVGGElement {
@@ -588,32 +604,59 @@ export class GhostRenderer {
     const cx = x * gs;
     const cy = y * gs;
     const selectedComp = selectionId ? this.doc.getComponent(selectionId) : undefined;
-    const probe = selectionId && selectedComp
-      ? componentProbeService.getPlacedGhostProbe(def, rotation, () => this.renderSelection())
-      : null;
-    if (!probe) return null;
+    const measuredBounds = selectionId ? this.doc.getMeasuredComponentBounds(selectionId) : undefined;
     const nodeName = selectedComp && 'nodeName' in selectedComp ? selectedComp.nodeName : undefined;
-    return this.buildProbeSelectionGroup(cx, cy, probe, ghost, rotation, color, showAnchorMarker, nodeName);
+    const currentRef = selectedComp && selectedComp.type !== 'bipole' ? selectedComp.positionSequence?.ref : undefined;
+    const hasMeasuredTerminals = nodeName ? this.doc.getMeasuredNodePointGroups(nodeName, 'terminal').length > 0 : false;
+    const shouldShowReferenceAsSnap = Boolean(nodeName && def.geometry?.reference?.snap && !hasMeasuredTerminals);
+    const wrapper = createGroup('sel-component-wrapper');
+    if (measuredBounds) {
+      wrapper.appendChild(this.buildMeasuredBoundsGroup(
+        measuredBounds,
+        color,
+        showAnchorMarker,
+        currentRef,
+        shouldShowReferenceAsSnap ? nodeName : undefined,
+      ));
+    } else {
+      wrapper.appendChild(this.buildStaticBoundsGroup(
+        cx,
+        cy,
+        def,
+        rotation,
+        ghost,
+        color,
+        showAnchorMarker,
+        currentRef,
+        shouldShowReferenceAsSnap ? nodeName : undefined,
+      ));
+    }
+    if (!ghost && nodeName) {
+      this.appendMeasuredPinMarkers(wrapper, nodeName, color);
+    }
+    return wrapper.childNodes.length > 0 ? wrapper : null;
   }
 
-  private buildProbeSelectionGroup(
+  private buildStaticBoundsGroup(
     anchorX: number,
     anchorY: number,
-    probe: ComponentRenderProbe,
-    ghost = false,
-    rotationDeg = 0,
-    color: string = SELECTION_COLOR,
-    showAnchorMarker = true,
-    nodeName?: string,
+    def: ComponentDef,
+    rotationDeg: number,
+    ghost: boolean,
+    color: string,
+    showAnchorMarker: boolean,
+    currentRef?: ConnectionRef,
+    fallbackReferenceLabel?: string,
   ): SVGGElement {
     const gs = this.gs;
-    const g = createGroup('sel-probe');
+    const metrics = getPlacedComponentMetrics(def, 1);
+    const g = createGroup('sel-static-bounds');
     g.setAttribute('transform', `translate(${anchorX}, ${anchorY}) rotate(${rotationDeg})`);
     g.appendChild(createRect(
-      probe.bboxLeft,
-      probe.bboxTop,
-      probe.bboxWidth,
-      probe.bboxHeight,
+      metrics.leftOffset * gs,
+      metrics.topOffset * gs,
+      metrics.width * gs,
+      metrics.height * gs,
       ghost ? {
         fill: color,
         opacity: OVERLAY_FILL_OPACITY,
@@ -626,19 +669,104 @@ export class GhostRenderer {
       },
     ));
     if (showAnchorMarker) {
-      if (ghost) {
-        g.appendChild(this.crossAt(0, 0, gs * OVERLAY_MARKER_RADIUS, GHOST_LINE_OPACITY, color));
+      if (currentRef) {
+        g.appendChild(this.tooltipRingAt(
+          0,
+          0,
+          gs * OVERLAY_MARKER_RADIUS,
+          formatConnectionRef(currentRef),
+          color,
+          ghost ? GHOST_LINE_OPACITY : SELECTION_LINE_OPACITY,
+        ));
+      } else if (fallbackReferenceLabel) {
+        g.appendChild(this.tooltipRingAt(
+          0,
+          0,
+          gs * OVERLAY_MARKER_RADIUS,
+          fallbackReferenceLabel,
+          color,
+          ghost ? GHOST_LINE_OPACITY : SELECTION_LINE_OPACITY,
+        ));
       } else {
-        g.appendChild(this.crossAt(0, 0, gs * OVERLAY_MARKER_RADIUS, SELECTION_LINE_OPACITY, color));
-      }
-    }
-    if (!ghost) {
-      for (const pin of probe.pinOffsets) {
-        const label = nodeName ? `${nodeName}.${pin.name}` : pin.name;
-        g.appendChild(this.tooltipRingAt(pin.x, pin.y, gs * OVERLAY_MARKER_RADIUS, label, color, SELECTION_LINE_OPACITY));
+        g.appendChild(ghost
+          ? this.crossAt(0, 0, gs * OVERLAY_MARKER_RADIUS, GHOST_LINE_OPACITY, color)
+          : this.crossAt(0, 0, gs * OVERLAY_MARKER_RADIUS, SELECTION_LINE_OPACITY, color));
       }
     }
     return g;
+  }
+
+  private buildMeasuredBoundsGroup(
+    bounds: RenderComponentBounds,
+    color: string,
+    showAnchorMarker: boolean,
+    currentRef?: ConnectionRef,
+    fallbackReferenceLabel?: string,
+  ): SVGGElement {
+    const gs = this.gs;
+    const g = createGroup('sel-measured-bounds');
+    g.appendChild(createRect(
+      bounds.left * gs,
+      bounds.top * gs,
+      bounds.width * gs,
+      bounds.height * gs,
+      {
+        fill: color,
+        opacity: OVERLAY_FILL_OPACITY,
+        stroke: color,
+        'stroke-width': OVERLAY_STROKE_WIDTH,
+        'vector-effect': 'non-scaling-stroke',
+      },
+    ));
+    if (showAnchorMarker) {
+      const ref = this.doc.getMeasuredSymbolPoint(bounds.nodeName, 'reference');
+      if (ref) {
+        if (currentRef) {
+          g.appendChild(this.tooltipRingAt(
+            ref.point.x * gs,
+            ref.point.y * gs,
+            gs * OVERLAY_MARKER_RADIUS,
+            formatConnectionRef(currentRef),
+            color,
+            SELECTION_LINE_OPACITY,
+          ));
+        } else if (fallbackReferenceLabel || ref.snap) {
+          g.appendChild(this.tooltipRingAt(
+            ref.point.x * gs,
+            ref.point.y * gs,
+            gs * OVERLAY_MARKER_RADIUS,
+            fallbackReferenceLabel ?? bounds.nodeName,
+            color,
+            SELECTION_LINE_OPACITY,
+          ));
+        } else {
+          g.appendChild(this.crossAt(
+            ref.point.x * gs,
+            ref.point.y * gs,
+            gs * OVERLAY_MARKER_RADIUS,
+            SELECTION_LINE_OPACITY,
+            color,
+          ));
+        }
+      }
+    }
+    return g;
+  }
+
+  private appendMeasuredPinMarkers(parent: SVGGElement, nodeName: string, color: string): void {
+    const gs = this.gs;
+    const groups = this.doc.getMeasuredNodePointGroups(nodeName, 'terminal');
+    for (const group of groups) {
+      const label = group.names.map((name) => `${nodeName}.${name}`).join('\n');
+      parent.appendChild(this.tooltipRingAt(
+        group.point.x * gs,
+        group.point.y * gs,
+        gs * OVERLAY_MARKER_RADIUS,
+        label,
+        color,
+        SELECTION_LINE_OPACITY,
+      ));
+    }
   }
 
   private appendPositionSequencePreview(
@@ -694,7 +822,7 @@ export class GhostRenderer {
     const y = displayPoint.y * gs;
     if (this.resolveCornerMarkerKind(sequence, index) === 'ring') {
       const ringRef = this.resolveCornerReference(sequence, index);
-      return this.tooltipRingAt(x, y, gs * OVERLAY_MARKER_RADIUS, ringRef?.anchor ?? 'reference', color, opacity);
+      return this.tooltipRingAt(x, y, gs * OVERLAY_MARKER_RADIUS, ringRef ? formatConnectionRef(ringRef) : 'reference', color, opacity);
     }
     return this.crossAt(x, y, gs * OVERLAY_MARKER_RADIUS, opacity, color);
   }
@@ -755,7 +883,7 @@ export class GhostRenderer {
   private resolveDisplayedCornerPoint(sequence: PositionSequencePreview, index: number): GridPoint | null {
     const corner = sequence.corners[index];
     if (corner.kind === 'reference' && corner.ref) {
-      return this.doc.getSymbolPoint(corner.ref.nodeName, corner.ref.anchor) ?? null;
+      return this.doc.getMeasuredSymbolPoint(corner.ref.nodeName, corner.ref.anchor)?.point ?? corner.point;
     }
     if (corner.kind === 'relative' && corner.relativeFromIndex !== undefined) {
       const originDisplay = this.resolveDisplayedCornerPoint(sequence, corner.relativeFromIndex);
@@ -872,6 +1000,27 @@ export class GhostRenderer {
     }));
     g.appendChild(this.ringAt(x, y, radius, color, opacity));
     return g;
+  }
+
+  private dedupePinMarkers(): void {
+    const seen = new Set<string>();
+    for (const marker of this.overlaySvg.querySelectorAll<SVGGElement>('[data-pin-label]')) {
+      const label = marker.getAttribute('data-pin-label');
+      if (!label) continue;
+      const ring = marker.querySelector<SVGCircleElement>('circle[fill="none"]');
+      const matrix = ring?.getCTM();
+      if (!ring || !matrix) continue;
+      const cx = Number.parseFloat(ring.getAttribute('cx') ?? '0');
+      const cy = Number.parseFloat(ring.getAttribute('cy') ?? '0');
+      const x = matrix.a * cx + matrix.c * cy + matrix.e;
+      const y = matrix.b * cx + matrix.d * cy + matrix.f;
+      const key = `${label}@${Math.round(x)},${Math.round(y)}`;
+      if (seen.has(key)) {
+        marker.remove();
+        continue;
+      }
+      seen.add(key);
+    }
   }
 
   private createOverlayLine(

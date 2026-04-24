@@ -128,12 +128,33 @@ function normalizeAnchorRequests(anchors) {
     if (!entry || typeof entry !== 'object') continue;
     const nodeName = typeof entry.nodeName === 'string' ? entry.nodeName.trim() : '';
     const anchor = typeof entry.anchor === 'string' ? entry.anchor.trim() : 'reference';
-    if (!/^[A-Za-z][\w]*$/.test(nodeName)) continue;
+    if (!/^[A-Za-z][\w-]*$/.test(nodeName)) continue;
     if (!anchor || anchor.length > 80 || /[{}\\;]/.test(anchor)) continue;
     const key = anchor === 'reference' ? nodeName : `${nodeName}.${anchor}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    normalized.push({ key, nodeName, anchor });
+    const componentId = typeof entry.componentId === 'string' ? entry.componentId.trim() : '';
+    const defId = typeof entry.defId === 'string' ? entry.defId.trim() : '';
+    const kind = entry.kind === 'pin' || entry.kind === 'anchor' ? entry.kind : 'reference';
+    const role = typeof entry.role === 'string' ? entry.role.trim().slice(0, 80) : '';
+    const names = Array.isArray(entry.names)
+      ? entry.names
+          .filter((value) => typeof value === 'string')
+          .map((value) => value.trim())
+          .filter((value) => value && value.length <= 80 && !/[{}\\;]/.test(value))
+      : [anchor];
+    normalized.push({
+      key,
+      nodeName,
+      anchor,
+      componentId,
+      defId,
+      kind,
+      names: names.length > 0 ? names : [anchor],
+      role,
+      snap: Boolean(entry.snap),
+      ghost: Boolean(entry.ghost),
+    });
     if (normalized.length >= 600) break;
   }
   return normalized;
@@ -142,33 +163,72 @@ function normalizeAnchorRequests(anchors) {
 function buildAnchorDiagnosticSource(latexBody, anchors) {
   if (anchors.length === 0) return null;
   let source = normalizePictureEnvironmentForRender(LATEX_WRAPPER(latexBody));
-  const markers = anchors.map((anchor, index) => ({
+  const pointMarkers = anchors.map((anchor, index) => ({
     ...anchor,
     color: markerColor(index),
     latexColorName: `tikadAnchorMarker${index}`,
   }));
-  const colorDefs = markers
+  const boundsByNode = [];
+  const seenBounds = new Set();
+  for (const anchor of anchors) {
+    if (seenBounds.has(anchor.nodeName)) continue;
+    seenBounds.add(anchor.nodeName);
+    boundsByNode.push({
+      key: anchor.nodeName,
+      nodeName: anchor.nodeName,
+      componentId: anchor.componentId,
+      defId: anchor.defId,
+    });
+  }
+  const boundsMarkers = boundsByNode.flatMap((bound, index) => ([
+    {
+      ...bound,
+      corner: 'south west',
+      color: markerColor(pointMarkers.length + index * 2),
+      latexColorName: `tikadBoundsMarker${index}SW`,
+    },
+    {
+      ...bound,
+      corner: 'north east',
+      color: markerColor(pointMarkers.length + index * 2 + 1),
+      latexColorName: `tikadBoundsMarker${index}NE`,
+    },
+  ]));
+  const colorDefs = [...pointMarkers, ...boundsMarkers]
     .map((marker) => `\\definecolor{${marker.latexColorName}}{HTML}{${marker.color.slice(1).toUpperCase()}}`)
     .join('\n');
   const documentIndex = source.indexOf('\\begin{document}');
   if (documentIndex >= 0) {
-    source = `${source.slice(0, documentIndex)}${colorDefs}\n${source.slice(documentIndex)}`;
+    source = `${source.slice(0, documentIndex)}\\usetikzlibrary{fit}\n${colorDefs}\n${source.slice(documentIndex)}`;
   } else {
-    source = `${colorDefs}\n${source}`;
+    source = `\\usetikzlibrary{fit}\n${colorDefs}\n${source}`;
   }
 
-  const markerLines = markers
+  const pointLines = pointMarkers
     .map((marker) => {
       const target = marker.anchor === 'reference' ? marker.nodeName : `${marker.nodeName}.${marker.anchor}`;
       return `\\fill[${marker.latexColorName}] (${target}) circle[radius=0.08];`;
+    })
+    .join('\n');
+  const boundsLines = boundsMarkers
+    .map((marker, index) => {
+      const fitNode = `tikadBoundsNode${Math.floor(index / 2)}`;
+      if (marker.corner === 'south west') {
+        return [
+          `\\node[fit=(${marker.nodeName}),inner sep=0pt,outer sep=0pt,draw=none] (${fitNode}) {};`,
+          `\\fill[${marker.latexColorName}] (${fitNode}.south west) circle[radius=0.08];`,
+        ].join('\n');
+      }
+      return `\\fill[${marker.latexColorName}] (${fitNode}.north east) circle[radius=0.08];`;
     })
     .join('\n');
   const endToken = '\\end{tikzpicture}';
   const endIndex = source.lastIndexOf(endToken);
   if (endIndex < 0) return null;
   return {
-    source: `${source.slice(0, endIndex)}${markerLines}\n${source.slice(endIndex)}`,
-    markers,
+    source: `${source.slice(0, endIndex)}${pointLines}\n${boundsLines}\n${source.slice(endIndex)}`,
+    markers: pointMarkers,
+    boundsMarkers,
   };
 }
 
@@ -327,6 +387,7 @@ async function renderLatex(latexBody, anchors = []) {
         result.anchorTx = anchorMatch ? parseFloat(anchorMatch[1]) : 0;
         result.anchorTy = anchorMatch ? parseFloat(anchorMatch[2]) : 0;
         result.anchorMarkers = diagnostic.markers.map(({ latexColorName, ...marker }) => marker);
+        result.boundsMarkers = diagnostic.boundsMarkers.map(({ latexColorName, ...marker }) => marker);
       } catch (anchorErr) {
         log('anchor_render_error', { detail: anchorErr.message });
         result.anchorError = anchorErr.message;

@@ -10,11 +10,282 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
-function titleCaseFromTag(tag) {
-  return tag
+function geometrySourceKinds(sourceKinds) {
+  const filtered = unique(sourceKinds || [])
+    .filter((kind) => kind !== 'symbols-metadata')
+    .sort((a, b) => a.localeCompare(b));
+  return filtered.length > 0 ? filtered : unique(sourceKinds || []).sort((a, b) => a.localeCompare(b));
+}
+
+const GEOMETRIC_ANCHORS = new Set([
+  'center',
+  'down',
+  'east',
+  'left',
+  'leftedge',
+  'north',
+  'north east',
+  'north west',
+  'right',
+  'rightedge',
+  'south',
+  'south east',
+  'south west',
+  'text',
+  'up',
+  'west',
+]);
+
+const INTERNAL_ANCHOR_NAMES = new Set([
+  'bulk',
+  'centergap',
+  'circle base',
+  'circle bottom',
+  'circle C',
+  'circle center',
+  'circle E',
+  'circle left',
+  'circle right',
+  'circle top',
+  'inner down',
+  'inner up',
+  'kink',
+  'nobase',
+  'nobulk',
+  'nogate',
+  'pathend',
+  'pathstart',
+]);
+
+const INTERNAL_ANCHOR_PREFIXES = [
+  'body ',
+  'circle ',
+  'inner ',
+];
+
+function isInternalAnchor(name) {
+  if (INTERNAL_ANCHOR_NAMES.has(name)) return true;
+  return INTERNAL_ANCHOR_PREFIXES.some((prefix) => name.startsWith(prefix));
+}
+
+function classifyAnchorRole(name) {
+  if (name === 'center') return 'reference';
+  if (name === 'text') return 'text';
+  if (isInternalAnchor(name)) return 'internal';
+  if (GEOMETRIC_ANCHORS.has(name)) return 'geometry';
+  return 'terminal';
+}
+
+function pointSpec(name, sourceKinds, overrides = {}) {
+  const role = overrides.role || classifyAnchorRole(name);
+  return {
+    name,
+    tikz: overrides.tikz || name,
+    role,
+    required: overrides.required ?? true,
+    snap: overrides.snap ?? role === 'terminal',
+    ghost: overrides.ghost ?? role === 'terminal',
+    sources: unique([...(overrides.sources || []), ...sourceKinds]).sort((a, b) => a.localeCompare(b)),
+    ...(overrides.label ? { label: overrides.label } : {}),
+  };
+}
+
+function mergePointSpecs(primary = [], secondary = []) {
+  const byName = new Map();
+  for (const point of [...primary, ...secondary]) {
+    if (!point?.name) continue;
+    const existing = byName.get(point.name) || {};
+    byName.set(point.name, {
+      ...existing,
+      ...point,
+      sources: unique([...(existing.sources || []), ...(point.sources || [])]).sort((a, b) => a.localeCompare(b)),
+    });
+  }
+  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function compactGeometry(geometry) {
+  const compactPoints = [
+    ...(geometry.reference ? [{ name: geometry.reference.name, role: geometry.reference.role }] : []),
+    ...((geometry.pins || []).map((point) => ({ name: point.name, role: point.role }))),
+    ...((geometry.anchors || []).map((point) => ({ name: point.name, role: point.role }))),
+  ];
+  return {
+    source: geometry.source,
+    referenceName: geometry.reference?.name ?? null,
+    points: compactPoints.length > 0 ? compactPoints : undefined,
+    rules: geometry.rules,
+  };
+}
+
+function anchorSemanticBucket(name) {
+  const lowered = String(name || '').toLowerCase();
+  if (/^gate\d*$/.test(lowered) || /^g\d*$/.test(lowered)) return 'gate';
+  if (/^drain\d*$/.test(lowered) || /^d\d*$/.test(lowered)) return 'drain';
+  if (/^source\d*$/.test(lowered) || /^s\d*$/.test(lowered)) return 'source';
+  if (/^base\d*$/.test(lowered) || /^b\d*$/.test(lowered)) return 'base';
+  if (/^collector\d*$/.test(lowered) || /^c\d*$/.test(lowered)) return 'collector';
+  if (/^emitter\d*$/.test(lowered) || /^e\d*$/.test(lowered)) return 'emitter';
+  return lowered;
+}
+
+function componentSpecificBucketPriority(component, bucket) {
+  const tag = String(component?.tag || '').toLowerCase();
+  if (/(jfet|mos|igfet|fet)/.test(tag)) {
+    if (bucket === 'gate') return 0;
+    if (bucket === 'drain') return 1;
+    if (bucket === 'source') return 2;
+    if (bucket === 'base') return 3;
+    if (bucket === 'collector') return 4;
+    if (bucket === 'emitter') return 5;
+  }
+  if (/(npn|pnp|bjt|transistor)/.test(tag) && !/(jfet|mos|igfet|fet)/.test(tag)) {
+    if (bucket === 'base') return 0;
+    if (bucket === 'collector') return 1;
+    if (bucket === 'emitter') return 2;
+    if (bucket === 'gate') return 3;
+    if (bucket === 'drain') return 4;
+    if (bucket === 'source') return 5;
+  }
+  return 100;
+}
+
+function compareGroupedNames(component, a, b) {
+  const bucketDiff = componentSpecificBucketPriority(component, anchorSemanticBucket(a.name))
+    - componentSpecificBucketPriority(component, anchorSemanticBucket(b.name));
+  if (bucketDiff !== 0) return bucketDiff;
+  const aNumbered = /\d+$/.test(a.name);
+  const bNumbered = /\d+$/.test(b.name);
+  if (aNumbered !== bNumbered) return aNumbered ? 1 : -1;
+  if (a.name.length !== b.name.length) return a.name.length - b.name.length;
+  return a.name.localeCompare(b.name);
+}
+
+function compactAnchorDefs(component, anchorDefs = []) {
+  const byKey = new Map();
+  for (const def of anchorDefs) {
+    if (!def?.name || !def.normalizedBody) continue;
+    const key = `${def.normalizedBody}:::${def.role || classifyAnchorRole(def.name)}`;
+    const bucket = byKey.get(key) ?? {
+      names: [],
+      normalizedBody: def.normalizedBody,
+      role: def.role || classifyAnchorRole(def.name),
+      _sortKey: def.order ?? Number.MAX_SAFE_INTEGER,
+    };
+    bucket.names.push({ name: def.name, order: def.order ?? Number.MAX_SAFE_INTEGER });
+    bucket._sortKey = Math.min(bucket._sortKey, def.order ?? Number.MAX_SAFE_INTEGER);
+    byKey.set(key, bucket);
+  }
+  return [...byKey.values()]
+    .sort((a, b) => a._sortKey - b._sortKey || a.names[0].name.localeCompare(b.names[0].name))
+    .map((group) => ({
+      names: group.names
+        .sort((a, b) => compareGroupedNames(component, a, b) || a.order - b.order || a.name.localeCompare(b.name))
+        .map((entry) => entry.name),
+      normalizedBody: group.normalizedBody,
+      role: group.role,
+    }));
+}
+
+function buildEquivalentNameGroups(component, points = []) {
+  if (!Array.isArray(component.anchorDefs) || component.anchorDefs.length === 0 || points.length === 0) return undefined;
+  const pointMap = new Map(points.map((point) => [point.name, point]));
+  const byBody = new Map();
+
+  for (const def of component.anchorDefs) {
+    if (!def?.name || !def.normalizedBody) continue;
+    if (!pointMap.has(def.name)) continue;
+    const bucket = byBody.get(def.normalizedBody) ?? [];
+    bucket.push(def);
+    byBody.set(def.normalizedBody, bucket);
+  }
+
+  const groups = [];
+  for (const defs of byBody.values()) {
+    const names = defs
+      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+      .map((def) => def.name);
+    if (names.length < 2) continue;
+    groups.push({
+      names,
+      role: pointMap.get(names[0])?.role || 'terminal',
+    });
+  }
+
+  return groups.length > 0 ? groups : undefined;
+}
+
+function buildGeometrySpec(component, override = {}) {
+  if (override.geometry) {
+    const sourceKinds = geometrySourceKinds([...(component.sourceKinds || []), 'manual-override']);
+    const base = buildGeometrySpec({ ...component, sourceKinds }, {});
+    return {
+      ...base,
+      ...override.geometry,
+      reference: override.geometry.reference ?? base.reference,
+      pinGroups: override.geometry.pinGroups ?? base.pinGroups,
+      pins: mergePointSpecs(base.pins, override.geometry.pins || []),
+      anchors: mergePointSpecs(base.anchors, override.geometry.anchors || []),
+      rules: [...(base.rules || []), ...(override.geometry.rules || [])],
+    };
+  }
+
+  const sourceKinds = geometrySourceKinds(component.sourceKinds || []);
+  if (component.kind === 'bipole') {
+    const anchorNames = unique(component.anchors || []).sort((a, b) => a.localeCompare(b));
+    const anchorSpecs = anchorNames.map((name) => pointSpec(name, sourceKinds));
+    const pins = [
+      pointSpec('START', sourceKinds, { role: 'terminal' }),
+      pointSpec('END', sourceKinds, { role: 'terminal' }),
+    ];
+    return {
+      source: sourceKinds.includes('manual-override') ? 'manual-override' : 'official-tex',
+      reference: anchorNames.includes('center') ? pointSpec('center', sourceKinds, { role: 'reference', snap: false, ghost: true }) : null,
+      pinGroups: buildEquivalentNameGroups(component, pins),
+      pins,
+      anchors: anchorSpecs.filter((spec) => spec.role !== 'terminal'),
+      rules: [],
+    };
+  }
+
+  const anchorNames = unique(component.anchors || []).sort((a, b) => a.localeCompare(b));
+  const specs = anchorNames.map((name) => pointSpec(name, sourceKinds));
+  const pins = specs.filter((spec) => spec.role === 'terminal');
+  const anchors = specs.filter((spec) => spec.role !== 'terminal');
+  const reference = anchorNames.includes('center') ? pointSpec('center', sourceKinds, { role: 'reference', snap: false, ghost: true }) : null;
+  return {
+    source: anchorNames.length > 0 ? 'official-tex' : 'unresolved',
+    reference,
+    pinGroups: buildEquivalentNameGroups(component, pins),
+    pins,
+    anchors,
+    rules: [],
+  };
+}
+
+function titleCaseWord(word) {
+  const upperWords = new Set(['vcc', 'vee', 'vdd', 'vss', 'gnd', 'adc', 'dac', 'jfet', 'nmos', 'pmos', 'mos']);
+  const lower = word.toLowerCase();
+  if (upperWords.has(lower)) return lower.toUpperCase();
+  if (/^[vgin][a-z]{1,4}$/.test(lower) && lower === word) return lower.toUpperCase();
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+function splitTagWords(tag) {
+  return String(tag || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/([a-zA-Z])(\d)/g, '$1 $2')
+    .replace(/(\d)([a-zA-Z])/g, '$1 $2')
+    .replace(/([a-z])(american|european|cute|stroke|empty|full|normal|ieee|ieeestd|generic|variable|controlled|open|closed|left|right|north|south|double|sinusoidal|triangle|square|gas|light|noise)/gi, '$1 $2')
+    .replace(/[_-]+/g, ' ')
     .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .filter(Boolean);
+}
+
+function titleCaseFromTag(tag) {
+  return splitTagWords(tag)
+    .map((part) => titleCaseWord(part))
     .join(' ');
 }
 
@@ -146,6 +417,18 @@ function resolveRepresentativeStyleTag(component, defaults) {
   return '';
 }
 
+function resolveAliasTarget(componentByTag, aliasTargetTag) {
+  const seen = new Set();
+  let currentTag = aliasTargetTag;
+  let current = componentByTag.get(currentTag);
+  while (current && current.metadata?.aliasOf && !seen.has(currentTag)) {
+    seen.add(currentTag);
+    currentTag = current.metadata.aliasOf;
+    current = componentByTag.get(currentTag);
+  }
+  return current;
+}
+
 async function main() {
   const raw = JSON.parse(await readFile(RAW_PATH, 'utf8'));
   const overrides = JSON.parse(await readFile(OVERRIDES_PATH, 'utf8'));
@@ -156,25 +439,40 @@ async function main() {
 
   for (const rawEntry of raw.components || []) {
     const override = overrideEntries[rawEntry.tag] || {};
+    const backingTagCandidates = unique([
+      rawEntry.metadata?.baseNodeName,
+      rawEntry.metadata?.basePathName,
+      rawEntry.metadata?.internalStyle,
+      rawEntry.metadata?.pathInternal,
+    ]);
+    const backingEntry =
+      backingTagCandidates
+        .map((tag) => rawByTag.get(tag))
+        .find(Boolean);
     const representativeStyleTag =
       override.representativeStyleTag ||
       override.metadata?.representativeStyleTag ||
       resolveRepresentativeStyleTag(rawEntry, defaultOptions);
     const representative =
       (representativeStyleTag ? rawByTag.get(representativeStyleTag) : undefined) ||
-      (rawEntry.metadata?.aliasOf ? rawByTag.get(rawEntry.metadata.aliasOf) : undefined);
+      (rawEntry.metadata?.aliasOf ? rawByTag.get(rawEntry.metadata.aliasOf) : undefined) ||
+      backingEntry;
     const component = {
       tag: rawEntry.tag,
       kind: override.kind || rawEntry.kind || '',
-      styleType: override.styleType || rawEntry.styleType || representative?.styleType || '',
-      family: override.family || rawEntry.family || representative?.family || '',
+      styleType: override.styleType || rawEntry.styleType || representative?.styleType || backingEntry?.styleType || '',
+      family: override.family || rawEntry.family || representative?.family || backingEntry?.family || '',
       displayName: override.displayName || rawEntry.displayName || titleCaseFromTag(rawEntry.tag),
       group: override.group || inferGroup({ ...rawEntry, ...representative, ...override }),
-      className: override.className || rawEntry.className || representative?.className || '',
-      previewDefId: override.previewDefId || rawEntry.previewDefId || representative?.previewDefId || '',
-      fillable: override.fillable ?? rawEntry.fillable ?? representative?.fillable,
+      className: override.className || rawEntry.className || representative?.className || backingEntry?.className || '',
+      previewDefId: override.previewDefId || rawEntry.previewDefId || representative?.previewDefId || backingEntry?.previewDefId || '',
+      fillable: override.fillable ?? rawEntry.fillable ?? representative?.fillable ?? backingEntry?.fillable,
       aliases: unique([...(rawEntry.aliases || []), ...(override.aliases || [])]).sort((a, b) => a.localeCompare(b)),
       anchors: unique([...(rawEntry.anchors || []), ...(override.anchors || [])]).sort((a, b) => a.localeCompare(b)),
+      anchorDefs: [...(rawEntry.anchorDefs || [])].map((def) => ({
+        ...def,
+        role: classifyAnchorRole(def.name),
+      })),
       nodeOptions: unique([...(inferNodeOptions({ ...rawEntry, ...representative, ...override }, raw) || []), ...(rawEntry.nodeOptions || []), ...(override.nodeOptions || [])]).sort((a, b) => a.localeCompare(b)),
       hidden: override.hidden ?? false,
       metadata: {
@@ -189,6 +487,7 @@ async function main() {
       searchTerms: [],
       notes: override.notes || '',
     };
+    component.geometry = buildGeometrySpec(component, override);
     component.searchTerms = toSearchTerms({
       ...component,
       searchTerms: override.searchTerms || [],
@@ -211,6 +510,7 @@ async function main() {
       fillable: override.fillable,
       aliases: unique(override.aliases || []).sort((a, b) => a.localeCompare(b)),
       anchors: unique(override.anchors || []).sort((a, b) => a.localeCompare(b)),
+      anchorDefs: [],
       nodeOptions: unique(override.nodeOptions || []).sort((a, b) => a.localeCompare(b)),
       hidden: override.hidden ?? false,
       metadata: { ...(override.metadata || {}) },
@@ -221,11 +521,41 @@ async function main() {
       searchTerms: [],
       notes: override.notes || '',
     };
+    component.geometry = buildGeometrySpec(component, override);
     component.searchTerms = toSearchTerms({
       ...component,
       searchTerms: override.searchTerms || [],
     });
     components.push(component);
+  }
+
+  const componentByTag = new Map(components.map((component) => [component.tag, component]));
+  for (const component of components) {
+    const aliasTargetTag = component.metadata?.aliasOf;
+    if (!aliasTargetTag) continue;
+    const target = resolveAliasTarget(componentByTag, aliasTargetTag);
+    if (!target) continue;
+    component.kind ||= target.kind;
+    component.styleType ||= target.styleType;
+    component.family ||= target.family;
+    component.group ||= target.group;
+    component.className ||= target.className;
+    component.previewDefId ||= target.previewDefId;
+    if (component.fillable == null) component.fillable = target.fillable;
+    component.anchors = unique([...(target.anchors || []), ...(component.anchors || [])]).sort((a, b) => a.localeCompare(b));
+    if ((!component.geometry || component.geometry.source === 'unresolved') && target.geometry) {
+      component.geometry = {
+        ...target.geometry,
+        source: target.geometry.source,
+        reference: target.geometry.reference ? {
+          ...target.geometry.reference,
+          sources: unique([...(target.geometry.reference.sources || []), ...(component.geometry?.reference?.sources || []), ...(component.sourceKinds || [])]).sort((a, b) => a.localeCompare(b)),
+        } : null,
+        pins: mergePointSpecs(target.geometry.pins || [], component.geometry?.pins || []),
+        anchors: mergePointSpecs(target.geometry.anchors || [], component.geometry?.anchors || []),
+        rules: [...(target.geometry.rules || []), ...(component.geometry?.rules || [])],
+      };
+    }
   }
 
   components.sort((a, b) => {
@@ -242,7 +572,29 @@ async function main() {
     sourceRawCatalog: RAW_PATH,
     sourceOverrides: OVERRIDES_PATH,
     packageOptions: raw.packageOptions || { all: [], groups: {} },
-    components,
+    components: components.map((component) => ({
+      tag: component.tag,
+      kind: component.kind,
+      styleType: component.styleType,
+      family: component.family,
+      displayName: overrideEntries[component.tag]?.displayName || rawByTag.get(component.tag)?.displayName || component.displayName || titleCaseFromTag(component.tag),
+      group: component.group,
+      className: component.className,
+      previewDefId: component.previewDefId,
+      fillable: component.fillable,
+      aliases: component.aliases,
+      anchorDefs: compactAnchorDefs(component, component.anchorDefs),
+      geometry: component.geometry ? compactGeometry(component.geometry) : undefined,
+      nodeOptions: component.nodeOptions,
+      hidden: component.hidden,
+      metadata: component.metadata,
+      styleKind: component.styleKind,
+      order: component.order,
+      sourceFiles: component.sourceFiles,
+      sourceKinds: component.sourceKinds,
+      searchTerms: component.searchTerms,
+      notes: component.notes,
+    })),
   };
 
   await mkdir(path.dirname(OUTPUT_PATH), { recursive: true });

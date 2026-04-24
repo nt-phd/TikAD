@@ -12,6 +12,7 @@
     "extract:bipole-token-db": "/usr/bin/node scripts/extract-circuitikz-bipole-token-db.mjs",
     "build:statement-property-schema": "/usr/bin/node scripts/build-statement-property-schema.mjs",
     "build:component-catalog": "/usr/bin/node scripts/build-component-catalog.mjs",
+    "validate:component-geometry": "/usr/bin/node scripts/validate-component-geometry.mjs",
     "generate:component-catalog-previews": "/usr/bin/node scripts/render-component-catalog-previews.mjs",
     "refresh:component-catalog": "/bin/bash -lc '/usr/bin/node scripts/extract-circuitikz-catalog.mjs && /usr/bin/node scripts/build-component-catalog.mjs && /usr/bin/node scripts/render-component-catalog-previews.mjs'",
     "generate:library-previews": "/usr/bin/node scripts/generate-library-previews.mjs",

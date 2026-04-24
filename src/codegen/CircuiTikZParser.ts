@@ -346,6 +346,7 @@ export function parseCircuiTikZ(
   source: string,
   doc: CircuitDocument,
   registry: ComponentRegistry,
+  options: { preserveMeasuredComponentBounds?: boolean; preserveMeasuredSymbolPoints?: boolean } = {},
 ): void {
   const geometry = new TikzGeometryEngine(doc, registry);
   const tikzToDefId = new Map<string, string>();
@@ -353,7 +354,10 @@ export function parseCircuiTikZ(
     if (!tikzToDefId.has(def.tikzName)) tikzToDefId.set(def.tikzName, def.id);
   }
 
-  doc.clear();
+  doc.clear({
+    preserveMeasuredSymbolPoints: options.preserveMeasuredSymbolPoints,
+    preserveMeasuredComponentBounds: options.preserveMeasuredComponentBounds,
+  });
 
   const rawLines = source.split('\n');
 

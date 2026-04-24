@@ -1,5 +1,7 @@
 import type { ComponentDef, ComponentInstance, GridPoint, PositionSequencePreview } from '../types';
 
+const NODE_NAME_RE = /^[A-Za-z][\w-]*$/;
+
 export interface TikzGeometryState {
   statementPositions: Map<string, Array<PositionSequencePreview | null>>;
   symbolPoints: Map<string, GridPoint>;
@@ -22,11 +24,8 @@ export function setGeometryStorePoint(
   point: GridPoint,
   anchor?: string,
 ): void {
-  const nextPoint = { ...point };
-  store.symbolPoints.set(geometryStoreKey(nodeName, anchor), nextPoint);
-  if (!anchor || anchor === 'reference') {
-    store.symbolPoints.set(`${nodeName}.reference`, nextPoint);
-  }
+  if (!NODE_NAME_RE.test(nodeName)) return;
+  store.symbolPoints.set(geometryStoreKey(nodeName, anchor), { ...point });
 }
 
 export function getGeometryStorePoint(

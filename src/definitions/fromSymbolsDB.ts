@@ -2,7 +2,7 @@
  * Populates the ComponentRegistry from the loaded SymbolsDB.
  * This replaces the hand-coded bipoles/grounds/sources definition files.
  */
-import type { ComponentDef, PlacementType, ScaleFamily } from '../types';
+import type { ComponentDef, ComponentGeometrySpec, PlacementType, ScaleFamily } from '../types';
 import type { ComponentRegistry } from './ComponentRegistry';
 import type { SymbolsDB } from '../data/symbolsDB';
 import { componentCatalog } from '../data/componentCatalog';
@@ -53,12 +53,44 @@ function registerSyntheticBipole(
   defsById.set(def.id, def);
 }
 
+function cloneGeometrySpec(geometry: ComponentGeometrySpec | undefined): ComponentGeometrySpec | undefined {
+  if (!geometry) return undefined;
+  return {
+    source: geometry.source,
+    reference: geometry.reference ? {
+      ...geometry.reference,
+      sources: [...geometry.reference.sources],
+    } : null,
+    pinGroups: geometry.pinGroups?.map((group) => ({
+      ...group,
+      names: [...group.names],
+    })),
+    pins: geometry.pins.map((point) => ({
+      ...point,
+      sources: [...point.sources],
+    })),
+    anchors: geometry.anchors.map((point) => ({
+      ...point,
+      sources: [...point.sources],
+    })),
+    rules: geometry.rules.map((rule) => ({
+      when: { ...rule.when },
+      add: rule.add?.map((point) => ({
+        ...point,
+        sources: [...point.sources],
+      })),
+      remove: rule.remove ? [...rule.remove] : undefined,
+    })),
+  };
+}
+
 export function populateRegistryFromSymbolsDB(
   registry: ComponentRegistry,
   db: SymbolsDB,
 ): void {
   const defsByTikzName = new Map<string, ComponentDef>();
   const defsById = new Map<string, ComponentDef>();
+  const catalogByTag = new Map(componentCatalog.components.map((entry) => [entry.tag, entry]));
 
   for (const entry of db.getAllComponents()) {
     const v = entry.defaultVariant;
@@ -88,6 +120,8 @@ export function populateRegistryFromSymbolsDB(
     const symbolPinSpan = placementType === 'bipole'
       ? (v.refX + endPin!.x) - (v.refX + startPin!.x)   // = endPin.x - startPin.x
       : 0;
+    const catalogEntry = catalogByTag.get(entry.tikz);
+    const geometry = cloneGeometrySpec(catalogEntry?.geometry);
 
     const def: ComponentDef = {
       id: v.symbolId,
@@ -99,7 +133,7 @@ export function populateRegistryFromSymbolsDB(
       symbolPinSpan,
       symbolRefX: v.refX,
       symbolRefY: v.refY,
-      anchorNames: v.pins.map((pin) => pin.name),
+      geometry,
       symbolPins: v.pins.map((pin) => ({ name: pin.name, x: pin.x, y: pin.y })),
       shapeBBoxX: v.bboxX,
       shapeBBoxY: v.bboxY,
@@ -128,6 +162,7 @@ export function populateRegistryFromSymbolsDB(
     symbolPinSpan: 12,
     symbolRefX: 6,
     symbolRefY: 3,
+    geometry: cloneGeometrySpec(catalogByTag.get('open')?.geometry),
     symbolPins: [
       { name: 'START', x: -6, y: 0 },
       { name: 'END', x: 6, y: 0 },
@@ -154,6 +189,7 @@ export function populateRegistryFromSymbolsDB(
     symbolPinSpan: 12,
     symbolRefX: 6,
     symbolRefY: 3,
+    geometry: cloneGeometrySpec(catalogByTag.get('short')?.geometry),
     symbolPins: [
       { name: 'START', x: -6, y: 0 },
       { name: 'END', x: 6, y: 0 },
@@ -172,12 +208,15 @@ export function populateRegistryFromSymbolsDB(
 
   const registerAlias = (sourceDef: ComponentDef, aliasTikzName: string, aliasDisplayName: string, group?: string) => {
     if (defsByTikzName.has(aliasTikzName)) return;
+    const catalogEntry = catalogByTag.get(aliasTikzName);
+    const geometry = cloneGeometrySpec(catalogEntry?.geometry ?? sourceDef.geometry);
     const aliasDef: ComponentDef = {
       ...sourceDef,
       id: `${sourceDef.id}__alias__${aliasTikzName.replace(/\s+/g, '-')}`,
       displayName: aliasDisplayName,
       group: group ?? sourceDef.group,
       tikzName: aliasTikzName,
+      geometry,
     };
     registry.register(aliasDef);
     defsByTikzName.set(aliasDef.tikzName, aliasDef);
@@ -195,13 +234,14 @@ export function populateRegistryFromSymbolsDB(
     if (defsByTikzName.has(entry.tag)) continue;
     const source = entry.previewDefId ? defsById.get(entry.previewDefId) : undefined;
     if (!source) continue;
+    const geometry = cloneGeometrySpec(entry.geometry ?? source.geometry);
     const aliasDef: ComponentDef = {
       ...source,
       id: `${source.id}__alias__${entry.tag.replace(/\s+/g, '-')}`,
       displayName: entry.displayName,
       group: entry.group || source.group,
       tikzName: entry.tag,
-      anchorNames: entry.anchors.length > 0 ? [...entry.anchors] : source.anchorNames,
+      geometry,
     };
     registry.register(aliasDef);
     defsByTikzName.set(aliasDef.tikzName, aliasDef);

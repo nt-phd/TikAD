@@ -1,4 +1,4 @@
-import type { ConnectionRef, GridPoint, WireRoutingMode } from '../types';
+import type { ConnectionRef, GridPoint, PositionSequencePreview, WireRoutingMode } from '../types';
 import { BaseTool, type SnapResult } from './BaseTool';
 import { pointsEqual } from '../utils/geometry';
 import { emitWirePath } from '../codegen/WirePathEmitter';
@@ -7,6 +7,7 @@ export class WireTool extends BaseTool {
   private points: GridPoint[] = [];
   private pathPoints: GridPoint[] = [];
   private operators: Array<'--' | '|-' | '-|'> = [];
+  private pathSequences: PositionSequencePreview[] = [];
   private startRef?: ConnectionRef;
   private endRef?: ConnectionRef;
   private lastSnap: SnapResult | null = null;
@@ -48,11 +49,26 @@ export class WireTool extends BaseTool {
     return expanded;
   }
 
+  private buildSequence(point: GridPoint, ref?: ConnectionRef): PositionSequencePreview {
+    return {
+      point: { ...point },
+      ref,
+      corners: [
+        {
+          kind: ref ? 'reference' : 'absolute',
+          point: { ...point },
+          ref,
+        },
+      ],
+    };
+  }
+
   onMouseDown(snap: SnapResult, e: MouseEvent): void {
     if (e.button !== 0) { this.cancel(); return; }
 
     if (this.points.length === 0) {
       this.pathPoints.push(snap.point);
+      this.pathSequences.push(this.buildSequence(snap.point, snap.ref));
       this.points = this.rebuildExpandedPoints();
       this.startRef = snap.ref;
       this.endRef = undefined;
@@ -61,6 +77,7 @@ export class WireTool extends BaseTool {
       if (pointsEqual(last, snap.point)) return;
       this.operators.push(this.chooseOperator(snap));
       this.pathPoints.push(snap.point);
+      this.pathSequences.push(this.buildSequence(snap.point, snap.ref));
       this.points = this.rebuildExpandedPoints();
       this.endRef = snap.ref;
     }
@@ -104,6 +121,7 @@ export class WireTool extends BaseTool {
         id: '__preview__',
         operators: this.operators,
         pathPoints: this.pathPoints,
+        pathSequences: this.pathSequences,
         points: this.points,
         startRef: this.startRef,
         endRef: this.endRef,
@@ -113,6 +131,7 @@ export class WireTool extends BaseTool {
     this.points = [];
     this.pathPoints = [];
     this.operators = [];
+    this.pathSequences = [];
     this.startRef = undefined;
     this.endRef = undefined;
     this.ctx.ghost.setGhostElement(null);
@@ -122,6 +141,7 @@ export class WireTool extends BaseTool {
     this.points = [];
     this.pathPoints = [];
     this.operators = [];
+    this.pathSequences = [];
     this.startRef = undefined;
     this.endRef = undefined;
     this.lastSnap = null;
@@ -133,6 +153,7 @@ export class WireTool extends BaseTool {
     this.points = [];
     this.pathPoints = [];
     this.operators = [];
+    this.pathSequences = [];
     this.startRef = undefined;
     this.endRef = undefined;
     this.lastSnap = null;

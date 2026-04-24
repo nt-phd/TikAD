@@ -49,6 +49,7 @@ import type { ImperativeAppHandle } from './initImperativeApp';
 import { initImperativeApp } from './initImperativeApp';
 import { lineIndexFromId } from './codegen/CircuiTikZParser';
 import { formatCoord } from './codegen/CoordFormatter';
+import { formatEndpoint } from './codegen/TikzEndpointFormatter';
 import { DocumentEditor } from './components/DocumentEditor';
 import { PanelSection } from './components/PanelSection';
 import { StatementEditor, type PositionPick } from './components/StatementEditor';
@@ -56,7 +57,6 @@ import { ToolbarView, ToolRailView, type SymbolShortcutTikzName } from './compon
 import { createCodeMirrorTheme, latexLanguage } from './components/ui/codeMirrorTheme';
 import { DEFAULT_PREAMBLE } from './model/LatexDocument';
 import type {
-  ConnectionRef,
   ComponentDef,
   EditableStatement,
   GridPoint,
@@ -149,10 +149,6 @@ const PROPERTIES_MENU_PROPS = {
   },
 } as const;
 
-function formatConnectionRef(ref: ConnectionRef): string {
-  return ref.anchor === 'reference' ? `(${ref.nodeName})` : `(${ref.nodeName}.${ref.anchor})`;
-}
-
 function buildPositionPickOptions(
   handle: ImperativeAppHandle,
   gridPt: GridPoint,
@@ -162,13 +158,13 @@ function buildPositionPickOptions(
   const options: Array<{ label: string; value: string }> = [{ label: baseValue, value: baseValue }];
   const tolerance = gridPitch / 2;
   const refValues = new Set<string>();
-  for (const [key, point] of handle.circuitDoc.geometry.symbolPoints.entries()) {
+  for (const [key, point] of handle.circuitDoc.getSnappableSymbolPoints().entries()) {
     if (Math.abs(point.x - gridPt.x) > tolerance) continue;
     if (Math.abs(point.y - gridPt.y) > tolerance) continue;
     const dotIndex = key.indexOf('.');
     const nodeName = dotIndex >= 0 ? key.slice(0, dotIndex) : key;
     const anchor = dotIndex >= 0 ? key.slice(dotIndex + 1) : 'reference';
-    refValues.add(formatConnectionRef({ componentId: '', nodeName, anchor }));
+    refValues.add(formatEndpoint(point, { componentId: '', nodeName, anchor }));
   }
   for (const refValue of refValues) {
     options.push({ label: refValue, value: refValue });
@@ -523,17 +519,13 @@ type LibraryTreeItemModel = {
 
 type LibraryTreeLabelProps = UseTreeItemLabelSlotOwnProps & {
   item: LibraryTreeItemModel | undefined;
-  handle: ImperativeAppHandle | null;
   isLoadingPreview: boolean;
 };
 
-function LibraryItemThumbnail({ def, handle, staticSvg }: { def: ComponentDef; handle: ImperativeAppHandle | null; staticSvg: string | null }) {
-  const [, forceRender] = useState(0);
-  const probe = staticSvg ? null : (handle?.getLibraryPreviewProbe(def.id, () => forceRender((v) => v + 1)) ?? null);
+function LibraryItemThumbnail({ def, staticSvg }: { def: ComponentDef; staticSvg: string | null }) {
   const markup = useMemo(() => {
-    const svg = staticSvg ?? probe?.svgMarkup ?? null;
-    return svg ? namespaceInlineSvg(svg, `thumb-${def.id}`) : null;
-  }, [def.id, probe?.svgMarkup, staticSvg]);
+    return staticSvg ? namespaceInlineSvg(staticSvg, `thumb-${def.id}`) : null;
+  }, [def.id, staticSvg]);
 
   const SIZE = 36;
   return (
@@ -559,7 +551,7 @@ function LibraryItemThumbnail({ def, handle, staticSvg }: { def: ComponentDef; h
   );
 }
 
-function LibraryTreeLabel({ children, item, handle, isLoadingPreview, ...other }: LibraryTreeLabelProps) {
+function LibraryTreeLabel({ children, item, isLoadingPreview, ...other }: LibraryTreeLabelProps) {
   if (!item) return <TreeItemLabel {...other}>{children}</TreeItemLabel>;
 
   if (item.kind === 'group') {
@@ -607,7 +599,6 @@ function LibraryTreeLabel({ children, item, handle, isLoadingPreview, ...other }
             codeLabel={item.codeLabel ?? ''}
             def={item.def}
             displayName={item.displayName ?? ''}
-            handle={handle}
             isLoadingPreview={isLoadingPreview}
             staticSvg={item.staticSvg ?? null}
           />
@@ -615,7 +606,7 @@ function LibraryTreeLabel({ children, item, handle, isLoadingPreview, ...other }
       >
         <Box sx={{ alignItems: 'center', display: 'flex', minWidth: 0, width: '100%' }}>
           {item.def ? (
-            <LibraryItemThumbnail def={item.def} handle={handle} staticSvg={item.staticSvg ?? null} />
+            <LibraryItemThumbnail def={item.def} staticSvg={item.staticSvg ?? null} />
           ) : null}
           <Box sx={{ minWidth: 0 }}>
             <Typography sx={{ display: '-webkit-box', overflow: 'hidden', WebkitBoxOrient: 'vertical', WebkitLineClamp: 2, wordBreak: 'break-word' }} variant="caption">
@@ -635,25 +626,20 @@ function LibraryTooltipContent({
   codeLabel,
   def,
   displayName,
-  handle,
   isLoadingPreview,
   staticSvg,
 }: {
   codeLabel: string;
   def: ComponentDef;
   displayName: string;
-  handle: ImperativeAppHandle | null;
   isLoadingPreview: boolean;
   staticSvg: string | null;
 }) {
-  const [renderTick, forceRender] = useState(0);
-  const probe = staticSvg ? null : (handle?.getLibraryPreviewProbe(def.id, () => forceRender((value) => value + 1)) ?? null);
   const previewMarkup = useMemo(
     () => {
-      const svg = staticSvg ?? probe?.svgMarkup ?? null;
-      return svg ? namespaceInlineSvg(svg, `library-${def.id}`) : null;
+      return staticSvg ? namespaceInlineSvg(staticSvg, `library-${def.id}`) : null;
     },
-    [def.id, probe?.svgMarkup, renderTick, staticSvg],
+    [def.id, staticSvg],
   );
   const previewCanvasWidth = 220;
   const previewCanvasHeight = 140;
@@ -711,7 +697,7 @@ function LibraryTooltipContent({
           </Typography>
         ) : (
           <Typography color="text.secondary" variant="caption">
-            Loading preview...
+            Preview unavailable
           </Typography>
         )}
       </Box>
@@ -726,7 +712,7 @@ function LibraryTooltipContent({
 
 const LibraryTreeItem = React.forwardRef<HTMLLIElement, TreeItemProps>(function LibraryTreeItem(props, ref) {
   const item = useTreeItemModel<LibraryTreeItemModel>(props.itemId);
-  const { handle, isLoadingPreview } = React.useContext(LibraryTreeCtx);
+  const { isLoadingPreview } = React.useContext(LibraryTreeCtx);
   if (!item) return <TreeItem {...props} ref={ref} />;
   return (
     <TreeItem
@@ -734,13 +720,13 @@ const LibraryTreeItem = React.forwardRef<HTMLLIElement, TreeItemProps>(function 
       label={item.label}
       ref={ref}
       slots={{ label: LibraryTreeLabel }}
-      slotProps={{ label: { item, handle, isLoadingPreview } as never }}
+      slotProps={{ label: { item, isLoadingPreview } as never }}
     />
   );
 });
 
-type LibraryTreeContext = { handle: ImperativeAppHandle | null; isLoadingPreview: boolean };
-const LibraryTreeCtx = React.createContext<LibraryTreeContext>({ handle: null, isLoadingPreview: false });
+type LibraryTreeContext = { isLoadingPreview: boolean };
+const LibraryTreeCtx = React.createContext<LibraryTreeContext>({ isLoadingPreview: false });
 
 type PreamblePackage = {
   name: string;
@@ -1069,7 +1055,7 @@ function LibraryView({
         </Typography>
       ) : null}
       <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1.5, flex: 1, minHeight: 0, mt: hideSearchField ? 0 : 1,  overflow: 'auto' }}>
-        <LibraryTreeCtx.Provider value={{ handle, isLoadingPreview: !catalogPreviewsLoaded }}>
+        <LibraryTreeCtx.Provider value={{ isLoadingPreview: !catalogPreviewsLoaded }}>
           <RichTreeView
             sx={{m: 1}}
             apiRef={treeApiRef}
@@ -1352,7 +1338,6 @@ function PropertiesViewInner({
     if (nextValue === currentValue) return;
     updateDrawingProps({ [key]: nextValue });
   };
-
   return (
     <Stack data-version={documentVersion} id="props" spacing={1.5} sx={{ ...PROPERTIES_FIELD_SX, flex: 1, minHeight: 0, overflowY: 'auto', p: 2 }}>
       {selectionCount === 0 ? (

@@ -49,6 +49,73 @@ export interface SymbolPin {
   y: number;
 }
 
+export interface ComponentGeometryPointSpec {
+  ghost: boolean;
+  label?: string;
+  name: string;
+  required: boolean;
+  role: 'terminal' | 'reference' | 'geometry' | 'text' | string;
+  snap: boolean;
+  sources: string[];
+  tikz: string;
+}
+
+export interface ComponentGeometryNameGroup {
+  names: string[];
+  role: 'terminal' | 'reference' | 'geometry' | 'text' | string;
+}
+
+export interface ComponentGeometryRule {
+  add?: ComponentGeometryPointSpec[];
+  remove?: string[];
+  when: Record<string, unknown>;
+}
+
+export interface ComponentGeometrySpec {
+  anchors: ComponentGeometryPointSpec[];
+  pinGroups?: ComponentGeometryNameGroup[];
+  pins: ComponentGeometryPointSpec[];
+  reference: ComponentGeometryPointSpec | null;
+  rules: ComponentGeometryRule[];
+  source: 'official-tex' | 'manual-override' | 'synthetic' | 'unresolved' | string;
+}
+
+export interface RenderSymbolPoint {
+  anchor: string;
+  componentId: string;
+  defId: string;
+  ghost: boolean;
+  key: string;
+  names: string[];
+  nodeName: string;
+  point: GridPoint;
+  role: string;
+  snap: boolean;
+  kind: 'reference' | 'pin' | 'anchor';
+}
+
+export interface RenderSymbolPointGroup {
+  componentId: string;
+  defId: string;
+  ghost: boolean;
+  kind: 'reference' | 'pin' | 'anchor';
+  names: string[];
+  nodeName: string;
+  point: GridPoint;
+  role: string;
+  snap: boolean;
+}
+
+export interface RenderComponentBounds {
+  componentId: string;
+  defId: string;
+  height: number;
+  left: number;
+  nodeName: string;
+  top: number;
+  width: number;
+}
+
 export interface ComponentDef {
   id: string;
   displayName: string;
@@ -70,8 +137,7 @@ export interface ComponentDef {
    */
   symbolRefX: number;
   symbolRefY: number;
-  /** TikZ anchors supported by this node-style component, as documented by CircuiTikZ. */
-  anchorNames?: string[];
+  geometry?: ComponentGeometrySpec;
   symbolPins?: SymbolPin[];
   shapeBBoxX?: number;
   shapeBBoxY?: number;
@@ -365,6 +431,7 @@ export interface SourceCoordinateTranslation {
   dy: number;
   id: string;
   matchPoint?: GridPoint;
+  targetPoint?: GridPoint;
 }
 
 // ============================================================
@@ -404,6 +471,8 @@ export type AppEvent =
   | { type: 'document-changed'; sourceTranslations?: SourceCoordinateTranslation[] }
   /** Fired when a CAD tool updates LatexDocument.body — CodePanel syncs its textarea. */
   | { type: 'body-changed' }
+  /** Fired after any committed LaTeX source change, including body or preamble changes. */
+  | { type: 'source-changed'; reason?: string }
   /** Fired when document geometry changes without source text changes. */
   | { type: 'geometry-changed' }
   /** Fired by CodePanel after debounce when the user finishes editing LaTeX manually. */
