@@ -1,7 +1,7 @@
 /**
  * LaTeX render server
  * POST /render  { latex: string, anchors?: AnchorRequest[] }
- *   → { svg: string, anchorSvg?: string, anchorMarkers?: AnchorMarker[] } | { error: string }
+ *   → { svg: string, measuredPoints?: RenderSymbolPoint[], measuredBounds?: RenderComponentBounds[] } | { error: string }
  *
  * Production protections:
  * - bounded queue
@@ -17,7 +17,7 @@ import http from 'http';
 import { spawn } from 'child_process';
 import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
-import { mkdtemp, writeFile, readFile, rm } from 'fs/promises';
+import { mkdtemp, writeFile, readFile, rm, access } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -96,24 +96,6 @@ ${src}
 `;
 };
 
-function markerColor(index) {
-  const hue = (index * 137.508) % 360;
-  const chroma = 0.78;
-  const x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const m = 0.12;
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  if (hue < 60) [r, g, b] = [chroma, x, 0];
-  else if (hue < 120) [r, g, b] = [x, chroma, 0];
-  else if (hue < 180) [r, g, b] = [0, chroma, x];
-  else if (hue < 240) [r, g, b] = [0, x, chroma];
-  else if (hue < 300) [r, g, b] = [x, 0, chroma];
-  else [r, g, b] = [chroma, 0, x];
-  const toHex = (value) => Math.round((value + m) * 255).toString(16).padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
 function normalizePictureEnvironmentForRender(src) {
   return src
     .replace(/\\begin\{circuitikz\}(\s*\[[^\]]*\])?/g, '\\begin{tikzpicture}$1')
@@ -160,13 +142,12 @@ function normalizeAnchorRequests(anchors) {
   return normalized;
 }
 
-function buildAnchorDiagnosticSource(latexBody, anchors) {
+function buildAnchorProbeSource(latexBody, anchors) {
   if (anchors.length === 0) return null;
   let source = normalizePictureEnvironmentForRender(LATEX_WRAPPER(latexBody));
-  const pointMarkers = anchors.map((anchor, index) => ({
+  const pointProbes = anchors.map((anchor, index) => ({
     ...anchor,
-    color: markerColor(index),
-    latexColorName: `tikadAnchorMarker${index}`,
+    id: `p${index}`,
   }));
   const boundsByNode = [];
   const seenBounds = new Set();
@@ -180,46 +161,91 @@ function buildAnchorDiagnosticSource(latexBody, anchors) {
       defId: anchor.defId,
     });
   }
-  const boundsMarkers = boundsByNode.flatMap((bound, index) => ([
-    {
-      ...bound,
-      corner: 'south west',
-      color: markerColor(pointMarkers.length + index * 2),
-      latexColorName: `tikadBoundsMarker${index}SW`,
-    },
-    {
-      ...bound,
-      corner: 'north east',
-      color: markerColor(pointMarkers.length + index * 2 + 1),
-      latexColorName: `tikadBoundsMarker${index}NE`,
-    },
-  ]));
-  const colorDefs = [...pointMarkers, ...boundsMarkers]
-    .map((marker) => `\\definecolor{${marker.latexColorName}}{HTML}{${marker.color.slice(1).toUpperCase()}}`)
-    .join('\n');
+  const boundsProbes = boundsByNode.map((bound, index) => ({ ...bound, id: `b${index}` }));
+  const macroDefs = `
+\\usetikzlibrary{fit}
+\\newcommand{\\tikadProbePoint}[2]{%
+  \\path let \\p1=(#2) in \\pgfextra{%
+    \\pgfmathsetmacro{\\tikadX}{\\x1/1cm}%
+    \\pgfmathsetmacro{\\tikadY}{\\y1/1cm}%
+    \\typeout{TIKAD_POINT|#1|\\tikadX|\\tikadY}%
+  };%
+}
+\\newcommand{\\tikadProbeNodePointSafe}[2]{%
+  \\begingroup
+  \\def\\tikadNode{#2}%
+  \\ifcsname pgf@sh@ns@\\tikadNode\\endcsname
+    \\tikadProbePoint{#1}{#2}%
+  \\else
+    \\typeout{TIKAD_SKIP|#1|point|#2|node-not-found}%
+  \\fi
+  \\endgroup
+}
+\\newcommand{\\tikadProbePointSafe}[3]{%
+  \\begingroup
+  \\def\\tikadNode{#2}%
+  \\def\\tikadAnchor{#3}%
+  \\ifcsname pgf@sh@ns@\\tikadNode\\endcsname
+    \\edef\\tikadShapeName{\\csname pgf@sh@ns@\\tikadNode\\endcsname}%
+    \\ifcsname pgf@anchor@\\tikadShapeName @\\tikadAnchor\\endcsname
+      \\tikadProbePoint{#1}{#2.#3}%
+    \\else
+      \\ifcsname pgf@anchor@generic@\\tikadAnchor\\endcsname
+        \\tikadProbePoint{#1}{#2.#3}%
+      \\else
+        \\typeout{TIKAD_SKIP|#1|point|#2.#3|anchor-not-found}%
+      \\fi
+    \\fi
+  \\else
+    \\typeout{TIKAD_SKIP|#1|point|#2.#3|node-not-found}%
+  \\fi
+  \\endgroup
+}
+\\newcommand{\\tikadProbeBounds}[2]{%
+  \\node[fit=(#2),inner sep=0pt,outer sep=0pt,draw=none] (tikadFit#1) {};
+  \\path let \\p1=(tikadFit#1.south west), \\p2=(tikadFit#1.north east) in \\pgfextra{%
+    \\pgfmathsetmacro{\\tikadXSW}{\\x1/1cm}%
+    \\pgfmathsetmacro{\\tikadYSW}{\\y1/1cm}%
+    \\pgfmathsetmacro{\\tikadXNE}{\\x2/1cm}%
+    \\pgfmathsetmacro{\\tikadYNE}{\\y2/1cm}%
+    \\typeout{TIKAD_BOUNDS|#1|\\tikadXSW|\\tikadYSW|\\tikadXNE|\\tikadYNE}%
+  };%
+}
+\\newcommand{\\tikadProbeBoundsSafe}[2]{%
+  \\begingroup
+  \\def\\tikadNode{#2}%
+  \\ifcsname pgf@sh@ns@\\tikadNode\\endcsname
+    \\tikadProbeBounds{#1}{#2}%
+  \\else
+    \\typeout{TIKAD_SKIP|#1|bounds|#2|node-not-found}%
+  \\fi
+  \\endgroup
+}
+`.trim();
   const documentIndex = source.indexOf('\\begin{document}');
   if (documentIndex >= 0) {
-    source = `${source.slice(0, documentIndex)}\\usetikzlibrary{fit}\n${colorDefs}\n${source.slice(documentIndex)}`;
+    source = `${source.slice(0, documentIndex)}${macroDefs}\n${source.slice(documentIndex)}`;
   } else {
-    source = `\\usetikzlibrary{fit}\n${colorDefs}\n${source}`;
+    source = `${macroDefs}\n${source}`;
   }
 
-  const pointLines = pointMarkers
-    .map((marker) => {
-      const target = marker.anchor === 'reference' ? marker.nodeName : `${marker.nodeName}.${marker.anchor}`;
-      return `\\fill[${marker.latexColorName}] (${target}) circle[radius=0.08];`;
+  const pointLines = pointProbes
+    .map((probe) => {
+      const target = probe.anchor === 'reference' ? probe.nodeName : `${probe.nodeName}.${probe.anchor}`;
+      return [
+        `\\typeout{TIKAD_PROBE_TARGET|${probe.id}|${target}}`,
+        probe.anchor === 'reference'
+          ? `\\tikadProbeNodePointSafe{${probe.id}}{${probe.nodeName}}`
+          : `\\tikadProbePointSafe{${probe.id}}{${probe.nodeName}}{${probe.anchor}}`,
+      ].join('\n');
     })
     .join('\n');
-  const boundsLines = boundsMarkers
-    .map((marker, index) => {
-      const fitNode = `tikadBoundsNode${Math.floor(index / 2)}`;
-      if (marker.corner === 'south west') {
-        return [
-          `\\node[fit=(${marker.nodeName}),inner sep=0pt,outer sep=0pt,draw=none] (${fitNode}) {};`,
-          `\\fill[${marker.latexColorName}] (${fitNode}.south west) circle[radius=0.08];`,
-        ].join('\n');
-      }
-      return `\\fill[${marker.latexColorName}] (${fitNode}.north east) circle[radius=0.08];`;
+  const boundsLines = boundsProbes
+    .map((probe) => {
+      return [
+        `\\typeout{TIKAD_BOUNDS_TARGET|${probe.id}|${probe.nodeName}}`,
+        `\\tikadProbeBoundsSafe{${probe.id}}{${probe.nodeName}}`,
+      ].join('\n');
     })
     .join('\n');
   const endToken = '\\end{tikzpicture}';
@@ -227,50 +253,116 @@ function buildAnchorDiagnosticSource(latexBody, anchors) {
   if (endIndex < 0) return null;
   return {
     source: `${source.slice(0, endIndex)}${pointLines}\n${boundsLines}\n${source.slice(endIndex)}`,
-    markers: pointMarkers,
-    boundsMarkers,
+    pointProbes,
+    boundsProbes,
   };
 }
 
-function normalizeColor(value) {
-  const input = (value ?? '').trim().toLowerCase();
-  if (!input) return '';
-  const hex3 = input.match(/^#([0-9a-f]{3})$/i);
-  if (hex3) {
-    const [r, g, b] = hex3[1].split('');
-    return `#${r}${r}${g}${g}${b}${b}`;
+function parseProbeResults(logText, probeContext) {
+  const pointById = new Map();
+  const boundsById = new Map();
+  const probeTargetById = new Map();
+  const skippedById = new Map();
+  for (const rawLine of logText.split('\n')) {
+    const line = rawLine.trim();
+    if (!line.startsWith('TIKAD_')) continue;
+    const pointMatch = /^TIKAD_POINT\|([^|]+)\|([^|]+)\|([^|]+)$/.exec(line);
+    if (pointMatch) {
+      const x = Number.parseFloat(pointMatch[2]);
+      const y = Number.parseFloat(pointMatch[3]);
+      if (Number.isFinite(x) && Number.isFinite(y)) pointById.set(pointMatch[1], { x, y });
+      continue;
+    }
+    const boundsMatch = /^TIKAD_BOUNDS\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)$/.exec(line);
+    if (boundsMatch) {
+      const xSW = Number.parseFloat(boundsMatch[2]);
+      const ySW = Number.parseFloat(boundsMatch[3]);
+      const xNE = Number.parseFloat(boundsMatch[4]);
+      const yNE = Number.parseFloat(boundsMatch[5]);
+      if ([xSW, ySW, xNE, yNE].every(Number.isFinite)) boundsById.set(boundsMatch[1], { xSW, ySW, xNE, yNE });
+      continue;
+    }
+    const targetMatch = /^TIKAD_PROBE_TARGET\|([^|]+)\|(.+)$/.exec(line);
+    if (targetMatch) {
+      probeTargetById.set(targetMatch[1], targetMatch[2]);
+      continue;
+    }
+    const boundsTargetMatch = /^TIKAD_BOUNDS_TARGET\|([^|]+)\|(.+)$/.exec(line);
+    if (boundsTargetMatch) {
+      probeTargetById.set(boundsTargetMatch[1], boundsTargetMatch[2]);
+      continue;
+    }
+    const skipMatch = /^TIKAD_SKIP\|([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)$/.exec(line);
+    if (skipMatch) {
+      skippedById.set(skipMatch[1], { kind: skipMatch[2], target: skipMatch[3], reason: skipMatch[4] });
+    }
   }
-  const hex6 = input.match(/^#([0-9a-f]{6})$/i);
-  if (hex6) return `#${hex6[1]}`;
-  const rgb = input.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-  if (rgb) {
-    const toHex = (n) => Math.max(0, Math.min(255, Number.parseInt(n, 10))).toString(16).padStart(2, '0');
-    return `#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`;
-  }
-  const rgbPercent = input.match(/^rgba?\(([\d.]+)%\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/);
-  if (rgbPercent) {
-    const toHex = (n) => {
-      const value = Math.max(0, Math.min(255, Math.round((Number.parseFloat(n) / 100) * 255)));
-      return value.toString(16).padStart(2, '0');
-    };
-    return `#${toHex(rgbPercent[1])}${toHex(rgbPercent[2])}${toHex(rgbPercent[3])}`;
-  }
-  return input.replace(/\s+/g, '');
-}
 
-function stripDiagnosticMarkers(svgText, diagnostic) {
-  if (!diagnostic) return svgText;
-  const markerColors = new Set(
-    [...diagnostic.markers, ...diagnostic.boundsMarkers].map((marker) => normalizeColor(marker.color)),
-  );
-  const dom = new JSDOM(svgText, { contentType: 'image/svg+xml' });
-  const doc = dom.window.document;
-  const elements = doc.querySelectorAll('circle, path, ellipse, rect');
-  for (const el of elements) {
-    const fill = normalizeColor(el.getAttribute('fill'));
-    if (markerColors.has(fill)) el.remove();
+  const measuredPoints = [];
+  for (const probe of probeContext.pointProbes) {
+    const coords = pointById.get(probe.id);
+    if (!coords) continue;
+    const names = probe.names?.length ? probe.names : [probe.anchor];
+    for (const name of names) {
+      const key = probe.kind === 'reference' || name === 'reference'
+        ? probe.nodeName
+        : `${probe.nodeName}.${name}`;
+      measuredPoints.push({
+        key,
+        nodeName: probe.nodeName,
+        anchor: name,
+        componentId: probe.componentId,
+        defId: probe.defId,
+        kind: probe.kind,
+        names: [...names],
+        role: probe.role,
+        snap: probe.snap,
+        ghost: probe.ghost,
+        point: { x: coords.x, y: -coords.y },
+      });
+    }
   }
-  return doc.documentElement.outerHTML;
+
+  const measuredBounds = [];
+  for (const probe of probeContext.boundsProbes) {
+    const corners = boundsById.get(probe.id);
+    if (!corners) continue;
+    measuredBounds.push({
+      componentId: probe.componentId,
+      defId: probe.defId,
+      nodeName: probe.nodeName,
+      left: corners.xSW,
+      top: -corners.yNE,
+      width: corners.xNE - corners.xSW,
+      height: corners.yNE - corners.ySW,
+    });
+  }
+
+  const missingPointTargets = probeContext.pointProbes
+    .filter((probe) => !pointById.has(probe.id) && !skippedById.has(probe.id))
+    .map((probe) => probeTargetById.get(probe.id))
+    .filter(Boolean);
+  const missingBoundsTargets = probeContext.boundsProbes
+    .filter((probe) => !boundsById.has(probe.id) && !skippedById.has(probe.id))
+    .map((probe) => probeTargetById.get(probe.id))
+    .filter(Boolean);
+  const skippedPoints = probeContext.pointProbes
+    .map((probe) => skippedById.get(probe.id))
+    .filter((entry) => entry?.kind === 'point')
+    .map((entry) => `${entry.target} (${entry.reason})`);
+  const skippedBounds = probeContext.boundsProbes
+    .map((probe) => skippedById.get(probe.id))
+    .filter((entry) => entry?.kind === 'bounds')
+    .map((entry) => `${entry.target} (${entry.reason})`);
+
+  return {
+    measuredPoints,
+    measuredBounds,
+    missingPointTargets,
+    missingBoundsTargets,
+    skippedPoints,
+    skippedBounds,
+  };
 }
 
 const domPurifyWindow = new JSDOM('').window;
@@ -391,37 +483,115 @@ function runCommand(cmd, args, cwd, timeoutMs) {
   });
 }
 
+function runCommandAllowFailure(cmd, args, cwd, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      metrics.timeouts += 1;
+      child.kill('SIGKILL');
+      if (!settled) {
+        settled = true;
+        reject(new Error(`${cmd} timed out after ${timeoutMs}ms`));
+      }
+    }, timeoutMs);
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    });
+
+    child.on('close', (code, signal) => {
+      clearTimeout(timer);
+      if (settled) return;
+      settled = true;
+      resolve({ code: code ?? 1, signal, stdout, stderr });
+    });
+  });
+}
+
 async function renderLatex(latexBody, anchors = []) {
   const dir = await mkdtemp(join(tmpdir(), 'circuitikz-'));
   const startedAt = Date.now();
   try {
     const texFile = join(dir, 'circuit.tex');
-    const diagnostic = buildAnchorDiagnosticSource(latexBody, anchors);
-    const source = diagnostic?.source ?? normalizePictureEnvironmentForRender(LATEX_WRAPPER(latexBody));
+    const probeContext = buildAnchorProbeSource(latexBody, anchors);
+    const source = probeContext?.source ?? normalizePictureEnvironmentForRender(LATEX_WRAPPER(latexBody));
     await writeFile(texFile, source, 'utf8');
 
     const compileStartedAt = Date.now();
-    await runCommand('pdflatex', ['-interaction=nonstopmode', '-halt-on-error', 'circuit.tex'], dir, PDFLATEX_TIMEOUT_MS);
+    const compileResult = await runCommandAllowFailure(
+      'pdflatex',
+      ['-interaction=nonstopmode', 'circuit.tex'],
+      dir,
+      PDFLATEX_TIMEOUT_MS,
+    );
     const compileMs = Date.now() - compileStartedAt;
+    const logText = await readFile(join(dir, 'circuit.log'), 'utf8').catch(() => '');
+    const probeResults = probeContext ? parseProbeResults(logText, probeContext) : null;
+
+    if (compileResult.code !== 0) {
+      const pdfPath = join(dir, 'circuit.pdf');
+      let hasPdf = false;
+      try {
+        await access(pdfPath);
+        hasPdf = true;
+      } catch {
+        hasPdf = false;
+      }
+      if (!hasPdf) {
+        throw new Error(compileResult.stderr || compileResult.stdout || `pdflatex failed with code ${compileResult.code}`);
+      }
+    }
 
     const svgStartedAt = Date.now();
     await runCommand('pdf2svg', ['circuit.pdf', 'circuit.svg', '1'], dir, PDF2SVG_TIMEOUT_MS);
     const svgMs = Date.now() - svgStartedAt;
 
     const measuredSvg = sanitizeSvg(await readFile(join(dir, 'circuit.svg'), 'utf8'));
-    const visibleSvg = stripDiagnosticMarkers(measuredSvg, diagnostic);
     const match = measuredSvg.match(/transform="matrix\(1,\s*0,\s*0,\s*-1,\s*([\d.+-]+),\s*([\d.+-]+)\)"/);
     const tx = match ? parseFloat(match[1]) : 0;
     const ty = match ? parseFloat(match[2]) : 0;
     const totalMs = Date.now() - startedAt;
     log('render_success', { compileMs, svgBytes: measuredSvg.length, svgMs, totalMs });
-    const result = { svg: visibleSvg, tx, ty };
-    if (diagnostic) {
-      result.anchorSvg = measuredSvg;
-      result.anchorTx = tx;
-      result.anchorTy = ty;
-      result.anchorMarkers = diagnostic.markers.map(({ latexColorName, ...marker }) => marker);
-      result.boundsMarkers = diagnostic.boundsMarkers.map(({ latexColorName, ...marker }) => marker);
+    const result = { svg: measuredSvg, tx, ty };
+    if (probeResults) {
+      result.measuredPoints = probeResults.measuredPoints;
+      result.measuredBounds = probeResults.measuredBounds;
+      if (
+        probeResults.skippedPoints.length > 0 ||
+        probeResults.skippedBounds.length > 0 ||
+        probeResults.missingPointTargets.length > 0 ||
+        probeResults.missingBoundsTargets.length > 0
+      ) {
+        result.anchorError = [
+          probeResults.skippedPoints.length > 0
+            ? `skipped point probes: ${probeResults.skippedPoints.join(', ')}`
+            : null,
+          probeResults.skippedBounds.length > 0
+            ? `skipped bounds probes: ${probeResults.skippedBounds.join(', ')}`
+            : null,
+          probeResults.missingPointTargets.length > 0
+            ? `missing point probes: ${probeResults.missingPointTargets.join(', ')}`
+            : null,
+          probeResults.missingBoundsTargets.length > 0
+            ? `missing bounds probes: ${probeResults.missingBoundsTargets.join(', ')}`
+            : null,
+        ].filter(Boolean).join(' | ');
+      }
     }
     return result;
   } catch (err) {

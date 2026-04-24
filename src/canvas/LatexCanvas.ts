@@ -48,57 +48,14 @@ interface AnchorRenderRequest {
   snap: boolean;
 }
 
-interface AnchorRenderMarker extends AnchorRenderRequest {
-  color: string;
-  key: string;
-}
-
-interface BoundsRenderMarker {
-  color: string;
-  componentId: string;
-  corner: 'south west' | 'north east';
-  defId: string;
-  key: string;
-  nodeName: string;
-}
-
 interface RenderResponse {
-  boundsMarkers?: BoundsRenderMarker[];
   anchorError?: string;
-  anchorMarkers?: AnchorRenderMarker[];
-  anchorSvg?: string;
-  anchorTx?: number;
-  anchorTy?: number;
+  measuredBounds?: RenderComponentBounds[];
+  measuredPoints?: RenderSymbolPoint[];
   error?: string;
   svg?: string;
   tx?: number;
   ty?: number;
-}
-
-function normalizeColor(value: string | null): string {
-  const input = (value ?? '').trim().toLowerCase();
-  if (!input) return '';
-  const hex3 = input.match(/^#([0-9a-f]{3})$/i);
-  if (hex3) {
-    const [r, g, b] = hex3[1].split('');
-    return `#${r}${r}${g}${g}${b}${b}`;
-  }
-  const hex6 = input.match(/^#([0-9a-f]{6})$/i);
-  if (hex6) return `#${hex6[1]}`;
-  const rgb = input.match(/^rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
-  if (rgb) {
-    const toHex = (n: string) => Math.max(0, Math.min(255, Number.parseInt(n, 10))).toString(16).padStart(2, '0');
-    return `#${toHex(rgb[1])}${toHex(rgb[2])}${toHex(rgb[3])}`;
-  }
-  const rgbPercent = input.match(/^rgba?\(([\d.]+)%\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/);
-  if (rgbPercent) {
-    const toHex = (n: string) => {
-      const value = Math.max(0, Math.min(255, Math.round((Number.parseFloat(n) / 100) * 255)));
-      return value.toString(16).padStart(2, '0');
-    };
-    return `#${toHex(rgbPercent[1])}${toHex(rgbPercent[2])}${toHex(rgbPercent[3])}`;
-  }
-  return input.replace(/\s+/g, '');
 }
 
 function parseLineIndexFromComponentId(id: string): number | null {
@@ -383,13 +340,22 @@ export class LatexCanvas {
       const data = await res.json() as RenderResponse;
       if (data.svg) {
         this.injectSvg(data.svg, data.tx ?? 0, data.ty ?? 0);
-        if (data.anchorSvg && data.anchorMarkers) {
-          const points = this.measureAnchorSvg(data.anchorSvg, data.anchorMarkers, data.anchorTx ?? 0, data.anchorTy ?? 0);
-          const bounds = data.boundsMarkers
-            ? this.measureBoundsSvg(data.anchorSvg, data.boundsMarkers, data.anchorTx ?? 0, data.anchorTy ?? 0)
-            : new Map<string, RenderComponentBounds>();
-          if (points.size > 0 || bounds.size > 0) this.onAnchorGeometryMeasured?.(points, bounds);
+        if (data.measuredPoints || data.measuredBounds) {
+          const points = new Map<string, RenderSymbolPoint>();
+          for (const point of data.measuredPoints ?? []) {
+            points.set(point.key, {
+              ...point,
+              names: [...(point.names ?? [point.anchor])],
+              point: { ...point.point },
+            });
+          }
+          const bounds = new Map<string, RenderComponentBounds>();
+          for (const bound of data.measuredBounds ?? []) {
+            bounds.set(bound.componentId, { ...bound });
+          }
+          this.onAnchorGeometryMeasured?.(points, bounds);
         }
+        if (data.anchorError) console.warn('[LatexCanvas] probe warnings:', data.anchorError);
         this.showError(null);
       } else {
         console.warn('[LatexCanvas] render error:', data.error);
@@ -468,128 +434,6 @@ export class LatexCanvas {
       }
     }
     return requests;
-  }
-
-  private measureAnchorSvg(
-    svgText: string,
-    markers: AnchorRenderMarker[],
-    tx: number,
-    ty: number,
-  ): Map<string, RenderSymbolPoint> {
-    const points = new Map<string, RenderSymbolPoint>();
-    if (markers.length === 0) return points;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(svgText, 'image/svg+xml');
-    const svg = doc.querySelector('svg');
-    if (!svg) return points;
-
-    const host = document.createElement('div');
-    host.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
-    host.appendChild(document.importNode(svg, true));
-    document.body.appendChild(host);
-
-    try {
-      const liveSvg = host.querySelector('svg')!;
-      const markerColorMap = new Map(markers.map((marker) => [normalizeColor(marker.color), marker]));
-      const ptToPx = BASE_PT_TO_PX;
-      const gs = scaleState.effectiveGridSize;
-      for (const el of liveSvg.querySelectorAll<SVGGraphicsElement>('circle, path, ellipse, rect')) {
-        const fill = normalizeColor(el.getAttribute('fill'));
-        const marker = markerColorMap.get(fill);
-        if (!marker) continue;
-        const box = el.getBBox();
-        const centerX = box.x + box.width / 2;
-        const centerY = box.y + box.height / 2;
-        const resolvedPoint = {
-          x: ((centerX - tx) * ptToPx) / gs,
-          y: ((centerY - ty) * ptToPx) / gs,
-        };
-        const names = marker.names?.length ? marker.names : [marker.anchor];
-        for (const name of names) {
-          const key = marker.kind === 'reference' || name === 'reference'
-            ? marker.nodeName
-            : `${marker.nodeName}.${name}`;
-          points.set(key, {
-            key,
-            nodeName: marker.nodeName,
-            anchor: name,
-            componentId: marker.componentId,
-            defId: marker.defId,
-            kind: marker.kind,
-            names: [...names],
-            role: marker.role,
-            snap: marker.snap,
-            ghost: marker.ghost,
-            point: { ...resolvedPoint },
-          });
-        }
-      }
-    } finally {
-      host.remove();
-    }
-    return points;
-  }
-
-  private measureBoundsSvg(
-    svgText: string,
-    markers: BoundsRenderMarker[],
-    tx: number,
-    ty: number,
-  ): Map<string, RenderComponentBounds> {
-    const bounds = new Map<string, RenderComponentBounds>();
-    if (markers.length === 0) return bounds;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(svgText, 'image/svg+xml');
-    const svg = doc.querySelector('svg');
-    if (!svg) return bounds;
-
-    const host = document.createElement('div');
-    host.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
-    host.appendChild(document.importNode(svg, true));
-    document.body.appendChild(host);
-
-    try {
-      const liveSvg = host.querySelector('svg')!;
-      const markerColorMap = new Map(markers.map((marker) => [normalizeColor(marker.color), marker]));
-      const corners = new Map<string, { componentId: string; defId: string; nodeName: string; northEast?: GridPoint; southWest?: GridPoint }>();
-      const ptToPx = BASE_PT_TO_PX;
-      const gs = scaleState.effectiveGridSize;
-      for (const el of liveSvg.querySelectorAll<SVGGraphicsElement>('circle, path, ellipse, rect')) {
-        const fill = normalizeColor(el.getAttribute('fill'));
-        const marker = markerColorMap.get(fill);
-        if (!marker) continue;
-        const box = el.getBBox();
-        const centerX = box.x + box.width / 2;
-        const centerY = box.y + box.height / 2;
-        const point = {
-          x: ((centerX - tx) * ptToPx) / gs,
-          y: ((centerY - ty) * ptToPx) / gs,
-        };
-        const current = corners.get(marker.key) ?? {
-          componentId: marker.componentId,
-          defId: marker.defId,
-          nodeName: marker.nodeName,
-        };
-        if (marker.corner === 'south west') current.southWest = point;
-        else current.northEast = point;
-        corners.set(marker.key, current);
-      }
-      for (const [key, entry] of corners) {
-        if (!entry.southWest || !entry.northEast) continue;
-        bounds.set(key, {
-          componentId: entry.componentId,
-          defId: entry.defId,
-          nodeName: entry.nodeName,
-          left: entry.southWest.x,
-          top: entry.northEast.y,
-          width: entry.northEast.x - entry.southWest.x,
-          height: entry.southWest.y - entry.northEast.y,
-        });
-      }
-    } finally {
-      host.remove();
-    }
-    return bounds;
   }
 
   private injectSvg(svgText: string, tx: number, ty: number): void {
