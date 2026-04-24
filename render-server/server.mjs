@@ -207,7 +207,7 @@ function buildAnchorDiagnosticSource(latexBody, anchors) {
   const pointLines = pointMarkers
     .map((marker) => {
       const target = marker.anchor === 'reference' ? marker.nodeName : `${marker.nodeName}.${marker.anchor}`;
-      return `\\fill[${marker.latexColorName}] (${target}) circle[radius=0.08];`;
+      return `\\fill[${marker.latexColorName},opacity=0] (${target}) circle[radius=0.08];`;
     })
     .join('\n');
   const boundsLines = boundsMarkers
@@ -216,10 +216,10 @@ function buildAnchorDiagnosticSource(latexBody, anchors) {
       if (marker.corner === 'south west') {
         return [
           `\\node[fit=(${marker.nodeName}),inner sep=0pt,outer sep=0pt,draw=none] (${fitNode}) {};`,
-          `\\fill[${marker.latexColorName}] (${fitNode}.south west) circle[radius=0.08];`,
+          `\\fill[${marker.latexColorName},opacity=0] (${fitNode}.south west) circle[radius=0.08];`,
         ].join('\n');
       }
-      return `\\fill[${marker.latexColorName}] (${fitNode}.north east) circle[radius=0.08];`;
+      return `\\fill[${marker.latexColorName},opacity=0] (${fitNode}.north east) circle[radius=0.08];`;
     })
     .join('\n');
   const endToken = '\\end{tikzpicture}';
@@ -355,8 +355,9 @@ async function renderLatex(latexBody, anchors = []) {
   const startedAt = Date.now();
   try {
     const texFile = join(dir, 'circuit.tex');
-    const normalizedSource = normalizePictureEnvironmentForRender(LATEX_WRAPPER(latexBody));
-    await writeFile(texFile, normalizedSource, 'utf8');
+    const diagnostic = buildAnchorDiagnosticSource(latexBody, anchors);
+    const source = diagnostic?.source ?? normalizePictureEnvironmentForRender(LATEX_WRAPPER(latexBody));
+    await writeFile(texFile, source, 'utf8');
 
     const compileStartedAt = Date.now();
     await runCommand('pdflatex', ['-interaction=nonstopmode', '-halt-on-error', 'circuit.tex'], dir, PDFLATEX_TIMEOUT_MS);
@@ -373,25 +374,12 @@ async function renderLatex(latexBody, anchors = []) {
     const totalMs = Date.now() - startedAt;
     log('render_success', { compileMs, svgBytes: svg.length, svgMs, totalMs });
     const result = { svg, tx, ty };
-
-    const diagnostic = buildAnchorDiagnosticSource(latexBody, anchors);
     if (diagnostic) {
-      try {
-        const anchorTexFile = join(dir, 'anchors.tex');
-        await writeFile(anchorTexFile, diagnostic.source, 'utf8');
-        await runCommand('pdflatex', ['-interaction=nonstopmode', '-halt-on-error', 'anchors.tex'], dir, PDFLATEX_TIMEOUT_MS);
-        await runCommand('pdf2svg', ['anchors.pdf', 'anchors.svg', '1'], dir, PDF2SVG_TIMEOUT_MS);
-        const anchorSvg = sanitizeSvg(await readFile(join(dir, 'anchors.svg'), 'utf8'));
-        const anchorMatch = anchorSvg.match(/transform="matrix\(1,\s*0,\s*0,\s*-1,\s*([\d.+-]+),\s*([\d.+-]+)\)"/);
-        result.anchorSvg = anchorSvg;
-        result.anchorTx = anchorMatch ? parseFloat(anchorMatch[1]) : 0;
-        result.anchorTy = anchorMatch ? parseFloat(anchorMatch[2]) : 0;
-        result.anchorMarkers = diagnostic.markers.map(({ latexColorName, ...marker }) => marker);
-        result.boundsMarkers = diagnostic.boundsMarkers.map(({ latexColorName, ...marker }) => marker);
-      } catch (anchorErr) {
-        log('anchor_render_error', { detail: anchorErr.message });
-        result.anchorError = anchorErr.message;
-      }
+      result.anchorSvg = svg;
+      result.anchorTx = tx;
+      result.anchorTy = ty;
+      result.anchorMarkers = diagnostic.markers.map(({ latexColorName, ...marker }) => marker);
+      result.boundsMarkers = diagnostic.boundsMarkers.map(({ latexColorName, ...marker }) => marker);
     }
     return result;
   } catch (err) {
