@@ -16,6 +16,7 @@ function extractStatementSource(body: string, id: string): { sourceLineIndex: nu
   const lines = body.split('\n');
   if (sourceLineIndex >= lines.length) return null;
   const selectedLineTrimmed = lines[sourceLineIndex].replace(/%.*$/, '').trim();
+  if (!selectedLineTrimmed) return null;
 
   if ((selectedLineTrimmed.startsWith('(') || selectedLineTrimmed.startsWith('node')) && !selectedLineTrimmed.startsWith('\\')) {
     let commandLineIndex = -1;

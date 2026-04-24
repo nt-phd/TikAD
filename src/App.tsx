@@ -106,6 +106,11 @@ const GROUP_ORDER = [
   'Tubes',
 ] as const;
 
+const DEFAULT_LIBRARY_VISIBLE_COUNT = componentCatalog.components
+  .filter((entry) => !entry.hidden)
+  .filter((entry) => entry.styleKind !== 'alias style')
+  .length;
+
 const DEFAULT_SIDEBAR_WIDTH = 480;
 const MIN_SIDEBAR_WIDTH = 480;
 const MAX_SIDEBAR_WIDTH = 760;
@@ -775,6 +780,7 @@ function LibraryView({
   const [staticPreviews, setStaticPreviews] = useState<Record<string, string>>({});
   const [catalogPreviews, setCatalogPreviews] = useState<Record<string, string>>({});
   const [catalogPreviewsLoaded, setCatalogPreviewsLoaded] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
   const defs = useMemo(() => handle?.registry.getAll() ?? [], [handle]);
   const defsByTikzName = useMemo(() => {
     const map = new Map<string, ComponentDef>();
@@ -891,7 +897,12 @@ function LibraryView({
     }
     return map;
   }, []);
-  const queryLower = query.trim().toLowerCase();
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query), 180);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  const queryLower = debouncedQuery.trim().toLowerCase();
 
   useEffect(() => {
     if (!handle) return;
@@ -1199,6 +1210,7 @@ function PropertiesView(props: {
   gridPitch: number;
   majorGridEvery: number;
   handle: ImperativeAppHandle | null;
+  mode: 'environment' | 'properties';
   preamble: string;
   preamblePackages: PreamblePackage[];
   selectedIds: string[];
@@ -1221,6 +1233,7 @@ function PropertiesViewInner({
   gridPitch,
   majorGridEvery,
   handle,
+  mode,
   preamble,
   preamblePackages,
   selectedIds,
@@ -1238,6 +1251,7 @@ function PropertiesViewInner({
   gridPitch: number;
   majorGridEvery: number;
   handle: ImperativeAppHandle;
+  mode: 'environment' | 'properties';
   preamble: string;
   preamblePackages: PreamblePackage[];
   selectedIds: string[];
@@ -1340,7 +1354,7 @@ function PropertiesViewInner({
   };
   return (
     <Stack data-version={documentVersion} id="props" spacing={1.5} sx={{ ...PROPERTIES_FIELD_SX, flex: 1, minHeight: 0, overflowY: 'auto', p: 2 }}>
-      {selectionCount === 0 ? (
+      {mode === 'environment' ? (
         <>
           <StatementEditor
             model={environmentStatement}
@@ -1359,67 +1373,74 @@ function PropertiesViewInner({
             stopShortcutPropagation={stopShortcutPropagation}
           />
         </>
-      ) : null}
-
-      {selectionCount > 1 && !statementModel ? (
-        <Typography color="text.secondary" sx={{ px: 0.5, py: 2, textAlign: 'center' }} variant="body2">
-          {selectionCount} elements selected
-        </Typography>
-      ) : null}
-
-      {statementModel ? (
-        <StatementEditor
-          model={statementModel}
-          onCommit={(statement) => handle.applyEditableStatement(statement)}
-          positionPick={positionPick}
-          resolvedPositions={resolvedStatementPositions}
-          onPositionEditChange={(active: boolean) => {
-            setPositionEditActive(active);
-            handle.setPositionPickMode(active);
-          }}
-          stopShortcutPropagation={stopShortcutPropagation}
-        />
-      ) : null}
-
-      {selectionCount === 1 && selectionId && !statementModel ? (
-        <Typography color="warning.main" sx={{ px: 0.5, py: 1 }} variant="caption">
-          Statement editor not available for this selection yet.
-        </Typography>
-      ) : null}
-
-      {selectionCount === 1 && wire && !statementModel ? (
-        <Typography color="text.secondary" sx={{ px: 0.5, py: 2, textAlign: 'center' }} variant="body2">
-          Wire. Edit geometry from the canvas or source in Document.
-        </Typography>
-      ) : null}
-
-      {selectionCount === 1 && drawing && !statementModel ? (
+      ) : (
         <>
-          {drawing.kind === 'circle' ? (
-            <TextField
-              disabled
-              fullWidth
-              label="Radius"
-              sx={PROPERTIES_FIELD_SX}
-              value={String(drawing.radius)}
+          {selectionCount === 0 ? (
+            <Typography color="text.secondary" sx={{ px: 0.5, py: 2, textAlign: 'center' }} variant="body2">
+              Select a line or element to edit properties.
+            </Typography>
+          ) : null}
+
+          {selectionCount > 1 && !statementModel ? (
+            <Typography color="text.secondary" sx={{ px: 0.5, py: 2, textAlign: 'center' }} variant="body2">
+              {selectionCount} elements selected
+            </Typography>
+          ) : null}
+
+          {statementModel ? (
+            <StatementEditor
+              model={statementModel}
+              onCommit={(statement) => handle.applyEditableStatement(statement)}
+              positionPick={positionPick}
+              resolvedPositions={resolvedStatementPositions}
+              onPositionEditChange={(active: boolean) => {
+                setPositionEditActive(active);
+                handle.setPositionPickMode(active);
+              }}
+              stopShortcutPropagation={stopShortcutPropagation}
             />
           ) : null}
-          <TextField
-            fullWidth
-            label="Options"
-            onBlur={() => commitDrawingProp('options')}
-            onChange={(event) => setDraftDrawingProps((prev) => ({ ...prev, options: event.target.value }))}
-            onKeyDown={stopShortcutPropagation}
-            placeholder={drawing.kind === 'arrow' ? '->, thick' : 'thin'}
-            sx={PROPERTIES_FIELD_SX}
-            value={draftDrawingProps.options}
-          />
-          <Typography color="text.secondary" variant="caption">
-            Edit geometry directly on the canvas by selecting and dragging.
-          </Typography>
-        </>
-      ) : null}
 
+          {selectionCount === 1 && selectionId && !statementModel ? (
+            <Typography color="warning.main" sx={{ px: 0.5, py: 1 }} variant="caption">
+              Statement editor not available for this selection yet.
+            </Typography>
+          ) : null}
+
+          {selectionCount === 1 && wire && !statementModel ? (
+            <Typography color="text.secondary" sx={{ px: 0.5, py: 2, textAlign: 'center' }} variant="body2">
+              Wire. Edit geometry from the canvas or source in Document.
+            </Typography>
+          ) : null}
+
+          {selectionCount === 1 && drawing && !statementModel ? (
+            <>
+              {drawing.kind === 'circle' ? (
+                <TextField
+                  disabled
+                  fullWidth
+                  label="Radius"
+                  sx={PROPERTIES_FIELD_SX}
+                  value={String(drawing.radius)}
+                />
+              ) : null}
+              <TextField
+                fullWidth
+                label="Options"
+                onBlur={() => commitDrawingProp('options')}
+                onChange={(event) => setDraftDrawingProps((prev) => ({ ...prev, options: event.target.value }))}
+                onKeyDown={stopShortcutPropagation}
+                placeholder={drawing.kind === 'arrow' ? '->, thick' : 'thin'}
+                sx={PROPERTIES_FIELD_SX}
+                value={draftDrawingProps.options}
+              />
+              <Typography color="text.secondary" variant="caption">
+                Edit geometry directly on the canvas by selecting and dragging.
+              </Typography>
+            </>
+          ) : null}
+        </>
+      )}
     </Stack>
   );
 }
@@ -2336,6 +2357,93 @@ function EnvironmentTabs({
   );
 }
 
+function PropertiesTabs({
+  appState,
+  collapsed,
+  handle,
+  onToggleCollapsed,
+}: {
+  appState: ReturnType<typeof useAppState>;
+  collapsed: boolean;
+  handle: ImperativeAppHandle | null;
+  onToggleCollapsed: () => void;
+}) {
+  const [activeTab, setActiveTab] = useState<'environment' | 'properties'>('properties');
+  const tabHeader = (
+    <Box
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      sx={{ flex: 1, minWidth: 0 }}
+    >
+      <Tabs
+        onChange={(_event, value) => setActiveTab(value)}
+        value={activeTab}
+        variant="standard"
+        sx={{
+          minHeight: 36,
+          '& .MuiTabs-flexContainer': {
+            justifyContent: 'flex-start',
+          },
+        }}
+      >
+        <Tab
+          label="Environment"
+          sx={{
+            color: 'text.secondary',
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: '0.08em',
+            minHeight: 36,
+            textTransform: 'uppercase',
+          }}
+          value="environment"
+        />
+        <Tab
+          label="Properties"
+          sx={{
+            color: 'text.secondary',
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: '0.08em',
+            minHeight: 36,
+            textTransform: 'uppercase',
+          }}
+          value="properties"
+        />
+      </Tabs>
+    </Box>
+  );
+
+  return (
+    <PanelSection
+      expanded={!collapsed}
+      grow
+      onChange={onToggleCollapsed}
+      title={tabHeader}
+    >
+      <PropertiesView
+        documentSettings={appState.documentSettings}
+        documentVersion={appState.documentVersion}
+        environmentOptions={appState.environmentOptions}
+        environmentType={appState.environmentType}
+        gridPitch={appState.gridPitch}
+        majorGridEvery={appState.majorGridEvery}
+        handle={handle}
+        mode={activeTab}
+        preamble={appState.preamble}
+        preamblePackages={appState.preamblePackages}
+        selectedIds={appState.selectedIds}
+        setEnvironmentOptions={appState.onEnvironmentOptionsChange}
+        setEnvironmentType={appState.onEnvironmentTypeChange}
+        setGridPitch={appState.onGridPitchChange}
+        setMajorGridEvery={appState.onMajorGridEveryChange}
+        setPreamblePackages={appState.setPreamblePackages}
+        stopShortcutPropagation={appState.stopShortcutPropagation}
+      />
+    </PanelSection>
+  );
+}
+
 
 function CanvasViewport({
   onReady,
@@ -2452,7 +2560,7 @@ function AppShell({
   }>>;
 }) {
   const appState = useAppState(handle);
-  const [libraryVisibleCount, setLibraryVisibleCount] = useState(0);
+  const [libraryVisibleCount, setLibraryVisibleCount] = useState(DEFAULT_LIBRARY_VISIBLE_COUNT);
 
   const beginLineIndex = useMemo(() => {
     const lines = appState.body.split('\n');
@@ -2465,30 +2573,6 @@ function AppShell({
     }
   }, [appState.caretLineIndex, beginLineIndex, setCollapsed]);
 
-  const selectedCount = appState.selectedIds.length;
-  const selectedId = appState.selectedIds[0];
-  const selectedComponent = handle?.getSelectedComponent();
-  const selectedDrawing = handle?.getSelectedDrawing();
-  const selectedWire = handle?.getSelectedWire();
-  const editableStatement = selectedCount === 1 && selectedId ? handle?.getEditableStatementModel(selectedId) : null;
-  const hasEditableStatement = Boolean(editableStatement);
-  const editableStatementLineNumber = editableStatement
-    ? editableStatement.sourceSubIndex != null
-      ? editableStatement.sourceLineIndex + editableStatement.sourceSubIndex + 2
-      : editableStatement.sourceLineIndex + 1
-    : null;
-  const editableStatementComponentCount = editableStatement?.segments.length ?? 0;
-  const propertiesTitle = selectedCount === 0
-    ? 'PROPERTIES: ENVIROMENT'
-    : selectedCount > 1
-      ? `PROPERTIES: ${selectedCount} SELECTED`
-      : hasEditableStatement
-        ? `PROPERTIES: LINE ${editableStatementLineNumber} (${editableStatementComponentCount} COMPONENTS)`
-      : selectedWire
-        ? 'PROPERTIES: WIRE'
-        : selectedDrawing
-          ? `PROPERTIES: ${(selectedDrawing.kind[0].toUpperCase() + selectedDrawing.kind.slice(1)).toUpperCase()}`
-        : `PROPERTIES: ${(handle?.registry.get(selectedComponent?.defId ?? '')?.displayName ?? selectedComponent?.defId ?? 'Component').toUpperCase()}`;
   const propsFlex = collapsed.props ? '0 0 auto' : '1 1 0';
   const currentDefTikzName = appState.currentDefId ? handle?.registry.get(appState.currentDefId)?.tikzName : undefined;
   const selectSymbolShortcut = (tikzName: SymbolShortcutTikzName) => {
@@ -2575,31 +2659,12 @@ function AppShell({
               width: '100%',
             }}
           >
-            <PanelSection
-              expanded={!collapsed.props}
-              grow
-              onChange={() => setCollapsed((prev) => ({ ...prev, props: !prev.props }))}
-              title={propertiesTitle}
-            >
-              <PropertiesView
-                documentSettings={appState.documentSettings}
-                documentVersion={appState.documentVersion}
-                environmentOptions={appState.environmentOptions}
-                environmentType={appState.environmentType}
-                gridPitch={appState.gridPitch}
-                majorGridEvery={appState.majorGridEvery}
-                handle={handle}
-                preamble={appState.preamble}
-                preamblePackages={appState.preamblePackages}
-                selectedIds={appState.selectedIds}
-                setEnvironmentOptions={appState.onEnvironmentOptionsChange}
-                setEnvironmentType={appState.onEnvironmentTypeChange}
-                setGridPitch={appState.onGridPitchChange}
-                setMajorGridEvery={appState.onMajorGridEveryChange}
-                setPreamblePackages={appState.setPreamblePackages}
-                stopShortcutPropagation={appState.stopShortcutPropagation}
-              />
-            </PanelSection>
+            <PropertiesTabs
+              appState={appState}
+              collapsed={collapsed.props}
+              handle={handle}
+              onToggleCollapsed={() => setCollapsed((prev) => ({ ...prev, props: !prev.props }))}
+            />
           </Box>
 
           <Box
