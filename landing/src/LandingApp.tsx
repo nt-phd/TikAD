@@ -312,7 +312,7 @@ export function LandingApp() {
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} useFlexGap>
                 <Button
                   component={Link}
-                  href="https://tikad.bsproj.it"
+                  href="https://go.tikad.app"
                   size="large"
                   startIcon={
                     <Box
