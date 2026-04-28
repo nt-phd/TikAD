@@ -43,6 +43,20 @@ export class SelectTool extends BaseTool {
     this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
   }
 
+  private syncMeasuredGeometryOffsets(): void {
+    const offsets = new Map<string, GridPoint>();
+    const doc = this.ctx.getDocument();
+    for (const [id, orig] of this.dragOriginalPositions) {
+      const comp = doc.getComponent(id);
+      if (!comp || comp.type === 'bipole' || !orig.position) continue;
+      offsets.set(id, {
+        x: comp.position.x - orig.position.x,
+        y: comp.position.y - orig.position.y,
+      });
+    }
+    this.ctx.ghost.setMeasuredGeometryOffsets(offsets);
+  }
+
   private isToggleModifierActive(e: MouseEvent): boolean {
     return e.ctrlKey || e.metaKey;
   }
@@ -293,6 +307,7 @@ export class SelectTool extends BaseTool {
           comp.endRef = ref;
           comp.endSequence = undefined;
         }
+        this.syncMeasuredGeometryOffsets();
         this.emitSelectionChanged();
       }
       return;
@@ -334,6 +349,7 @@ export class SelectTool extends BaseTool {
             }
             break;
         }
+        this.syncMeasuredGeometryOffsets();
         this.emitSelectionChanged();
       }
       return;
@@ -383,6 +399,7 @@ export class SelectTool extends BaseTool {
           }
           if (this.dragWireHandle.index === 0) wire.startRef = ref;
           if (this.dragWireHandle.index === sourcePoints.length - 1) wire.endRef = ref;
+          this.syncMeasuredGeometryOffsets();
           this.emitSelectionChanged();
         }
       }
@@ -402,6 +419,7 @@ export class SelectTool extends BaseTool {
         if (idx === 0) dp.startRef = ref;
         if (idx === dp.positionSequences.length - 1) dp.endRef = ref;
         dp.points = this.rebuildDrawPathPoints(dp);
+        this.syncMeasuredGeometryOffsets();
         this.emitSelectionChanged();
       }
       return;
@@ -494,6 +512,7 @@ export class SelectTool extends BaseTool {
       }
     }
     // Only refresh overlay during drag, not a full recompile
+    this.syncMeasuredGeometryOffsets();
     this.emitSelectionChanged();
   }
 
@@ -658,6 +677,7 @@ export class SelectTool extends BaseTool {
     this.pendingToggleSelectionId = null;
     this.dragOriginalPositions.clear();
     this.ctx.ghost.clearTransientPointRefs();
+    this.ctx.ghost.clearMeasuredGeometryOffsets();
   }
 
   onKeyDown(e: KeyboardEvent): void {

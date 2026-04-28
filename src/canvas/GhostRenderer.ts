@@ -51,6 +51,7 @@ export class GhostRenderer {
   private snapPreviewGroup: SVGGElement;
   private hoverGroup: SVGGElement;
   private transientPointRefs = new Map<string, ConnectionRef | undefined>();
+  private measuredGeometryOffsets = new Map<string, GridPoint>();
 
   constructor(
     private overlaySvg: SVGSVGElement,
@@ -89,6 +90,17 @@ export class GhostRenderer {
 
   clearTransientPointRefs(): void {
     this.transientPointRefs.clear();
+  }
+
+  setMeasuredGeometryOffsets(offsets: Map<string, GridPoint>): void {
+    this.measuredGeometryOffsets = new Map();
+    for (const [id, offset] of offsets) {
+      this.measuredGeometryOffsets.set(id, { ...offset });
+    }
+  }
+
+  clearMeasuredGeometryOffsets(): void {
+    this.measuredGeometryOffsets.clear();
   }
 
   setSnapPreview(point?: GridPoint, ref?: ConnectionRef): void {
@@ -633,6 +645,7 @@ export class GhostRenderer {
     const cy = y * gs;
     const selectedComp = selectionId ? this.doc.getComponent(selectionId) : undefined;
     const measuredBounds = selectionId ? this.doc.getMeasuredComponentBounds(selectionId) : undefined;
+    const measuredOffset = selectionId ? this.measuredGeometryOffsets.get(selectionId) : undefined;
     const nodeName = selectedComp && 'nodeName' in selectedComp ? selectedComp.nodeName : undefined;
     const currentRef = selectedComp && selectedComp.type !== 'bipole' ? selectedComp.positionSequence?.ref : undefined;
     const hasMeasuredTerminals = nodeName ? this.doc.getMeasuredNodePointGroups(nodeName, 'terminal').length > 0 : false;
@@ -645,6 +658,7 @@ export class GhostRenderer {
         showAnchorMarker,
         currentRef,
         shouldShowReferenceAsSnap ? nodeName : undefined,
+        measuredOffset,
       ));
     } else {
       wrapper.appendChild(this.buildStaticBoundsGroup(
@@ -660,7 +674,7 @@ export class GhostRenderer {
       ));
     }
     if (!ghost && nodeName) {
-      this.appendMeasuredPinMarkers(wrapper, nodeName, color);
+      this.appendMeasuredPinMarkers(wrapper, nodeName, color, measuredOffset);
     }
     return wrapper.childNodes.length > 0 ? wrapper : null;
   }
@@ -730,12 +744,15 @@ export class GhostRenderer {
     showAnchorMarker: boolean,
     currentRef?: ConnectionRef,
     fallbackReferenceLabel?: string,
+    offset?: GridPoint,
   ): SVGGElement {
     const gs = this.gs;
+    const dx = offset?.x ?? 0;
+    const dy = offset?.y ?? 0;
     const g = createGroup('sel-measured-bounds');
     g.appendChild(createRect(
-      bounds.left * gs,
-      bounds.top * gs,
+      (bounds.left + dx) * gs,
+      (bounds.top + dy) * gs,
       bounds.width * gs,
       bounds.height * gs,
       {
@@ -751,8 +768,8 @@ export class GhostRenderer {
       if (ref) {
         if (currentRef) {
           g.appendChild(this.tooltipRingAt(
-            ref.point.x * gs,
-            ref.point.y * gs,
+            (ref.point.x + dx) * gs,
+            (ref.point.y + dy) * gs,
             gs * OVERLAY_MARKER_RADIUS,
             formatConnectionRef(currentRef),
             color,
@@ -760,8 +777,8 @@ export class GhostRenderer {
           ));
         } else if (fallbackReferenceLabel || ref.snap) {
           g.appendChild(this.tooltipRingAt(
-            ref.point.x * gs,
-            ref.point.y * gs,
+            (ref.point.x + dx) * gs,
+            (ref.point.y + dy) * gs,
             gs * OVERLAY_MARKER_RADIUS,
             fallbackReferenceLabel ?? bounds.nodeName,
             color,
@@ -769,8 +786,8 @@ export class GhostRenderer {
           ));
         } else {
           g.appendChild(this.crossAt(
-            ref.point.x * gs,
-            ref.point.y * gs,
+            (ref.point.x + dx) * gs,
+            (ref.point.y + dy) * gs,
             gs * OVERLAY_MARKER_RADIUS,
             SELECTION_LINE_OPACITY,
             color,
@@ -781,14 +798,16 @@ export class GhostRenderer {
     return g;
   }
 
-  private appendMeasuredPinMarkers(parent: SVGGElement, nodeName: string, color: string): void {
+  private appendMeasuredPinMarkers(parent: SVGGElement, nodeName: string, color: string, offset?: GridPoint): void {
     const gs = this.gs;
+    const dx = offset?.x ?? 0;
+    const dy = offset?.y ?? 0;
     const groups = this.doc.getMeasuredNodePointGroups(nodeName, 'terminal');
     for (const group of groups) {
       const label = group.names.map((name) => `${nodeName}.${name}`).join('\n');
       parent.appendChild(this.tooltipRingAt(
-        group.point.x * gs,
-        group.point.y * gs,
+        (group.point.x + dx) * gs,
+        (group.point.y + dy) * gs,
         gs * OVERLAY_MARKER_RADIUS,
         label,
         color,
