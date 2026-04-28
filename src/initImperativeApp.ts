@@ -19,6 +19,8 @@ import { DEFAULT_BODY } from './model/LatexDocument';
 import type {
   ComponentInstance,
   DrawingInstance,
+  EditableConnectionOperator,
+  EditableStatement,
   GridPoint,
   PositionSequencePreview,
   SourceCoordinateTranslation,
@@ -31,9 +33,14 @@ import type { ToolContext } from './tools/BaseTool';
 import type { ClipboardEntry } from './tools/SelectionClipboard';
 import { materializeClipboardAt } from './tools/SelectionClipboard';
 import { getEditableStatementModel } from './codegen/StatementEditorModel';
-import type { EditableStatement } from './types';
-import { emitStructuredNodeStatement, emitStructuredStatementBody, parseStructuredStatementBody } from './codegen/TikzStructuredStatement';
+import {
+  emitStructuredNodeStatement,
+  emitStructuredStatementBody,
+  parseStructuredNodeStatement,
+  parseStructuredStatementBody,
+} from './codegen/TikzStructuredStatement';
 import { readTikzBalanced, scanTikzPoint, scanTikzPointSequence, skipTikzWhitespace } from './codegen/TikzPointParser';
+import { resolvePositionSequencePreview, resolveStructuredPositionTexts } from './codegen/TikzPositionResolver';
 import { splitOptions } from './codegen/TikzStatementSyntax';
 
 let initialized = false;
@@ -393,6 +400,294 @@ function emitEditableStatement(statement: EditableStatement): string | null {
   const body = emitStructuredStatementBody(structured);
   const commandOptions = statement.commandOptionsText?.trim();
   return body ? `\\${statement.command}${commandOptions ? `[${commandOptions}]` : ''} ${body};` : null;
+}
+
+function reverseConnectionOperator(operator: EditableConnectionOperator): EditableConnectionOperator {
+  if (operator === '|-') return '-|';
+  if (operator === '-|') return '|-';
+  return operator;
+}
+
+function isConnectionOnlyStatement(statement: EditableStatement): boolean {
+  return statement.segments.length > 0 && statement.segments.every((segment) => segment.kind === 'connection');
+}
+
+function isDrawPathStatement(statement: EditableStatement): boolean {
+  return statement.segments.length > 0 && statement.segments.every((segment) => (
+    segment.kind === 'connection' || segment.kind === 'bipole'
+  ));
+}
+
+function reverseDrawPathStatement(statement: EditableStatement): EditableStatement {
+  return {
+    ...statement,
+    positionTexts: [...statement.positionTexts].reverse(),
+    segments: [...statement.segments]
+      .reverse()
+      .map((segment) => {
+        if (segment.kind === 'connection') {
+          return { ...segment, operator: reverseConnectionOperator(segment.operator) };
+        }
+        if (segment.kind === 'bipole') {
+          return {
+            ...segment,
+            props: {
+              ...segment.props,
+              startTerminal: segment.props.endTerminal,
+              endTerminal: segment.props.startTerminal,
+            },
+          };
+        }
+        return segment;
+      }),
+  };
+}
+
+function parseDrawStatement(line: string): EditableStatement | null {
+  const match = line.trim().replace(/;$/, '').match(/^\\(draw|path)(?:\[([\s\S]*?)\])?\s+([\s\S]+)$/);
+  if (!match) return null;
+  const structured = parseStructuredStatementBody(match[3].trim());
+  if (!structured) return null;
+  return {
+    command: match[1] as EditableStatement['command'],
+    commandOptionsText: match[2]?.trim() || undefined,
+    positionTexts: structured.positionTexts,
+    rawStatementText: line.trim(),
+    segments: structured.segments,
+    sourceLineIndex: -1,
+  };
+}
+
+function parseNodeStatement(line: string): EditableStatement | null {
+  const trimmed = line.trim().replace(/;$/, '');
+  if (!trimmed.startsWith('\\node')) return null;
+  const structured = parseStructuredNodeStatement(trimmed.slice('\\'.length));
+  if (!structured) return null;
+  return {
+    command: 'node',
+    commandOptionsText: undefined,
+    positionTexts: structured.positionTexts,
+    rawStatementText: line.trim(),
+    segments: structured.segments,
+    sourceLineIndex: -1,
+  };
+}
+
+function replaceAbsolutePointReferencesInLine(line: string, targetPoint: GridPoint, nodeName: string): string {
+  const { code, comment } = splitLineComment(line);
+  let cursor = 0;
+  let result = '';
+  while (cursor < code.length) {
+    const pointStart = skipTikzWhitespace(code, cursor);
+    const point = scanTikzPoint(code, cursor);
+    if (!point) {
+      result += code[cursor];
+      cursor += 1;
+      continue;
+    }
+    result += code.slice(cursor, pointStart);
+    let replacement: string | null = null;
+    if (point.point.relativeMode === 'none' && point.point.kind === 'regular') {
+      const parsedPoint = parseAbsoluteNumericPoint(point.point.raw);
+      if (parsedPoint && pointsEqual(parsedPoint, targetPoint)) {
+        replacement = `(${nodeName})`;
+      }
+    }
+    result += replacement ?? point.point.raw;
+    cursor = point.end;
+  }
+  return result + comment;
+}
+
+function rewriteMatchingCoordinatesWithNodeName(
+  body: string,
+  targetPoint: GridPoint,
+  nodeName: string,
+  excludedLineIndex: number,
+): string {
+  const lines = body.split('\n');
+  for (let index = 0; index < lines.length; index += 1) {
+    if (index === excludedLineIndex) continue;
+    lines[index] = replaceAbsolutePointReferencesInLine(lines[index], targetPoint, nodeName);
+  }
+  return lines.join('\n');
+}
+
+function parseSimpleNodeReference(innerRaw: string): { anchor?: string; nodeName: string } | null {
+  const trimmed = innerRaw.trim();
+  const match = trimmed.match(/^([A-Za-z][\w-]*)(?:\s*\.\s*([^\s()]+))?$/);
+  if (!match) return null;
+  return {
+    nodeName: match[1],
+    anchor: match[2]?.trim() || undefined,
+  };
+}
+
+function replaceDeletedNodeReferencesInLine(
+  line: string,
+  nodeNames: Set<string>,
+  doc: CircuitDocument,
+): string {
+  const { code, comment } = splitLineComment(line);
+  let cursor = 0;
+  let result = '';
+  while (cursor < code.length) {
+    const pointStart = skipTikzWhitespace(code, cursor);
+    const point = scanTikzPoint(code, cursor);
+    if (!point) {
+      result += code[cursor];
+      cursor += 1;
+      continue;
+    }
+    result += code.slice(cursor, pointStart);
+    let replacement: string | null = null;
+    if (point.point.relativeMode === 'none' && point.point.kind === 'node-ref') {
+      const parsedRef = parseSimpleNodeReference(point.point.innerRaw);
+      if (parsedRef && nodeNames.has(parsedRef.nodeName)) {
+        const resolvedPoint = doc.getSymbolPoint(parsedRef.nodeName, parsedRef.anchor);
+        if (resolvedPoint) replacement = formatCoord(resolvedPoint);
+      }
+    }
+    result += replacement ?? point.point.raw;
+    cursor = point.end;
+  }
+  return result + comment;
+}
+
+function replaceDeletedNodeReferencesInBody(
+  body: string,
+  nodeNames: Set<string>,
+  doc: CircuitDocument,
+): string {
+  if (nodeNames.size === 0) return body;
+  const lines = body.split('\n');
+  for (let index = 0; index < lines.length; index += 1) {
+    lines[index] = replaceDeletedNodeReferencesInLine(lines[index], nodeNames, doc);
+  }
+  return lines.join('\n');
+}
+
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function moveNodeDefinitionBeforeFirstReference(
+  body: string,
+  nodeName: string,
+  nodeLineIndex: number,
+): string {
+  const lines = body.split('\n');
+  if (nodeLineIndex < 0 || nodeLineIndex >= lines.length) return body;
+  const nodeLine = lines[nodeLineIndex];
+  const escapedNodeName = escapeRegex(nodeName);
+  const referencePattern = new RegExp(`\\(${escapedNodeName}(?:\\s*\\)|\\.)`);
+  let firstReferenceIndex = -1;
+  for (let index = 0; index < lines.length; index += 1) {
+    if (index === nodeLineIndex) continue;
+    const code = splitLineComment(lines[index]).code;
+    if (!referencePattern.test(code)) continue;
+    firstReferenceIndex = index;
+    break;
+  }
+  if (firstReferenceIndex < 0 || firstReferenceIndex >= nodeLineIndex) return body;
+  lines.splice(nodeLineIndex, 1);
+  lines.splice(firstReferenceIndex, 0, nodeLine);
+  return lines.join('\n');
+}
+
+function mergeSnappedDrawStatement(
+  body: string,
+  appendedLine: string,
+  doc: CircuitDocument,
+): string | null {
+  const appended = parseDrawStatement(appendedLine);
+  if (!appended || !isDrawPathStatement(appended)) return null;
+  const resolved = resolveStructuredPositionTexts(appended.positionTexts, doc, registry);
+  if (!resolved || resolved.length < 2) return null;
+  const firstPoint = resolved[0].point;
+  const lastPoint = resolved[resolved.length - 1].point;
+
+  let matchCount = 0;
+  let merged: EditableStatement | null = null;
+
+  for (const drawPath of doc.drawPaths) {
+    if (drawPath.positionSequences.length < 2) continue;
+    const existing = getEditableStatementModel(body, drawPath.id);
+    if (!existing || !isDrawPathStatement(existing)) continue;
+
+    const startPoint = drawPath.positionSequences[0].point;
+    const endPoint = drawPath.positionSequences[drawPath.positionSequences.length - 1].point;
+
+    let incoming = appended;
+    let nextPositionTexts: string[] | null = null;
+    let nextSegments = null as EditableStatement['segments'] | null;
+
+    if (pointsEqual(lastPoint, startPoint)) {
+      nextPositionTexts = [...incoming.positionTexts, ...existing.positionTexts.slice(1)];
+      nextSegments = [...incoming.segments, ...existing.segments];
+    } else if (pointsEqual(firstPoint, endPoint)) {
+      nextPositionTexts = [...existing.positionTexts, ...incoming.positionTexts.slice(1)];
+      nextSegments = [...existing.segments, ...incoming.segments];
+    } else if (pointsEqual(firstPoint, startPoint)) {
+      incoming = reverseDrawPathStatement(appended);
+      nextPositionTexts = [...incoming.positionTexts, ...existing.positionTexts.slice(1)];
+      nextSegments = [...incoming.segments, ...existing.segments];
+    } else if (pointsEqual(lastPoint, endPoint)) {
+      incoming = reverseDrawPathStatement(appended);
+      nextPositionTexts = [...existing.positionTexts, ...incoming.positionTexts.slice(1)];
+      nextSegments = [...existing.segments, ...incoming.segments];
+    }
+
+    if (!nextPositionTexts || !nextSegments) continue;
+    matchCount += 1;
+    if (matchCount > 1) return null;
+    merged = {
+      ...existing,
+      positionTexts: nextPositionTexts,
+      segments: nextSegments,
+    };
+  }
+
+  return merged ? applyEditableStatementToBody(body, merged) : null;
+}
+
+function appendSnapAwareLine(
+  body: string,
+  line: string,
+  doc: CircuitDocument,
+  snapEnabled: boolean,
+): string {
+  if (!snapEnabled) return appendLineToBody(body, line);
+
+  const mergedBody = mergeSnappedDrawStatement(body, line, doc);
+  if (mergedBody) return mergedBody;
+
+  const appended = appendLinesToBody(body, [line]);
+  const nodeStatement = parseNodeStatement(line);
+  const nodeSegment = nodeStatement?.segments[0];
+  if (
+    !nodeStatement
+    || nodeStatement.positionTexts.length !== 1
+    || nodeSegment?.kind !== 'node'
+    || !nodeSegment.nodeName
+    || (nodeSegment.tikzName !== 'circ' && nodeSegment.tikzName !== 'ocirc')
+  ) {
+    return appended.body;
+  }
+
+  const resolved = resolvePositionSequencePreview(nodeStatement.positionTexts[0], doc, registry);
+  if (!resolved) return appended.body;
+  const rewrittenBody = rewriteMatchingCoordinatesWithNodeName(
+    appended.body,
+    resolved.point,
+    nodeSegment.nodeName,
+    appended.startLineIndex,
+  );
+  return moveNodeDefinitionBeforeFirstReference(
+    rewrittenBody,
+    nodeSegment.nodeName,
+    appended.startLineIndex,
+  );
 }
 
 function findGroupedEntityLineIndex(body: string, commandLineIndex: number, subIndex: number): number {
@@ -812,7 +1107,12 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     getDef: (defId: string) => registry.get(defId),
     appendLine: (line: string) => {
       pushUndoSnapshot();
-      latexDoc.body = appendLineToBody(latexDoc.body, line);
+      latexDoc.body = appendSnapAwareLine(
+        latexDoc.body,
+        line,
+        circuitDoc,
+        canvas.snap.connectionSnapEnabled,
+      );
       syncTikzScale();
       invalidateRenderDerivedGeometry();
       parseCurrentBody();
@@ -823,6 +1123,15 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       if (ids.length === 0) return;
       pushUndoSnapshot();
       const lineIndices = ids.map(lineIndexFromId).filter((idx) => idx >= 0);
+      const deletedNodeNames = new Set(
+        ids
+          .map((id) => circuitDoc.getComponent(id))
+          .filter((comp): comp is Exclude<(typeof circuitDoc.components)[number], { type: 'bipole' }> => {
+            return Boolean(comp && comp.type !== 'bipole' && comp.nodeName);
+          })
+          .map((comp) => comp.nodeName as string),
+      );
+      latexDoc.body = replaceDeletedNodeReferencesInBody(latexDoc.body, deletedNodeNames, circuitDoc);
       for (const id of ids) {
         circuitDoc.removeComponent(id);
         circuitDoc.removeWire(id);
@@ -953,12 +1262,19 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
 
   eventBus.on('selection-changed', (e) => {
     if (e.type !== 'selection-changed') return;
-    // Always expand to the full row so that "active line = active canvas chain" holds
-    // regardless of whether the selection came from a canvas click or the code editor.
-    const representativeId = e.selectedIds[0] ?? null;
-    const lineIndex = representativeId ? lineIndexFromId(representativeId) : -1;
-    const expandedIds = lineIndex >= 0 ? idsAtLineIndex(circuitDoc, latexDoc.body, lineIndex) : [];
-    const nextIds = expandedIds.length > 0 ? expandedIds : e.selectedIds;
+    // Expand each selected id to its full source row, preserving multi-row selection.
+    const nextIds: string[] = [];
+    const seen = new Set<string>();
+    for (const id of e.selectedIds) {
+      const lineIndex = lineIndexFromId(id);
+      const expandedIds = lineIndex >= 0 ? idsAtLineIndex(circuitDoc, latexDoc.body, lineIndex) : [];
+      const idsForSelection = expandedIds.length > 0 ? expandedIds : [id];
+      for (const expandedId of idsForSelection) {
+        if (seen.has(expandedId)) continue;
+        seen.add(expandedId);
+        nextIds.push(expandedId);
+      }
+    }
     selection.setSelectedIds(nextIds);
     canvas.refresh();
     // If expansion changed the list, re-emit so React observers see the complete set.

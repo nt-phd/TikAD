@@ -48,6 +48,7 @@ export class GhostRenderer {
   private ghostGroup: SVGGElement;
   private deletePreviewGroup: SVGGElement;
   private selectionGroup: SVGGElement;
+  private snapPreviewGroup: SVGGElement;
   private hoverGroup: SVGGElement;
   private transientPointRefs = new Map<string, ConnectionRef | undefined>();
 
@@ -61,10 +62,12 @@ export class GhostRenderer {
     this.ghostGroup = createGroup('ghost');
     this.deletePreviewGroup = createGroup('delete-preview');
     this.selectionGroup = createGroup('selection');
+    this.snapPreviewGroup = createGroup('snap-preview');
     this.hoverGroup = createGroup('hover');
     this.overlaySvg.appendChild(this.selectionGroup);
     this.overlaySvg.appendChild(this.deletePreviewGroup);
     this.overlaySvg.appendChild(this.ghostGroup);
+    this.overlaySvg.appendChild(this.snapPreviewGroup);
     this.overlaySvg.appendChild(this.hoverGroup);
   }
 
@@ -86,6 +89,31 @@ export class GhostRenderer {
 
   clearTransientPointRefs(): void {
     this.transientPointRefs.clear();
+  }
+
+  setSnapPreview(point?: GridPoint, ref?: ConnectionRef): void {
+    this.snapPreviewGroup.innerHTML = '';
+    if (!point || !ref) return;
+    const gs = this.gs;
+    const g = createGroup('snap-preview-marker');
+    const x = point.x * gs;
+    const y = point.y * gs;
+    const radius = gs * OVERLAY_MARKER_RADIUS;
+    g.appendChild(createCircle(x, y, radius * 2.1, {
+      fill: SELECTION_COLOR,
+      opacity: 0.14,
+      stroke: 'none',
+      'pointer-events': 'none',
+    }));
+    g.appendChild(createCircle(x, y, radius * 1.25, {
+      fill: SELECTION_COLOR,
+      opacity: 0.18,
+      stroke: 'none',
+      'pointer-events': 'none',
+    }));
+    g.appendChild(this.ringAt(x, y, radius * 1.35, SELECTION_COLOR, 1));
+    g.appendChild(this.ringAt(x, y, radius * 0.8, SELECTION_COLOR, 0.9));
+    this.snapPreviewGroup.appendChild(g);
   }
 
   buildMarqueeGhost(start: GridPoint, end: GridPoint): SVGGElement {

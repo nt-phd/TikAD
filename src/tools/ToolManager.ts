@@ -38,6 +38,7 @@ export class ToolManager {
 
   setTool(type: ToolType, defId?: string): void {
     this.currentTool.deactivate();
+    this.canvas.ghost.setSnapPreview();
     this._currentType = type;
     this._currentDefId = defId;
 
@@ -105,6 +106,7 @@ export class ToolManager {
   setPositionPickMode(enabled: boolean): void {
     if (this.positionPickMode === enabled) return;
     this.positionPickMode = enabled;
+    if (enabled) this.canvas.ghost.setSnapPreview();
     this.updateCursor();
   }
 
@@ -113,6 +115,7 @@ export class ToolManager {
     const selectedIds = [
       ...doc.components.map((component) => component.id),
       ...doc.wires.map((wire) => wire.id),
+      ...doc.drawPaths.map((drawPath) => drawPath.id),
       ...doc.drawings.map((drawing) => drawing.id),
     ];
     this.selection.setSelectedIds(selectedIds);
@@ -192,6 +195,12 @@ export class ToolManager {
     return this.canvas.snap.snap(raw, this.currentSnapPoints());
   }
 
+  private shouldPreviewSnapTarget(): boolean {
+    return this._currentType !== 'move'
+      && this._currentType !== 'select'
+      && this._currentType !== 'delete';
+  }
+
   private attachListeners(): void {
     const el = this.canvas.overlaySvg;
 
@@ -205,7 +214,12 @@ export class ToolManager {
     el.addEventListener('mousemove', (e: MouseEvent) => {
       if (this.canvas.isCurrentlyPanning) return;
       if (this.positionPickMode) return;
-      this.currentTool.onMouseMove(this.snapEvent(e), e);
+      const snap = this.snapEvent(e);
+      this.canvas.ghost.setSnapPreview(
+        this.shouldPreviewSnapTarget() ? snap.point : undefined,
+        this.shouldPreviewSnapTarget() ? snap.ref : undefined,
+      );
+      this.currentTool.onMouseMove(snap, e);
     });
 
     el.addEventListener('mouseup', (e: MouseEvent) => {
@@ -226,6 +240,10 @@ export class ToolManager {
       if (this.currentTool instanceof WireTool) {
         (this.currentTool as WireTool).finishWire();
       }
+    });
+
+    el.addEventListener('mouseleave', () => {
+      this.canvas.ghost.setSnapPreview();
     });
 
     window.addEventListener('keydown', (e: KeyboardEvent) => {

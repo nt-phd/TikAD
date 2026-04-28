@@ -32,16 +32,27 @@ export class SelectTool extends BaseTool {
   private dragSingleSnapSelectionId: string | null = null;
   private marqueeBaseSelection = new Set<string>();
   private marqueeMode: 'replace' | 'add' | 'toggle' = 'replace';
+  private pendingToggleSelectionId: string | null = null;
 
   constructor(ctx: import('./BaseTool').ToolContext, selection: SelectionState) {
     super(ctx);
     this.selection = selection;
   }
 
+  private emitSelectionChanged(): void {
+    this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+  }
+
+  private isToggleModifierActive(e: MouseEvent): boolean {
+    return e.ctrlKey || e.metaKey;
+  }
+
   onMouseDown({ point: gridPt }: SnapResult, e: MouseEvent): void {
     if (e.button !== 0) return;
+    this.pendingToggleSelectionId = null;
+    const hasMultiSelection = this.selection.count > 1;
 
-    const endpointTarget = this.findSelectedBipoleEndpoint(gridPt);
+    const endpointTarget = !hasMultiSelection ? this.findSelectedBipoleEndpoint(gridPt) : null;
     if (endpointTarget) {
       const hitComp = this.ctx.getDocument().getComponent(endpointTarget.id);
       if (hitComp?.type === 'bipole') {
@@ -54,12 +65,12 @@ export class SelectTool extends BaseTool {
         this.dragDrawingHandle = null;
         this.dragOriginalPositions.clear();
         this.dragOriginalPositions.set(endpointTarget.id, { start: { ...hitComp.start }, end: { ...hitComp.end } });
-        this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+        this.emitSelectionChanged();
         return;
       }
     }
 
-    const drawingHandleTarget = this.findSelectedDrawingHandle(gridPt);
+    const drawingHandleTarget = !hasMultiSelection ? this.findSelectedDrawingHandle(gridPt) : null;
     if (drawingHandleTarget) {
       const drawing = this.ctx.getDocument().getDrawing(drawingHandleTarget.id);
       if (drawing) {
@@ -93,12 +104,12 @@ export class SelectTool extends BaseTool {
             });
             break;
         }
-        this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+        this.emitSelectionChanged();
         return;
       }
     }
 
-    const wireHandleTarget = this.findSelectedWireHandle(gridPt);
+    const wireHandleTarget = !hasMultiSelection ? this.findSelectedWireHandle(gridPt) : null;
     if (wireHandleTarget) {
       const wire = this.ctx.getDocument().getWire(wireHandleTarget.id);
       if (wire) {
@@ -115,12 +126,12 @@ export class SelectTool extends BaseTool {
           points: wire.points.map((point) => ({ ...point })),
           pathPoints: wire.pathPoints?.map((point) => ({ ...point })),
         });
-        this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+        this.emitSelectionChanged();
         return;
       }
     }
 
-    const drawPathHandleTarget = this.findSelectedDrawPathHandle(gridPt);
+    const drawPathHandleTarget = !hasMultiSelection ? this.findSelectedDrawPathHandle(gridPt) : null;
     if (drawPathHandleTarget) {
       const dp = this.ctx.getDocument().getDrawPath(drawPathHandleTarget.id);
       if (dp) {
@@ -137,7 +148,7 @@ export class SelectTool extends BaseTool {
         this.dragOriginalPositions.set(dp.id, {
           drawPathPositions: dp.positionSequences.map((s) => ({ ...s.point })),
         });
-        this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+        this.emitSelectionChanged();
         return;
       }
     }
@@ -150,9 +161,13 @@ export class SelectTool extends BaseTool {
 
     if (hitId) {
       this.isMarqueeSelecting = false;
-      if (e.shiftKey) {
-        this.selection.toggle(hitId);
-      } else if (!this.selection.isSelected(hitId)) {
+      const wasSelected = this.selection.isSelected(hitId);
+      if (this.isToggleModifierActive(e)) {
+        if (!wasSelected) this.selection.addToSelection(hitId);
+        else this.pendingToggleSelectionId = hitId;
+      } else if (e.shiftKey) {
+        if (!wasSelected) this.selection.addToSelection(hitId);
+      } else if (!wasSelected) {
         this.selection.select(hitId);
       }
       this.isDragging = true;
@@ -215,7 +230,7 @@ export class SelectTool extends BaseTool {
           }
         }
       }
-      this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+      this.emitSelectionChanged();
       if (this.selection.getSelectedIds().length === 1) {
         const selectedId = this.selection.getSelectedIds()[0];
         const comp = this.ctx.getDocument().getComponent(selectedId);
@@ -251,7 +266,7 @@ export class SelectTool extends BaseTool {
         }
         this.selection.setSelectedIds([...next]);
       }
-      this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+      this.emitSelectionChanged();
       this.ctx.ghost.setGhostElement(this.ctx.ghost.buildMarqueeGhost(this.dragStartGrid, gridPt));
       return;
     }
@@ -278,7 +293,7 @@ export class SelectTool extends BaseTool {
           comp.endRef = ref;
           comp.endSequence = undefined;
         }
-        this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+        this.emitSelectionChanged();
       }
       return;
     }
@@ -319,7 +334,7 @@ export class SelectTool extends BaseTool {
             }
             break;
         }
-        this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+        this.emitSelectionChanged();
       }
       return;
     }
@@ -368,7 +383,7 @@ export class SelectTool extends BaseTool {
           }
           if (this.dragWireHandle.index === 0) wire.startRef = ref;
           if (this.dragWireHandle.index === sourcePoints.length - 1) wire.endRef = ref;
-          this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+          this.emitSelectionChanged();
         }
       }
       return;
@@ -387,7 +402,7 @@ export class SelectTool extends BaseTool {
         if (idx === 0) dp.startRef = ref;
         if (idx === dp.positionSequences.length - 1) dp.endRef = ref;
         dp.points = this.rebuildDrawPathPoints(dp);
-        this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+        this.emitSelectionChanged();
       }
       return;
     }
@@ -479,7 +494,7 @@ export class SelectTool extends BaseTool {
       }
     }
     // Only refresh overlay during drag, not a full recompile
-    this.ctx.emit({ type: 'selection-changed', selectedIds: this.selection.getSelectedIds(), source: 'canvas' });
+    this.emitSelectionChanged();
   }
 
   onMouseUp(snap: SnapResult, _e: MouseEvent): void {
@@ -487,7 +502,7 @@ export class SelectTool extends BaseTool {
       if (!this.hasDragged) {
         if (this.marqueeMode === 'replace') {
           this.selection.clear();
-          this.ctx.emit({ type: 'selection-changed', selectedIds: [], source: 'canvas' });
+          this.emitSelectionChanged();
         }
       }
       this.ctx.ghost.setGhostElement(null);
@@ -495,7 +510,13 @@ export class SelectTool extends BaseTool {
       this.hasDragged = false;
       this.dragStartGrid = null;
       this.marqueeBaseSelection.clear();
+      this.pendingToggleSelectionId = null;
       return;
+    }
+
+    if (!this.hasDragged && this.pendingToggleSelectionId) {
+      this.selection.deselect(this.pendingToggleSelectionId);
+      this.emitSelectionChanged();
     }
 
     if (this.hasDragged) {
@@ -634,6 +655,7 @@ export class SelectTool extends BaseTool {
     this.dragWireHandle = null;
     this.dragDrawPathHandle = null;
     this.dragSingleSnapSelectionId = null;
+    this.pendingToggleSelectionId = null;
     this.dragOriginalPositions.clear();
     this.ctx.ghost.clearTransientPointRefs();
   }
