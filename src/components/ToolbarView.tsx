@@ -352,13 +352,13 @@ export function ToolbarView({
             <MenuIcon><DownloadRoundedIcon fontSize="small" /></MenuIcon>
             <ListItemText>Save TeX</ListItemText>
           </MenuItem>
-          <MenuItem onClick={() => run(onDownloadSvg)}>
-            <MenuIcon><DownloadRoundedIcon fontSize="small" /></MenuIcon>
-            <ListItemText>Export SVG</ListItemText>
-          </MenuItem>
           <MenuItem onClick={() => run(onDownloadSvgPlus)}>
             <MenuIcon><DownloadRoundedIcon fontSize="small" /></MenuIcon>
-            <ListItemText>Export SVG+</ListItemText>
+            <ListItemText>Save SVG+</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={() => run(onDownloadSvg)}>
+            <MenuIcon><DownloadRoundedIcon fontSize="small" /></MenuIcon>
+            <ListItemText>Export clean SVG</ListItemText>
           </MenuItem>
         </Menu>
 

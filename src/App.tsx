@@ -2409,26 +2409,18 @@ function EnvironmentTabs({
               >
                 Code
               </Button>
-              <Button
-                color="inherit"
-                onClick={appState.onDownloadSvg}
-                size="small"
-                startIcon={<DownloadRoundedIcon fontSize="small" />}
-                sx={{ ...PANEL_ACTION_BUTTON_SX, ml: 1 }}
-                variant="outlined"
-              >
-                SVG
-              </Button>
-              <Button
-                color="inherit"
-                onClick={appState.onDownloadSvgPlus}
-                size="small"
-                startIcon={<DownloadRoundedIcon fontSize="small" />}
-                sx={PANEL_ACTION_BUTTON_SX}
-                variant="outlined"
-              >
-                SVG+
-              </Button>
+              <Tooltip title="`SVG+` keeps your LaTeX source embedded, so you can re-upload it to TikAD and continue editing anytime. For a plain SVG, use `File > Export Clean SVG`.">
+                <Button
+                  color="inherit"
+                  onClick={appState.onDownloadSvgPlus}
+                  size="small"
+                  startIcon={<DownloadRoundedIcon fontSize="small" />}
+                  sx={{ ...PANEL_ACTION_BUTTON_SX, ml: 1 }}
+                  variant="outlined"
+                >
+                  SVG+
+                </Button>
+              </Tooltip>
             </>
           )}
         >
