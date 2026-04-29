@@ -284,6 +284,61 @@ async function buildDownloadFilename(source: string, extension: string): Promise
   return `tikad_${await contentHash(source)}.${extension}`;
 }
 
+const TIKAD_SVG_METADATA_ID = 'tikad-metadata';
+const TIKAD_SVG_FORMAT = 'com.tikad.svg+json';
+const TIKAD_SVG_VERSION = 1;
+
+function buildSvgPlusMarkup(svgMarkup: string, latexSource: string): string {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgMarkup, 'image/svg+xml');
+    const svg = doc.querySelector('svg');
+    if (!svg) return svgMarkup;
+
+    svg.querySelector(`#${TIKAD_SVG_METADATA_ID}`)?.remove();
+    const metadata = doc.createElementNS('http://www.w3.org/2000/svg', 'metadata');
+    metadata.setAttribute('id', TIKAD_SVG_METADATA_ID);
+    metadata.textContent = JSON.stringify({
+      app: 'TikAD',
+      format: TIKAD_SVG_FORMAT,
+      source: latexSource,
+      version: TIKAD_SVG_VERSION,
+    });
+    svg.insertBefore(metadata, svg.firstChild);
+    return svg.outerHTML;
+  } catch {
+    return svgMarkup;
+  }
+}
+
+function extractLatexSourceFromSvgPlus(svgMarkup: string): string | null {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgMarkup, 'image/svg+xml');
+    const metadataCandidates = [
+      doc.querySelector(`#${TIKAD_SVG_METADATA_ID}`),
+      ...Array.from(doc.querySelectorAll('metadata')),
+    ];
+
+    for (const metadata of metadataCandidates) {
+      const raw = metadata?.textContent?.trim();
+      if (!raw) continue;
+      try {
+        const parsed = JSON.parse(raw) as { format?: string; source?: string; version?: number };
+        if (parsed.format !== TIKAD_SVG_FORMAT) continue;
+        if (parsed.version !== TIKAD_SVG_VERSION) continue;
+        if (typeof parsed.source === 'string' && parsed.source.trim()) return parsed.source;
+      } catch {
+        continue;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 function parsePreambleSettings(preamble: string): CircuitikzDocumentSettings {
   const next = { ...EMPTY_DOCUMENT_SETTINGS };
   const circuitikzMatch = preamble.match(/\\usepackage(?:\[([^\]]*)\])?\{circuitikz\}/);
@@ -1687,6 +1742,22 @@ function useAppState(handle: ImperativeAppHandle | null) {
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
+  const onDownloadSvgPlus = async () => {
+    if (!handle) return;
+    const svg = handle.getRenderedSvg();
+    if (!svg) return;
+    const svgPlus = buildSvgPlusMarkup(svg, handle.getFullLatexSource());
+    const blob = new Blob([svgPlus], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${(await buildDownloadFilename(svgPlus, 'svg')).replace(/\.svg$/, '')}.tikad.svg`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  };
+
   const onDownloadTex = async () => {
     if (!handle) return;
     const tex = handle.getFullLatexSource();
@@ -1710,7 +1781,18 @@ function useAppState(handle: ImperativeAppHandle | null) {
     const file = event.target.files?.[0];
     if (!file) return;
     const source = await file.text();
-    handle.loadFullLatexSource(source);
+    const isSvgUpload = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg');
+    if (isSvgUpload) {
+      const embeddedSource = extractLatexSourceFromSvgPlus(source);
+      if (!embeddedSource) {
+        window.alert('This SVG does not contain embedded TikAD source. Open a .tex file or a TikAD SVG+ file.');
+        event.target.value = '';
+        return;
+      }
+      handle.loadFullLatexSource(embeddedSource);
+    } else {
+      handle.loadFullLatexSource(source);
+    }
     setSelectedIds(handle.getSelectedIds());
     setDocumentSettings(parsePreambleSettings(handle.getPreamble()));
     const nextBody = handle.getBody();
@@ -1900,6 +1982,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     onCopyEnvironment,
     onDownloadTex,
     onDownloadSvg,
+    onDownloadSvgPlus,
     onEnvironmentOptionsChange,
     onEnvironmentTypeChange,
     onFitToScreen,
@@ -2336,6 +2419,16 @@ function EnvironmentTabs({
               >
                 SVG
               </Button>
+              <Button
+                color="inherit"
+                onClick={appState.onDownloadSvgPlus}
+                size="small"
+                startIcon={<DownloadRoundedIcon fontSize="small" />}
+                sx={PANEL_ACTION_BUTTON_SX}
+                variant="outlined"
+              >
+                SVG+
+              </Button>
             </>
           )}
         >
@@ -2601,6 +2694,8 @@ function AppShell({
         onCutSelection={appState.onCutSelection}
         onDeleteSelection={appState.onDeleteSelection}
         onDownloadTex={appState.onDownloadTex}
+        onDownloadSvg={appState.onDownloadSvg}
+        onDownloadSvgPlus={appState.onDownloadSvgPlus}
         onFitToScreen={appState.onFitToScreen}
         onNewDocument={appState.onNewDocument}
         onOpenTexUpload={appState.onOpenTexUpload}
@@ -2695,7 +2790,7 @@ function AppShell({
         pinSnapEnabled={appState.pinSnapEnabled}
       />
       <input
-        accept=".tex,text/x-tex,text/plain"
+        accept=".tex,.svg,image/svg+xml,text/x-tex,text/plain"
         hidden
         onChange={appState.onUploadTex}
         ref={appState.texUploadInputRef}

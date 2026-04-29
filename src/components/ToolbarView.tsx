@@ -142,6 +142,8 @@ export function ToolbarView({
   onCopySelection,
   onCutSelection,
   onDeleteSelection,
+  onDownloadSvg,
+  onDownloadSvgPlus,
   onDownloadTex,
   onFitToScreen,
   onNewDocument,
@@ -164,6 +166,8 @@ export function ToolbarView({
   onCopySelection: () => void;
   onCutSelection: () => void;
   onDeleteSelection: () => void;
+  onDownloadSvg: () => void;
+  onDownloadSvgPlus: () => void;
   onDownloadTex: () => void;
   onFitToScreen: () => void;
   onNewDocument: () => void;
@@ -346,7 +350,15 @@ export function ToolbarView({
           </MenuItem>
           <MenuItem onClick={() => run(onDownloadTex)}>
             <MenuIcon><DownloadRoundedIcon fontSize="small" /></MenuIcon>
-            <ListItemText>Save</ListItemText>
+            <ListItemText>Save TeX</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={() => run(onDownloadSvg)}>
+            <MenuIcon><DownloadRoundedIcon fontSize="small" /></MenuIcon>
+            <ListItemText>Export SVG</ListItemText>
+          </MenuItem>
+          <MenuItem onClick={() => run(onDownloadSvgPlus)}>
+            <MenuIcon><DownloadRoundedIcon fontSize="small" /></MenuIcon>
+            <ListItemText>Export SVG+</ListItemText>
           </MenuItem>
         </Menu>
 
