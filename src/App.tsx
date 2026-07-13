@@ -45,6 +45,7 @@ import type { EditorView } from '@codemirror/view';
 import { lineNumbers } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { unifiedMergeView } from '@codemirror/merge';
+import { GRID_SIZE, TIKZ_PT_PER_UNIT } from './constants';
 import type { ImperativeAppHandle } from './initImperativeApp';
 import { initImperativeApp } from './initImperativeApp';
 import { lineIndexFromId } from './codegen/CircuiTikZParser';
@@ -284,6 +285,8 @@ async function buildDownloadFilename(source: string, extension: string): Promise
   return `tikad_${await contentHash(source)}.${extension}`;
 }
 
+const APP_VERSION = 'v1.0';
+
 const TIKAD_SVG_METADATA_ID = 'tikad-metadata';
 const TIKAD_SVG_FORMAT = 'com.tikad.svg+json';
 const TIKAD_SVG_VERSION = 1;
@@ -307,6 +310,39 @@ function decodeUtf8FromBase64(source: string): string {
     bytes[i] = binary.charCodeAt(i);
   }
   return new TextDecoder().decode(bytes);
+}
+
+function normalizeSvgForExport(svgMarkup: string): string {
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgMarkup, 'image/svg+xml');
+    const svg = doc.querySelector('svg');
+    if (!svg) return svgMarkup;
+
+    const ptToPx = GRID_SIZE / TIKZ_PT_PER_UNIT;
+    const wAttr = svg.getAttribute('width');
+    const hAttr = svg.getAttribute('height');
+    const wPt = wAttr ? Number.parseFloat(wAttr) : NaN;
+    const hPt = hAttr ? Number.parseFloat(hAttr) : NaN;
+
+    if (Number.isFinite(wPt) && Number.isFinite(hPt) && wPt > 0 && hPt > 0) {
+      const wPx = Math.round(wPt * ptToPx);
+      const hPx = Math.round(hPt * ptToPx);
+      svg.setAttribute('width', String(wPx));
+      svg.setAttribute('height', String(hPx));
+      svg.setAttribute('viewBox', `0 0 ${wPx} ${hPx}`);
+    }
+
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svg.style.removeProperty('width');
+    svg.style.removeProperty('height');
+    svg.style.removeProperty('overflow');
+    if (svg.getAttribute('style') === '') svg.removeAttribute('style');
+
+    return new XMLSerializer().serializeToString(svg);
+  } catch {
+    return svgMarkup;
+  }
 }
 
 function buildSvgPlusMarkup(svgMarkup: string, latexSource: string): string {
@@ -1754,7 +1790,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     if (!handle) return;
     const svg = await handle.renderSvgForExport('download-svg');
     if (!svg) return;
-    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+    const blob = new Blob([normalizeSvgForExport(svg)], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -1769,7 +1805,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     if (!handle) return;
     const svg = await handle.renderSvgForExport('download-svg-plus');
     if (!svg) return;
-    const svgPlus = buildSvgPlusMarkup(svg, handle.getFullLatexSource());
+    const svgPlus = buildSvgPlusMarkup(normalizeSvgForExport(svg), handle.getFullLatexSource());
     const blob = new Blob([svgPlus], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -2637,6 +2673,8 @@ function StatusBarView({
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{`Pin snap: ${pinSnapEnabled ? 'On' : 'Off'}`}</Typography>
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{`Zoom: ${zoomPercent}%`}</Typography>
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{toolLabel}</Typography>
+      <Box sx={{ flex: '1 1 auto', minWidth: 0 }} />
+      <Typography color="text.disabled" noWrap sx={{ flex: '0 0 auto', fontFamily: 'monospace' }} variant="caption">{`${APP_VERSION}.${__BUILD_PATCH__} (${__BUILD_DATE__})`}</Typography>
       <Box sx={{ flex: '1 1 auto', minWidth: 0 }} />
       <Typography color={coords ? 'text.primary' : 'text.secondary'} noWrap sx={{ flex: '0 0 auto', fontFamily: 'monospace' }} variant="caption">
         {coordText}
