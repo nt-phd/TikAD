@@ -319,9 +319,17 @@ function normalizeSvgForExport(svgMarkup: string): string {
     const svg = doc.querySelector('svg');
     if (!svg) return svgMarkup;
 
-    // width/height are in pt from the server. Keeping the pt unit lets browsers
-    // apply the native 1pt = 96/72px conversion, matching screen rendering exactly.
-    // The viewBox is also in pt (same coordinate space), so everything is consistent.
+    // Convert pt to px (96/72) and set as unitless integers on width/height.
+    // viewBox stays in pt user units; the ratio width/viewBox = 96/72 tells
+    // renderers (browser, Word, WordPress) the correct physical scale.
+    const wAttr = svg.getAttribute('width');
+    const hAttr = svg.getAttribute('height');
+    const wPt = wAttr ? Number.parseFloat(wAttr) : NaN;
+    const hPt = hAttr ? Number.parseFloat(hAttr) : NaN;
+    if (Number.isFinite(wPt) && Number.isFinite(hPt) && wPt > 0 && hPt > 0) {
+      svg.setAttribute('width', String(Math.round(wPt * 96 / 72)));
+      svg.setAttribute('height', String(Math.round(hPt * 96 / 72)));
+    }
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     svg.style.removeProperty('width');
     svg.style.removeProperty('height');
