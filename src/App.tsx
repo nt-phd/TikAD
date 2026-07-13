@@ -2670,8 +2670,7 @@ function StatusBarView({
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{`Pin snap: ${pinSnapEnabled ? 'On' : 'Off'}`}</Typography>
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{`Zoom: ${zoomPercent}%`}</Typography>
       <Typography noWrap sx={{ flex: '0 0 auto' }} variant="caption">{toolLabel}</Typography>
-      <Box sx={{ flex: '1 1 auto', minWidth: 0 }} />
-      <Typography color="text.disabled" noWrap sx={{ flex: '0 0 auto', fontFamily: 'monospace' }} variant="caption">{`${APP_VERSION}.${__BUILD_PATCH__} (${__BUILD_DATE__})`}</Typography>
+      <Typography color="text.disabled" noWrap sx={{ flex: '0 0 auto', fontFamily: 'monospace' }} variant="caption">{`(${APP_VERSION}.${__BUILD_PATCH__})`}</Typography>
       <Box sx={{ flex: '1 1 auto', minWidth: 0 }} />
       <Typography color={coords ? 'text.primary' : 'text.secondary'} noWrap sx={{ flex: '0 0 auto', fontFamily: 'monospace' }} variant="caption">
         {coordText}
