@@ -319,18 +319,12 @@ function normalizeSvgForExport(svgMarkup: string): string {
     const svg = doc.querySelector('svg');
     if (!svg) return svgMarkup;
 
-    const ptToPx = GRID_SIZE / TIKZ_PT_PER_UNIT;
-    const wAttr = svg.getAttribute('width');
-    const hAttr = svg.getAttribute('height');
-    const wPt = wAttr ? Number.parseFloat(wAttr) : NaN;
-    const hPt = hAttr ? Number.parseFloat(hAttr) : NaN;
-
-    if (Number.isFinite(wPt) && Number.isFinite(hPt) && wPt > 0 && hPt > 0) {
-      const wPx = Math.round(wPt * ptToPx);
-      const hPx = Math.round(hPt * ptToPx);
-      svg.setAttribute('width', String(wPx));
-      svg.setAttribute('height', String(hPx));
-      svg.setAttribute('viewBox', `0 0 ${wPx} ${hPx}`);
+    // Keep the viewBox intact (internal pt coordinates must not change).
+    // Set width/height to match the viewBox dimensions so the SVG scales correctly.
+    const vb = svg.getAttribute('viewBox')?.split(/\s+/).map(Number);
+    if (vb && vb.length >= 4 && Number.isFinite(vb[2]) && Number.isFinite(vb[3]) && vb[2] > 0 && vb[3] > 0) {
+      svg.setAttribute('width', String(Math.round(vb[2])));
+      svg.setAttribute('height', String(Math.round(vb[3])));
     }
 
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
