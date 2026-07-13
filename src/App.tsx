@@ -319,12 +319,15 @@ function normalizeSvgForExport(svgMarkup: string): string {
     const svg = doc.querySelector('svg');
     if (!svg) return svgMarkup;
 
-    // Keep the viewBox intact (internal pt coordinates must not change).
-    // Set width/height to match the viewBox dimensions so the SVG scales correctly.
-    const vb = svg.getAttribute('viewBox')?.split(/\s+/).map(Number);
-    if (vb && vb.length >= 4 && Number.isFinite(vb[2]) && Number.isFinite(vb[3]) && vb[2] > 0 && vb[3] > 0) {
-      svg.setAttribute('width', String(Math.round(vb[2])));
-      svg.setAttribute('height', String(Math.round(vb[3])));
+    // Keep the viewBox intact (internal coordinates must not change).
+    // Use server width/height (in pt) as unitless integers — browsers treat them as user units.
+    const wAttr = svg.getAttribute('width');
+    const hAttr = svg.getAttribute('height');
+    const wPt = wAttr ? Number.parseFloat(wAttr) : NaN;
+    const hPt = hAttr ? Number.parseFloat(hAttr) : NaN;
+    if (Number.isFinite(wPt) && Number.isFinite(hPt) && wPt > 0 && hPt > 0) {
+      svg.setAttribute('width', String(Math.round(wPt)));
+      svg.setAttribute('height', String(Math.round(hPt)));
     }
 
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');

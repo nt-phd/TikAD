@@ -32,7 +32,6 @@ const MAX_LATEX_LINES = 400;
 const MAX_TIKZ_TOKENS = 300;
 const PDFLATEX_TIMEOUT_MS = 12_000;
 const PDF2SVG_TIMEOUT_MS = 8_000;
-const QUICKLATEX_COMPAT_SCALE = 1.09;
 
 // Rate limiting: grace period on first visit, then sliding window
 const RATE_GRACE_MS = 30 * 1000;        // 30 seconds free on first request
@@ -425,11 +424,9 @@ function normalizeRootSvgPhysicalSize(svgText) {
   const width = Number.parseFloat(match[1]);
   const height = Number.parseFloat(match[2]);
   if (!Number.isFinite(width) || !Number.isFinite(height)) return svgText;
-  const scaledWidth = width * QUICKLATEX_COMPAT_SCALE;
-  const scaledHeight = height * QUICKLATEX_COMPAT_SCALE;
   return svgText
-    .replace(/\bwidth="[0-9.+-]+"/i, `width="${scaledWidth}pt"`)
-    .replace(/\bheight="[0-9.+-]+"/i, `height="${scaledHeight}pt"`);
+    .replace(/\bwidth="[0-9.+-]+"/i, `width="${width}pt"`)
+    .replace(/\bheight="[0-9.+-]+"/i, `height="${height}pt"`);
 }
 
 function log(event, details = {}) {
