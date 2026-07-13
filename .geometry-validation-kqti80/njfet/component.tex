@@ -1,0 +1,107 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage{circuitikz}
+\begin{document}
+\begin{circuitikz}
+\node[njfet] (TIKADprobe) at (0,0) {};
+% TIKAD_PROBE id=probe_0 key=TIKADprobe.center role=reference
+\fill[red] (TIKADprobe) circle[radius=0.02];
+% TIKAD_PROBE id=probe_1 key=TIKADprobe.B role=terminal
+\fill[red] (TIKADprobe.B) circle[radius=0.02];
+% TIKAD_PROBE id=probe_2 key=TIKADprobe.base role=terminal
+\fill[red] (TIKADprobe.base) circle[radius=0.02];
+% TIKAD_PROBE id=probe_3 key=TIKADprobe.G role=terminal
+\fill[red] (TIKADprobe.G) circle[radius=0.02];
+% TIKAD_PROBE id=probe_4 key=TIKADprobe.G1 role=terminal
+\fill[red] (TIKADprobe.G1) circle[radius=0.02];
+% TIKAD_PROBE id=probe_5 key=TIKADprobe.G2 role=terminal
+\fill[red] (TIKADprobe.G2) circle[radius=0.02];
+% TIKAD_PROBE id=probe_6 key=TIKADprobe.gate role=terminal
+\fill[red] (TIKADprobe.gate) circle[radius=0.02];
+% TIKAD_PROBE id=probe_7 key=TIKADprobe.gate1 role=terminal
+\fill[red] (TIKADprobe.gate1) circle[radius=0.02];
+% TIKAD_PROBE id=probe_8 key=TIKADprobe.gate2 role=terminal
+\fill[red] (TIKADprobe.gate2) circle[radius=0.02];
+% TIKAD_PROBE id=probe_9 key=TIKADprobe.E role=terminal
+\fill[red] (TIKADprobe.E) circle[radius=0.02];
+% TIKAD_PROBE id=probe_10 key=TIKADprobe.emitter role=terminal
+\fill[red] (TIKADprobe.emitter) circle[radius=0.02];
+% TIKAD_PROBE id=probe_11 key=TIKADprobe.C role=terminal
+\fill[red] (TIKADprobe.C) circle[radius=0.02];
+% TIKAD_PROBE id=probe_12 key=TIKADprobe.collector role=terminal
+\fill[red] (TIKADprobe.collector) circle[radius=0.02];
+% TIKAD_PROBE id=probe_13 key=TIKADprobe.S role=terminal
+\fill[red] (TIKADprobe.S) circle[radius=0.02];
+% TIKAD_PROBE id=probe_14 key=TIKADprobe.source role=terminal
+\fill[red] (TIKADprobe.source) circle[radius=0.02];
+% TIKAD_PROBE id=probe_15 key=TIKADprobe.D role=terminal
+\fill[red] (TIKADprobe.D) circle[radius=0.02];
+% TIKAD_PROBE id=probe_16 key=TIKADprobe.drain role=terminal
+\fill[red] (TIKADprobe.drain) circle[radius=0.02];
+% TIKAD_PROBE id=probe_17 key=TIKADprobe.circle center role=internal
+\fill[red] (TIKADprobe.circle center) circle[radius=0.02];
+% TIKAD_PROBE id=probe_18 key=TIKADprobe.circle top role=internal
+\fill[red] (TIKADprobe.circle top) circle[radius=0.02];
+% TIKAD_PROBE id=probe_19 key=TIKADprobe.circle bottom role=internal
+\fill[red] (TIKADprobe.circle bottom) circle[radius=0.02];
+% TIKAD_PROBE id=probe_20 key=TIKADprobe.circle left role=internal
+\fill[red] (TIKADprobe.circle left) circle[radius=0.02];
+% TIKAD_PROBE id=probe_21 key=TIKADprobe.circle right role=internal
+\fill[red] (TIKADprobe.circle right) circle[radius=0.02];
+% TIKAD_PROBE id=probe_22 key=TIKADprobe.centergap role=internal
+\fill[red] (TIKADprobe.centergap) circle[radius=0.02];
+% TIKAD_PROBE id=probe_23 key=TIKADprobe.text role=text
+\fill[red] (TIKADprobe.text) circle[radius=0.02];
+% TIKAD_PROBE id=probe_24 key=TIKADprobe.pathstart role=internal
+\fill[red] (TIKADprobe.pathstart) circle[radius=0.02];
+% TIKAD_PROBE id=probe_25 key=TIKADprobe.pathend role=internal
+\fill[red] (TIKADprobe.pathend) circle[radius=0.02];
+% TIKAD_PROBE id=probe_26 key=TIKADprobe.north role=geometry
+\fill[red] (TIKADprobe.north) circle[radius=0.02];
+% TIKAD_PROBE id=probe_27 key=TIKADprobe.west role=geometry
+\fill[red] (TIKADprobe.west) circle[radius=0.02];
+% TIKAD_PROBE id=probe_28 key=TIKADprobe.left role=geometry
+\fill[red] (TIKADprobe.left) circle[radius=0.02];
+% TIKAD_PROBE id=probe_29 key=TIKADprobe.east role=geometry
+\fill[red] (TIKADprobe.east) circle[radius=0.02];
+% TIKAD_PROBE id=probe_30 key=TIKADprobe.right role=geometry
+\fill[red] (TIKADprobe.right) circle[radius=0.02];
+% TIKAD_PROBE id=probe_31 key=TIKADprobe.south role=geometry
+\fill[red] (TIKADprobe.south) circle[radius=0.02];
+% TIKAD_PROBE id=probe_32 key=TIKADprobe.south west role=geometry
+\fill[red] (TIKADprobe.south west) circle[radius=0.02];
+% TIKAD_PROBE id=probe_33 key=TIKADprobe.north east role=geometry
+\fill[red] (TIKADprobe.north east) circle[radius=0.02];
+% TIKAD_PROBE id=probe_34 key=TIKADprobe.north west role=geometry
+\fill[red] (TIKADprobe.north west) circle[radius=0.02];
+% TIKAD_PROBE id=probe_35 key=TIKADprobe.south east role=geometry
+\fill[red] (TIKADprobe.south east) circle[radius=0.02];
+% TIKAD_PROBE id=probe_36 key=TIKADprobe.bulk role=internal
+\fill[red] (TIKADprobe.bulk) circle[radius=0.02];
+% TIKAD_PROBE id=probe_37 key=TIKADprobe.nobulk role=internal
+\fill[red] (TIKADprobe.nobulk) circle[radius=0.02];
+% TIKAD_PROBE id=probe_38 key=TIKADprobe.nobase role=internal
+\fill[red] (TIKADprobe.nobase) circle[radius=0.02];
+% TIKAD_PROBE id=probe_39 key=TIKADprobe.circle base role=internal
+\fill[red] (TIKADprobe.circle base) circle[radius=0.02];
+% TIKAD_PROBE id=probe_40 key=TIKADprobe.nogate role=internal
+\fill[red] (TIKADprobe.nogate) circle[radius=0.02];
+% TIKAD_PROBE id=probe_41 key=TIKADprobe.body C in role=internal
+\fill[red] (TIKADprobe.body C in) circle[radius=0.02];
+% TIKAD_PROBE id=probe_42 key=TIKADprobe.circle C role=internal
+\fill[red] (TIKADprobe.circle C) circle[radius=0.02];
+% TIKAD_PROBE id=probe_43 key=TIKADprobe.circle E role=internal
+\fill[red] (TIKADprobe.circle E) circle[radius=0.02];
+% TIKAD_PROBE id=probe_44 key=TIKADprobe.body E in role=internal
+\fill[red] (TIKADprobe.body E in) circle[radius=0.02];
+% TIKAD_PROBE id=probe_45 key=TIKADprobe.body C out role=internal
+\fill[red] (TIKADprobe.body C out) circle[radius=0.02];
+% TIKAD_PROBE id=probe_46 key=TIKADprobe.body E out role=internal
+\fill[red] (TIKADprobe.body E out) circle[radius=0.02];
+% TIKAD_PROBE id=probe_47 key=TIKADprobe.inner up role=internal
+\fill[red] (TIKADprobe.inner up) circle[radius=0.02];
+% TIKAD_PROBE id=probe_48 key=TIKADprobe.inner down role=internal
+\fill[red] (TIKADprobe.inner down) circle[radius=0.02];
+% TIKAD_PROBE id=probe_49 key=TIKADprobe.kink role=internal
+\fill[red] (TIKADprobe.kink) circle[radius=0.02];
+\end{circuitikz}
+\end{document}

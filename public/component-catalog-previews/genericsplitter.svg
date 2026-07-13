@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="56.372" height="56.372" viewBox="0 0 56.372 56.372">
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -25.795375 25.795375 L 25.794469 25.795375 L 25.794469 -25.794469 L -25.795375 -25.794469 Z M -25.795375 25.795375 " transform="matrix(1, 0, 0, -1, 28.186, 28.186)"/>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -25.795375 -0.0015 L -12.896937 -0.0015 M 25.794469 12.896937 L 12.896031 12.896937 M 12.896031 -12.896031 L 25.794469 -12.896031 " transform="matrix(1, 0, 0, -1, 28.186, 28.186)"/>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 12.896031 12.896937 L -12.896937 -0.0015 " transform="matrix(1, 0, 0, -1, 28.186, 28.186)"/>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 12.896031 -12.896031 L -12.896937 -0.0015 " transform="matrix(1, 0, 0, -1, 28.186, 28.186)"/>
+</svg>

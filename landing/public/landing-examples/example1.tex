@@ -1,0 +1,13 @@
+\begin{tikzpicture}
+  \node[npn, rotate=+90, transform shape, label=$Q_1$] (Q1) at (0,0) {};
+  \node[ocirc, label=west:$V_i$] (Vi) at ($(Q1.C)+(-2.5,0)$) {};
+  \node[ocirc, label=east:$V_o$] (Vo) at ($(Q1.C)+(+2.5,0)$) {};
+  \node[sground](V0) at (-2.5,-4.5) {};
+  \draw (-2.5,0) to[resistor=$R_1$] (-2.5,-2.5) to[empty Zener diode=$D_1$, v<=$V_Z$, voltage=straight, invert, i>^=$I_Z$] (V0);
+  \draw (-2.5,-2.5) -| (0,-2) to[short, i=$I_B$] (Q1.B);
+  \draw (Q1.E) to[short, i=$I_o$]  (Vo);
+  \draw (Vi) --(-1.5,0) to[short, i=$I_C$] (Q1.C);
+  \draw (Q1.B) to[open, v<=$V_{BE}$, voltage=european] (Q1.E);
+  \node[circ] at (-2.5,0) {};
+  \node[circ] at (-2.5,-2.5) {};
+\end{tikzpicture}

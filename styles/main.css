@@ -1,0 +1,202 @@
+:root {
+  --toolbar-height: 34px;
+  --activitybar-width: 48px;
+  --sidebar-width: 480px;
+  --sidebar-resizer-width: 10px;
+  --canvas-row-size: minmax(0, 1fr);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+}
+
+#app {
+  display: grid;
+  grid-template-columns: var(--activitybar-width) minmax(0, 1fr) var(--sidebar-resizer-width) minmax(0, var(--sidebar-width));
+  grid-template-rows: var(--toolbar-height) var(--canvas-row-size) auto;
+  grid-template-areas:
+    "toolbar toolbar toolbar toolbar"
+    "activitybar canvas resizer lpanel"
+    "status status status status";
+  height: 100dvh;
+  max-height: 100dvh;
+  width: 100%;
+  min-width: 0;
+}
+
+body.is-resizing-layout {
+  user-select: none;
+}
+
+.canvas-container {
+  grid-area: canvas;
+  overflow: hidden;
+  position: relative;
+  background: #ffffff;
+}
+
+.canvas-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #ffffff;
+  pointer-events: none;
+}
+
+body.theme-dark .canvas-container {
+  background: #121212;
+}
+
+body.theme-dark .canvas-container::before {
+  background: #121212;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.latex-error-banner {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  right: 1.5rem;
+  background: rgba(198, 40, 40, 0.94);
+  color: #fff;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  z-index: 100;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.latex-info-banner {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  right: 1.5rem;
+  background: rgba(30, 80, 160, 0.92);
+  color: #fff;
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  z-index: 100;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+.canvas-pin-tooltip {
+  position: absolute;
+  z-index: 120;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(36, 36, 36, 0.94);
+  color: #fff;
+  font-family: 'Roboto Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+}
+
+.canvas-pin-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 8px;
+  height: 8px;
+  background: rgba(36, 36, 36, 0.94);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.world-transform {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transform-origin: 0 0;
+}
+
+.latex-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.ghost-latex-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+body.theme-dark .latex-layer {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.95);
+}
+
+.latex-layer svg {
+  display: block;
+  overflow: visible;
+}
+
+.ghost-latex-probe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+.ghost-latex-layer svg {
+  display: block;
+  overflow: visible;
+}
+
+.grid-layer,
+.overlay-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.grid-layer {
+  pointer-events: none;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="44.068" height="32.561" viewBox="0 0 44.068 32.561">
+<defs>
+<clipPath id="clip-0">
+<path clip-rule="nonzero" d="M 9 14 L 35 14 L 35 32.5625 L 9 32.5625 Z M 9 14 "/>
+</clipPath>
+</defs>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -0.00059375 -0.00125 L 5.952531 -0.00125 M 33.733781 -0.00125 L 39.686906 -0.00125 " transform="matrix(1, 0, 0, -1, 2.192, 16.28)"/>
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 5.952531 13.889375 L 33.733781 13.889375 L 33.733781 -13.887969 L 5.952531 -13.887969 Z M 5.952531 13.889375 " transform="matrix(1, 0, 0, -1, 2.192, 16.28)"/>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 12.897844 6.944063 C 14.030656 8.721406 15.112687 10.416719 16.3705 10.416719 C 17.628312 10.416719 18.710344 8.721406 19.843156 6.944063 C 20.975969 5.166719 22.058 3.471406 23.315812 3.471406 C 24.573625 3.471406 25.655656 5.166719 26.788469 6.944063 " transform="matrix(1, 0, 0, -1, 2.192, 16.28)"/>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 12.897844 -0.00125 C 14.030656 1.776094 15.112687 3.471406 16.3705 3.471406 C 17.628312 3.471406 18.710344 1.776094 19.843156 -0.00125 C 20.975969 -1.778594 22.058 -3.473906 23.315812 -3.473906 C 24.573625 -3.473906 25.655656 -1.778594 26.788469 -0.00125 " transform="matrix(1, 0, 0, -1, 2.192, 16.28)"/>
+<g clip-path="url(#clip-0)">
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 12.897844 -6.946562 C 14.030656 -5.165312 15.112687 -3.473906 16.3705 -3.473906 C 17.628312 -3.473906 18.710344 -5.165312 19.843156 -6.946562 C 20.975969 -8.723906 22.058 -10.419219 23.315812 -10.419219 C 24.573625 -10.419219 25.655656 -8.723906 26.788469 -6.946562 " transform="matrix(1, 0, 0, -1, 2.192, 16.28)"/>
+</g>
+</svg>

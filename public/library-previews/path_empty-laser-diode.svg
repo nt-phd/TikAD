@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="44.068" height="35.339" viewBox="0 0 44.068 35.339">
+<defs>
+<clipPath id="clip-0">
+<path clip-rule="nonzero" d="M 2 1 L 42 1 L 42 35.339844 L 2 35.339844 Z M 2 1 "/>
+</clipPath>
+</defs>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -0.00059375 -0.00034375 L 11.905656 -0.00034375 M 27.780656 -0.00034375 L 39.686906 -0.00034375 " transform="matrix(1, 0, 0, -1, 2.192, 23.027)"/>
+<g clip-path="url(#clip-0)">
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 27.780656 -0.00034375 L 11.905656 9.921531 L 11.905656 -9.922219 Z M 27.780656 -0.00034375 " transform="matrix(1, 0, 0, -1, 2.192, 23.027)"/>
+</g>
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 27.780656 -9.922219 L 27.780656 9.921531 M 19.843156 9.921531 L 19.843156 -9.922219 " transform="matrix(1, 0, 0, -1, 2.192, 23.027)"/>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 16.667375 10.913719 L 16.667375 18.444969 " transform="matrix(1, 0, 0, -1, 2.192, 23.027)"/>
+<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" d="M 18.859375 2.191406 C 18.660156 3.1875 18.261719 4.980469 17.367188 6.175781 C 18.460938 5.179688 19.257812 5.179688 20.355469 6.175781 C 19.457031 4.980469 19.058594 3.1875 18.859375 2.191406 Z M 18.859375 2.191406 "/>
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 21.429094 10.913719 L 21.429094 18.444969 " transform="matrix(1, 0, 0, -1, 2.192, 23.027)"/>
+<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" d="M 23.621094 2.191406 C 23.421875 3.1875 23.023438 4.980469 22.128906 6.175781 C 23.222656 5.179688 24.019531 5.179688 25.117188 6.175781 C 24.21875 4.980469 23.820312 3.1875 23.621094 2.191406 Z M 23.621094 2.191406 "/>
+</svg>

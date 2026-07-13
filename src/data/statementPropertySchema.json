@@ -1,0 +1,348 @@
+{
+  "version": 1,
+  "lineCommands": [
+    {
+      "value": "node",
+      "label": "\\node",
+      "description": "Create or edit a standalone node statement.",
+      "icon": "SubjectRounded"
+    },
+    {
+      "value": "draw",
+      "label": "\\draw",
+      "description": "Create or edit a drawing/path statement that renders geometry.",
+      "icon": "DrawRounded"
+    },
+    {
+      "value": "path",
+      "label": "\\path",
+      "description": "Create or edit a path statement without drawing by default.",
+      "icon": "RouteRounded"
+    },
+    {
+      "value": "ctikzset",
+      "label": "\\ctikzset",
+      "description": "Edit CircuitikZ configuration keys.",
+      "icon": "TuneRounded"
+    }
+  ],
+  "segmentKinds": {
+    "bipole": {
+      "label": "Bipole",
+      "addMenuLabel": "Add",
+      "description": "Structured CircuitikZ path component with a component name and supported modifiers.",
+      "properties": [
+        {
+          "id": "label",
+          "label": "Label",
+          "icon": "LabelRounded",
+          "valueType": "latex-text",
+          "storage": {
+            "kind": "prop",
+            "key": "label"
+          },
+          "patterns": [
+            {
+              "code": "l=",
+              "label": "Inline label",
+              "description": "Component label placed along the bipole."
+            },
+            {
+              "code": "l^=",
+              "label": "Label above",
+              "description": "Component label forced above the bipole."
+            },
+            {
+              "code": "l_=",
+              "label": "Label below",
+              "description": "Component label forced below the bipole."
+            }
+          ]
+        },
+        {
+          "id": "annotation",
+          "label": "Annotation",
+          "icon": "SpeakerNotesRounded",
+          "valueType": "latex-text",
+          "storage": {
+            "kind": "prop",
+            "key": "annotation"
+          },
+          "patterns": [
+            {
+              "code": "a=",
+              "label": "Inline annotation",
+              "description": "Secondary annotation attached to the bipole."
+            },
+            {
+              "code": "a^=",
+              "label": "Annotation above",
+              "description": "Secondary annotation forced above the bipole."
+            },
+            {
+              "code": "a_=",
+              "label": "Annotation below",
+              "description": "Secondary annotation forced below the bipole."
+            }
+          ]
+        },
+        {
+          "id": "voltage",
+          "label": "Voltage",
+          "icon": "BoltRounded",
+          "valueType": "latex-text",
+          "storage": {
+            "kind": "prop",
+            "key": "voltage"
+          },
+          "patterns": [
+            {
+              "code": "v=",
+              "label": "Voltage",
+              "description": "Voltage annotation with default placement."
+            },
+            {
+              "code": "v^=",
+              "label": "Voltage above",
+              "description": "Voltage annotation forced above the bipole."
+            },
+            {
+              "code": "v_=",
+              "label": "Voltage below",
+              "description": "Voltage annotation forced below the bipole."
+            },
+            {
+              "code": "v>=",
+              "label": "Voltage forward",
+              "description": "Voltage annotation with forward direction."
+            },
+            {
+              "code": "v<=",
+              "label": "Voltage backward",
+              "description": "Voltage annotation with backward direction."
+            },
+            {
+              "code": "v^>=",
+              "label": "Voltage above forward",
+              "description": "Voltage annotation above the bipole with forward direction."
+            },
+            {
+              "code": "v^<=",
+              "label": "Voltage above backward",
+              "description": "Voltage annotation above the bipole with backward direction."
+            },
+            {
+              "code": "v_>=",
+              "label": "Voltage below forward",
+              "description": "Voltage annotation below the bipole with forward direction."
+            },
+            {
+              "code": "v_<=",
+              "label": "Voltage below backward",
+              "description": "Voltage annotation below the bipole with backward direction."
+            }
+          ]
+        },
+        {
+          "id": "current",
+          "label": "Current",
+          "icon": "TrendingFlatRounded",
+          "valueType": "latex-text",
+          "storage": {
+            "kind": "prop",
+            "key": "current"
+          },
+          "patterns": [
+            {
+              "code": "i=",
+              "label": "Current",
+              "description": "Current annotation with default placement."
+            },
+            {
+              "code": "i^=",
+              "label": "Current above",
+              "description": "Current annotation forced above the bipole."
+            },
+            {
+              "code": "i_=",
+              "label": "Current below",
+              "description": "Current annotation forced below the bipole."
+            },
+            {
+              "code": "i>=",
+              "label": "Current forward",
+              "description": "Current annotation with forward direction."
+            },
+            {
+              "code": "i<=",
+              "label": "Current backward",
+              "description": "Current annotation with backward direction."
+            },
+            {
+              "code": "i>^=",
+              "label": "Current forward above",
+              "description": "Current annotation above the bipole with forward direction."
+            },
+            {
+              "code": "i<_=",
+              "label": "Current backward below",
+              "description": "Current annotation below the bipole with backward direction."
+            }
+          ]
+        },
+        {
+          "id": "flow",
+          "label": "Flow",
+          "icon": "AirRounded",
+          "valueType": "latex-text",
+          "storage": {
+            "kind": "prop",
+            "key": "flow"
+          },
+          "patterns": [
+            {
+              "code": "f=",
+              "label": "Flow",
+              "description": "Flow arrow annotation with default placement."
+            },
+            {
+              "code": "f>=",
+              "label": "Flow forward",
+              "description": "Flow arrow in forward direction."
+            },
+            {
+              "code": "f<=",
+              "label": "Flow backward",
+              "description": "Flow arrow in backward direction."
+            }
+          ]
+        },
+        {
+          "id": "start-node",
+          "label": "Start node",
+          "icon": "FiberManualRecordRounded",
+          "valueType": "enum",
+          "storage": {
+            "kind": "terminal",
+            "key": "startTerminal"
+          },
+          "patterns": [
+            {
+              "code": "*-",
+              "label": "Filled start node",
+              "description": "Filled terminal mark on the start side."
+            },
+            {
+              "code": "o-",
+              "label": "Open start node",
+              "description": "Open terminal mark on the start side."
+            }
+          ],
+          "options": [
+            { "value": "", "label": "None" },
+            { "value": "dot", "label": "Dot" },
+            { "value": "open", "label": "Open" }
+          ]
+        },
+        {
+          "id": "end-node",
+          "label": "End node",
+          "icon": "TripOriginRounded",
+          "valueType": "enum",
+          "storage": {
+            "kind": "terminal",
+            "key": "endTerminal"
+          },
+          "patterns": [
+            {
+              "code": "-*",
+              "label": "Filled end node",
+              "description": "Filled terminal mark on the end side."
+            },
+            {
+              "code": "-o",
+              "label": "Open end node",
+              "description": "Open terminal mark on the end side."
+            }
+          ],
+          "options": [
+            { "value": "", "label": "None" },
+            { "value": "dot", "label": "Dot" },
+            { "value": "open", "label": "Open" }
+          ]
+        }
+      ],
+      "fallback": {
+        "id": "unparsed-options",
+        "label": "Unparsed options",
+        "description": "Residual options not yet mapped to structured properties.",
+        "storage": {
+          "kind": "segment",
+          "key": "optionsText"
+        }
+      }
+    },
+    "node": {
+      "label": "Node",
+      "addMenuLabel": "Add",
+      "description": "Structured TikZ node segment.",
+      "properties": [
+        {
+          "id": "text",
+          "label": "Text",
+          "icon": "TitleRounded",
+          "valueType": "latex-text",
+          "storage": {
+            "kind": "segment",
+            "key": "text"
+          },
+          "patterns": [
+            {
+              "code": "{...}",
+              "label": "Node text",
+              "description": "Content inside the node braces."
+            }
+          ]
+        },
+        {
+          "id": "label",
+          "label": "Label",
+          "icon": "LabelRounded",
+          "valueType": "latex-text",
+          "storage": {
+            "kind": "options-pattern",
+            "key": "label"
+          },
+          "patterns": [
+            {
+              "code": "label=",
+              "label": "Node label",
+              "description": "Standard TikZ label option."
+            }
+          ]
+        }
+      ],
+      "fallback": {
+        "id": "unparsed-options",
+        "label": "Unparsed options",
+        "description": "Residual node options not yet mapped to structured properties.",
+        "storage": {
+          "kind": "segment",
+          "key": "optionsText"
+        }
+      }
+    },
+    "connection": {
+      "label": "Connection",
+      "addMenuLabel": "Add",
+      "description": "Plain path operator segment.",
+      "properties": []
+    },
+    "raw": {
+      "label": "Raw",
+      "addMenuLabel": "Add",
+      "description": "Unstructured statement fragment.",
+      "properties": []
+    }
+  }
+}

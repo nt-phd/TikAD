@@ -1,0 +1,16 @@
+\begin{tikzpicture}
+  \node[npn, transform shape, label=right:$Q_1$] (Q1) at (2.5,-2.5) {};
+  \node[ocirc, label=west:$V_i$] (Vi) at (-3.5,0) {};
+  \node[sground](N0) at (-2.5,-4.5) {};
+  \node[sground](N1) at (0,-4.5){};
+  \node[sground](N2) at (2.5,-5.5){}; 
+  \draw (-2.5,0) to[resistor=$R_1$] (-2.5,-2.5) to[capacitor=$C_1$] (N0);
+  \draw (-2.5,-2.5) to[resistor=$R_2$] (0,-2.5) to[capacitor=$C_2$] (N1);
+  \draw (0,-2.5) to[short, i=$I_B$] (Q1.B);
+  \draw (Vi) --(2.5,0) to[short, i=$I_C$] (Q1.C);
+  \draw (Q1.B) to[open, v<=$V_{BE}$, voltage=european] (Q1.E);
+  \node[circ] at (0,-2.5) {}; 
+  \node[circ] at (-2.5,-2.5) {};
+  \node[circ] at (-2.5,0) {};
+  \draw (Q1.E) to[european resistor=$R_L$, v<=$V_L$, i>^={$I_E=\frac{V_L}{R_L}$}] (N2);
+\end{tikzpicture}

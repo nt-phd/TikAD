@@ -1,0 +1,49 @@
+\documentclass[tikz,border=2pt]{standalone}
+\usepackage{circuitikz}
+\begin{document}
+\begin{circuitikz}
+\node[npn] (TIKADprobe) at (0,0) {};
+% TIKAD_PROBE id=probe_0 key=TIKADprobe.center role=reference
+\fill[red] (TIKADprobe) circle[radius=0.02];
+% TIKAD_PROBE id=probe_1 key=TIKADprobe.B role=terminal
+\fill[red] (TIKADprobe.B) circle[radius=0.02];
+% TIKAD_PROBE id=probe_2 key=TIKADprobe.C role=terminal
+\fill[red] (TIKADprobe.C) circle[radius=0.02];
+% TIKAD_PROBE id=probe_3 key=TIKADprobe.cbase role=terminal
+\fill[red] (TIKADprobe.cbase) circle[radius=0.02];
+% TIKAD_PROBE id=probe_4 key=TIKADprobe.collector role=terminal
+\fill[red] (TIKADprobe.collector) circle[radius=0.02];
+% TIKAD_PROBE id=probe_5 key=TIKADprobe.E role=terminal
+\fill[red] (TIKADprobe.E) circle[radius=0.02];
+% TIKAD_PROBE id=probe_6 key=TIKADprobe.emitter role=terminal
+\fill[red] (TIKADprobe.emitter) circle[radius=0.02];
+% TIKAD_PROBE id=probe_7 key=TIKADprobe.gcenter role=terminal
+\fill[red] (TIKADprobe.gcenter) circle[radius=0.02];
+% TIKAD_PROBE id=probe_8 key=TIKADprobe.nobase role=terminal
+\fill[red] (TIKADprobe.nobase) circle[radius=0.02];
+% TIKAD_PROBE id=probe_9 key=TIKADprobe.vcenter role=terminal
+\fill[red] (TIKADprobe.vcenter) circle[radius=0.02];
+% TIKAD_PROBE id=probe_10 key=TIKADprobe.base role=geometry
+\fill[red] (TIKADprobe.base) circle[radius=0.02];
+% TIKAD_PROBE id=probe_11 key=TIKADprobe.center role=reference
+\fill[red] (TIKADprobe) circle[radius=0.02];
+% TIKAD_PROBE id=probe_12 key=TIKADprobe.east role=geometry
+\fill[red] (TIKADprobe.east) circle[radius=0.02];
+% TIKAD_PROBE id=probe_13 key=TIKADprobe.north role=geometry
+\fill[red] (TIKADprobe.north) circle[radius=0.02];
+% TIKAD_PROBE id=probe_14 key=TIKADprobe.north east role=geometry
+\fill[red] (TIKADprobe.north east) circle[radius=0.02];
+% TIKAD_PROBE id=probe_15 key=TIKADprobe.north west role=geometry
+\fill[red] (TIKADprobe.north west) circle[radius=0.02];
+% TIKAD_PROBE id=probe_16 key=TIKADprobe.south role=geometry
+\fill[red] (TIKADprobe.south) circle[radius=0.02];
+% TIKAD_PROBE id=probe_17 key=TIKADprobe.south east role=geometry
+\fill[red] (TIKADprobe.south east) circle[radius=0.02];
+% TIKAD_PROBE id=probe_18 key=TIKADprobe.south west role=geometry
+\fill[red] (TIKADprobe.south west) circle[radius=0.02];
+% TIKAD_PROBE id=probe_19 key=TIKADprobe.text role=text
+\fill[red] (TIKADprobe.text) circle[radius=0.02];
+% TIKAD_PROBE id=probe_20 key=TIKADprobe.west role=geometry
+\fill[red] (TIKADprobe.west) circle[radius=0.02];
+\end{circuitikz}
+\end{document}

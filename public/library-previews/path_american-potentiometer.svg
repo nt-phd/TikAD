@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="44.068" height="17.878" viewBox="0 0 44.068 17.878">
+<path fill="none" stroke-width="0.3985" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M -0.00059375 0.0009375 L 10.319719 0.0009375 M 29.366594 0.0009375 L 39.686906 0.0009375 " transform="matrix(1, 0, 0, -1, 2.192, 11.915)"/>
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="bevel" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 9.921281 0.0009375 L 11.936906 3.57125 L 15.179094 -3.573281 L 18.421281 3.57125 L 21.663469 -3.573281 L 24.905656 3.57125 L 28.143937 -3.573281 L 29.765031 0.0009375 " transform="matrix(1, 0, 0, -1, 2.192, 11.915)"/>
+<path fill="none" stroke-width="0.797" stroke-linecap="butt" stroke-linejoin="bevel" stroke="rgb(0%, 0%, 0%)" stroke-opacity="1" stroke-miterlimit="10" d="M 19.843156 9.524375 L 19.843156 6.680625 " transform="matrix(1, 0, 0, -1, 2.192, 11.915)"/>
+<path fill-rule="nonzero" fill="rgb(0%, 0%, 0%)" fill-opacity="1" d="M 22.035156 8.34375 C 22.292969 7.046875 22.8125 4.71875 23.976562 3.164062 C 22.550781 4.457031 21.515625 4.457031 20.09375 3.164062 C 21.257812 4.71875 21.777344 7.046875 22.035156 8.34375 Z M 22.035156 8.34375 "/>
+</svg>

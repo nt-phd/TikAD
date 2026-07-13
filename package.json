@@ -1,0 +1,53 @@
+{
+  "name": "tikad",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:render": "/usr/bin/node render-server/server.mjs",
+    "dev:all": "/bin/bash -lc '/usr/bin/node render-server/server.mjs & vite'",
+    "extract:component-catalog": "/usr/bin/node scripts/extract-circuitikz-catalog.mjs",
+    "extract:option-db": "/usr/bin/node scripts/extract-circuitikz-option-db.mjs",
+    "extract:bipole-token-db": "/usr/bin/node scripts/extract-circuitikz-bipole-token-db.mjs",
+    "build:statement-property-schema": "/usr/bin/node scripts/build-statement-property-schema.mjs",
+    "build:component-catalog": "/usr/bin/node scripts/build-component-catalog.mjs",
+    "validate:component-geometry": "/usr/bin/node scripts/validate-component-geometry.mjs",
+    "generate:component-catalog-previews": "/usr/bin/node scripts/render-component-catalog-previews.mjs",
+    "refresh:component-catalog": "/bin/bash -lc '/usr/bin/node scripts/extract-circuitikz-catalog.mjs && /usr/bin/node scripts/build-component-catalog.mjs && /usr/bin/node scripts/render-component-catalog-previews.mjs'",
+    "generate:library-previews": "/usr/bin/node scripts/generate-library-previews.mjs",
+    "generate:landing-examples-code": "/usr/bin/node landing/scripts/gen-landing-examples-code-svg.mjs",
+    "normalize:toolbar-icons": "/usr/bin/node scripts/normalize-toolbar-icons.mjs",
+    "build": "npm run build:app",
+    "build:app": "tsc && vite build",
+    "build:landing": "tsc -p landing/tsconfig.json && vite build --config landing/vite.config.ts",
+    "deploy:app": "./deploy/deploy.sh",
+    "deploy:landing": "./deploy/deploy-landing-cloudflare.sh",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/legacy-modes": "^6.5.2",
+    "@codemirror/merge": "^6.12.1",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.41.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.9",
+    "@mui/material": "^7.3.9",
+    "@mui/x-tree-view": "^9.0.1",
+    "@uiw/react-codemirror": "^4.25.9",
+    "dompurify": "^3.4.0",
+    "jsdom": "^23.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.0",
+    "knip": "^5.88.1",
+    "typescript": "~5.9.3",
+    "vite": "^8.0.1"
+  }
+}

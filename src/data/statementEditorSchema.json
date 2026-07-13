@@ -1,0 +1,429 @@
+{
+  "statementTree": {
+    "rootId": "statement-root",
+    "rootKind": "row",
+    "rootField": "command",
+    "rootChildren": [
+      {
+        "field": "row-options",
+        "id": "statement-row-options",
+        "scope": "root",
+        "showWhen": "not-top-level-node"
+      }
+    ],
+    "componentChildren": [
+      {
+        "field": "options",
+        "idTemplate": "segment-{index}-options",
+        "scope": "segment",
+        "showForSegmentKinds": ["node"]
+      },
+      {
+        "field": "start-node",
+        "idTemplate": "segment-{index}-start-node",
+        "scope": "segment",
+        "showForSegmentKinds": ["bipole"]
+      },
+      {
+        "field": "end-node",
+        "idTemplate": "segment-{index}-end-node",
+        "scope": "segment",
+        "showForSegmentKinds": ["bipole"]
+      },
+      {
+        "field": "text",
+        "idTemplate": "segment-{index}-text",
+        "scope": "segment",
+        "showForSegmentKinds": ["node"]
+      },
+      {
+        "field": "raw",
+        "idTemplate": "segment-{index}-raw",
+        "scope": "segment",
+        "showForSegmentKinds": ["raw"]
+      }
+    ],
+    "routeOptions": [
+      { "label": "--", "value": "--", "description": "Straight" },
+      { "label": "|-", "value": "|-", "description": "Vertical then horizontal" },
+      { "label": "-|", "value": "-|", "description": "Horizontal then vertical" }
+    ],
+    "fields": {
+      "command": {
+        "label": "Line",
+        "control": "select",
+        "options": [
+          { "label": "\\node", "value": "node" },
+          { "label": "\\draw", "value": "draw" },
+          { "label": "\\path", "value": "path" },
+          { "label": "\\ctikzset", "value": "ctikzset" }
+        ]
+      },
+      "row-options": {
+        "label": "Options",
+        "control": "text"
+      },
+      "position": {
+        "label": "Position",
+        "control": "text"
+      },
+      "object": {
+        "label": "Component",
+        "control": "text"
+      },
+      "label": {
+        "label": "Label",
+        "control": "text"
+      },
+      "annotation": {
+        "label": "Annotation",
+        "control": "text"
+      },
+      "voltage": {
+        "label": "Voltage",
+        "control": "text"
+      },
+      "current": {
+        "label": "Current",
+        "control": "text"
+      },
+      "flow": {
+        "label": "Flow",
+        "control": "text"
+      },
+      "options": {
+        "label": "Options",
+        "control": "text"
+      },
+      "unparsed-options": {
+        "label": "Unparsed options",
+        "control": "text"
+      },
+      "add-property": {
+        "label": "Add",
+        "control": "select",
+        "options": [
+          { "label": "Add", "value": "" }
+        ]
+      },
+      "start-node": {
+        "label": "Start node",
+        "control": "select",
+        "options": [
+          { "label": "none", "value": "" },
+          { "label": "dot", "value": "dot" },
+          { "label": "open", "value": "open" }
+        ]
+      },
+      "end-node": {
+        "label": "End node",
+        "control": "select",
+        "options": [
+          { "label": "none", "value": "" },
+          { "label": "dot", "value": "dot" },
+          { "label": "open", "value": "open" }
+        ]
+      },
+      "end-position": {
+        "label": "End position",
+        "control": "text"
+      },
+      "text": {
+        "label": "Text",
+        "control": "text"
+      },
+      "raw": {
+        "label": "Raw",
+        "control": "text"
+      }
+    }
+  },
+  "environmentTree": {
+    "rootId": "environment-root",
+    "rootKind": "row",
+    "rootField": "command",
+    "rootChildren": [
+      {
+        "field": "row-options",
+        "id": "environment-row-options",
+        "scope": "root"
+      }
+    ],
+    "componentChildren": [],
+    "packages": [
+      { "label": "amsmath", "value": "amsmath" },
+      { "label": "amsfonts", "value": "amsfonts" },
+      { "label": "amssymb", "value": "amssymb" },
+      { "label": "newpxtext", "value": "newpxtext" },
+      { "label": "newpxmath", "value": "newpxmath" },
+      { "label": "tikz", "value": "tikz" },
+      { "label": "siunitx", "value": "siunitx" },
+      { "label": "circuitikz", "value": "circuitikz" }
+    ],
+    "packageOptions": {
+      "circuitikz": [
+        {
+          "key": "style",
+          "label": "Style",
+          "variants": [
+            { "label": "european", "value": "european", "description": "Equivalent to europeancurrents, europeanvoltages, europeanresistors, europeaninductors, europeanports, europeangfsurgearrester." },
+            { "label": "american", "value": "american", "description": "Equivalent to americancurrents, americanvoltages, americanresistors, americaninductors, americanports, americangfsurgearrester." }
+          ]
+        },
+        {
+          "key": "units",
+          "label": "Units",
+          "variants": [
+            { "label": "siunitx", "value": "siunitx", "description": "Integrates with siunitx. Labels, currents or voltages of the form #1<#2> are rendered as \\SI{#1}{#2}." },
+            { "label": "nosiunitx", "value": "nosiunitx", "description": "Labels are not interpreted through siunitx integration." }
+          ]
+        },
+        {
+          "key": "voltages",
+          "label": "Voltages",
+          "variants": [
+            { "label": "europeanvoltages", "value": "europeanvoltages", "description": "Uses arrows to define voltages, and uses european-style voltage sources." },
+            { "label": "straightvoltages", "value": "straightvoltages", "description": "Uses arrows to define voltages, and uses straight voltage arrows." },
+            { "label": "americanvoltages", "value": "americanvoltages", "description": "Uses − and + to define voltages, and uses american-style voltage sources." }
+          ]
+        },
+        {
+          "key": "currents",
+          "label": "Currents",
+          "variants": [
+            { "label": "europeancurrents", "value": "europeancurrents", "description": "Uses european-style current sources." },
+            { "label": "americancurrents", "value": "americancurrents", "description": "Uses american-style current sources." }
+          ]
+        },
+        {
+          "key": "resistors",
+          "label": "Resistors",
+          "variants": [
+            { "label": "europeanresistors", "value": "europeanresistors", "description": "Uses rectangular empty shape for resistors, as per european standards." },
+            { "label": "americanresistors", "value": "americanresistors", "description": "Uses zig-zag shape for resistors, as per american standards." }
+          ]
+        },
+        {
+          "key": "inductors",
+          "label": "Inductors",
+          "variants": [
+            { "label": "europeaninductors", "value": "europeaninductors", "description": "Uses rectangular filled shape for inductors, as per european standards." },
+            { "label": "americaninductors", "value": "americaninductors", "description": "Uses \"4-bumps\" shape for inductors, as per american standards." },
+            { "label": "cuteinductors", "value": "cuteinductors", "description": "Uses the \"pig-tailed\" inductor style." }
+          ]
+        },
+        {
+          "key": "ports",
+          "label": "Ports",
+          "variants": [
+            { "label": "europeanports", "value": "europeanports", "description": "Uses rectangular logic ports, as per european standards." },
+            { "label": "americanports", "value": "americanports", "description": "Uses triangular logic ports, as per american standards." }
+          ]
+        },
+        {
+          "key": "gasarresters",
+          "label": "Gas Arresters",
+          "variants": [
+            { "label": "americangfsurgearrester", "value": "americangfsurgearrester", "description": "Uses round gas filled surge arresters, as per american standards." },
+            { "label": "europeangfsurgearrester", "value": "europeangfsurgearrester", "description": "Uses rectangular gas filled surge arresters, as per european standards." }
+          ]
+        },
+        {
+          "key": "diodes",
+          "label": "Diodes",
+          "variants": [
+            { "label": "fulldiode", "value": "fulldiode", "description": "Diodes are drawn and filled by default." },
+            { "label": "strokediode", "value": "strokediode", "description": "Diodes are drawn and stroked by default." },
+            { "label": "emptydiode", "value": "emptydiode", "description": "Diodes are drawn but not filled by default." }
+          ]
+        },
+        {
+          "key": "mosarrows",
+          "label": "MOS Arrows",
+          "variants": [
+            { "label": "arrowmos", "value": "arrowmos", "description": "PMOS and NMOS have arrows analogous to PNP and NPN transistors." },
+            { "label": "noarrowmos", "value": "noarrowmos", "description": "PMOS and NMOS do not have arrows analogous to PNP and NPN transistors." }
+          ]
+        },
+        {
+          "key": "fetbodydiode",
+          "label": "FET Body Diode",
+          "variants": [
+            { "label": "fetbodydiode", "value": "fetbodydiode", "description": "Draw the body diode of a FET." },
+            { "label": "nofetbodydiode", "value": "nofetbodydiode", "description": "Do not draw the body diode of a FET." }
+          ]
+        },
+        {
+          "key": "fetsolderdot",
+          "label": "FET Solder Dot",
+          "variants": [
+            { "label": "fetsolderdot", "value": "fetsolderdot", "description": "Draw solder dot at bulk-source junction of some transistors." },
+            { "label": "nofetsolderdot", "value": "nofetsolderdot", "description": "Do not draw solder dot at bulk-source junction of some transistors." }
+          ]
+        },
+        {
+          "key": "transistortext",
+          "label": "Transistor Text",
+          "variants": [
+            { "label": "legacytransistorstext", "value": "legacytransistorstext", "description": "Text of transistor nodes is typeset near the collector." },
+            { "label": "centertransistorstext", "value": "centertransistorstext", "description": "Text of transistor nodes is typeset near the center of the component." }
+          ]
+        },
+        {
+          "key": "labels",
+          "label": "Labels",
+          "variants": [
+            { "label": "straightlabels", "value": "straightlabels", "description": "Labels on bipoles are always printed straight up, with horizontal baseline." },
+            { "label": "rotatelabels", "value": "rotatelabels", "description": "Labels on bipoles are always printed aligned along the bipole." },
+            { "label": "smartlabels", "value": "smartlabels", "description": "Labels are rotated along the bipole, unless the rotation is very close to multiples of 90°." }
+          ]
+        },
+        {
+          "key": "compatibility",
+          "label": "Compatibility",
+          "variants": [
+            { "label": "compatibility", "value": "compatibility", "description": "Makes it possible to load CircuiTikZ and TikZ circuit library together." }
+          ]
+        },
+        {
+          "key": "emptypmoscircle",
+          "label": "Empty PMOS Circle",
+          "variants": [
+            { "label": "emptypmoscircle", "value": "emptypmoscircle", "description": "The circle at the gate of a PMOS transistor does not get filled." }
+          ]
+        },
+        {
+          "key": "lazymos",
+          "label": "Lazy MOS",
+          "variants": [
+            { "label": "lazymos", "value": "lazymos", "description": "Draws lazy NMOS and PMOS transistors." }
+          ]
+        }
+      ],
+      "tikz": [
+        {
+          "key": "arrows",
+          "label": "Arrows",
+          "variants": [
+            { "label": "arrows.meta", "value": "arrows.meta", "description": "Extended arrow tip library (recommended)." },
+            { "label": "arrows", "value": "arrows", "description": "Legacy arrow tip library." }
+          ]
+        },
+        {
+          "key": "calc",
+          "label": "Calc",
+          "variants": [
+            { "label": "calc", "value": "calc", "description": "Coordinate calculations with the ($...$) notation." }
+          ]
+        },
+        {
+          "key": "patterns",
+          "label": "Patterns",
+          "variants": [
+            { "label": "patterns", "value": "patterns", "description": "Fill patterns for paths and shapes." }
+          ]
+        },
+        {
+          "key": "positioning",
+          "label": "Positioning",
+          "variants": [
+            { "label": "positioning", "value": "positioning", "description": "Place nodes relative to each other with above of, right of, etc." }
+          ]
+        },
+        {
+          "key": "shapes",
+          "label": "Shapes",
+          "variants": [
+            { "label": "shapes", "value": "shapes", "description": "General shape library (includes geometric and misc)." },
+            { "label": "shapes.geometric", "value": "shapes.geometric", "description": "Geometric shapes: ellipse, diamond, trapezium, etc." },
+            { "label": "shapes.misc", "value": "shapes.misc", "description": "Miscellaneous shapes: cross out, strike out, etc." }
+          ]
+        }
+      ],
+      "siunitx": [
+        {
+          "key": "mode",
+          "label": "Mode",
+          "variants": [
+            { "label": "mode=text", "value": "mode=text", "description": "Typeset numbers and units in text mode." },
+            { "label": "mode=math", "value": "mode=math", "description": "Typeset numbers and units in math mode." }
+          ]
+        },
+        {
+          "key": "per-mode",
+          "label": "Per Mode",
+          "variants": [
+            { "label": "per-mode=fraction", "value": "per-mode=fraction", "description": "Display per-unit as a fraction." },
+            { "label": "per-mode=symbol", "value": "per-mode=symbol", "description": "Display per-unit using a symbol (e.g. /)." },
+            { "label": "per-mode=repeated-symbol", "value": "per-mode=repeated-symbol", "description": "Repeat the unit symbol for per-unit." }
+          ]
+        }
+      ]
+    },
+    "fields": {
+      "command": {
+        "label": "Enviroment type",
+        "control": "select",
+        "options": [
+          { "label": "tikzpicture", "value": "tikzpicture" },
+          { "label": "circuitikz", "value": "circuitikz" }
+        ]
+      },
+      "row-options": {
+        "label": "Options",
+        "control": "text"
+      },
+      "object": {
+        "label": "Package",
+        "control": "text"
+      }
+    }
+  },
+  "commonComponentOptions": [
+    { "label": "rotate", "value": "rotate=", "description": "Rotate the component by angle in degrees." },
+    { "label": "scale", "value": "scale=", "description": "Scale the component uniformly." },
+    { "label": "xscale", "value": "xscale=", "description": "Scale the component along X." },
+    { "label": "yscale", "value": "yscale=", "description": "Scale the component along Y." },
+    { "label": "transform shape", "value": "transform shape", "description": "Apply transformations to the shape itself." }
+  ],
+  "packageOptions": {
+    "circuitikz": [
+      { "label": "american", "value": "american", "description": "Equivalent to americancurrents, americanvoltages, americanresistors, americaninductors, americanports, americangfsurgearrester." },
+      { "label": "european", "value": "european", "description": "Equivalent to europeancurrents, europeanvoltages, europeanresistors, europeaninductors, europeanports, europeangfsurgearrester." },
+      { "label": "europeanvoltages", "value": "europeanvoltages", "description": "Uses arrows to define voltages, and uses european-style voltage sources." },
+      { "label": "straightvoltages", "value": "straightvoltages", "description": "Uses arrows to define voltages, and uses straight voltage arrows." },
+      { "label": "americanvoltages", "value": "americanvoltages", "description": "Uses − and + to define voltages, and uses american-style voltage sources." },
+      { "label": "europeancurrents", "value": "europeancurrents", "description": "Uses arrows to define currents." },
+      { "label": "americancurrents", "value": "americancurrents", "description": "Uses arrows to define currents, with american-style current sources." },
+      { "label": "europeanresistors", "value": "europeanresistors", "description": "Uses european-style resistors." },
+      { "label": "americanresistors", "value": "americanresistors", "description": "Uses american-style resistors." },
+      { "label": "europeaninductors", "value": "europeaninductors", "description": "Uses european-style inductors." },
+      { "label": "americaninductors", "value": "americaninductors", "description": "Uses american-style inductors." },
+      { "label": "cuteinductors", "value": "cuteinductors", "description": "Uses cute style inductors." },
+      { "label": "americanports", "value": "americanports", "description": "Uses american-style ports." },
+      { "label": "europeanports", "value": "europeanports", "description": "Uses european-style ports." },
+      { "label": "americangfsurgearrester", "value": "americangfsurgearrester", "description": "Uses round gas filled surge arresters, as per american standards." },
+      { "label": "europeangfsurgearrester", "value": "europeangfsurgearrester", "description": "Uses rectangular gas filled surge arresters, as per european standards." },
+      { "label": "siunitx", "value": "siunitx", "description": "Integrates with siunitx. Labels, currents or voltages of the form #1<#2> are rendered as \\SI{#1}{#2}." },
+      { "label": "nosiunitx", "value": "nosiunitx", "description": "Labels are not interpreted through siunitx integration." },
+      { "label": "fulldiode", "value": "fulldiode", "description": "Diodes are drawn and filled by default." },
+      { "label": "strokediode", "value": "strokediode", "description": "Diodes are drawn and stroked by default." },
+      { "label": "emptydiode", "value": "emptydiode", "description": "Diodes are drawn but not filled by default." },
+      { "label": "arrowmos", "value": "arrowmos", "description": "PMOS and NMOS have arrows analogous to PNP and NPN transistors." },
+      { "label": "noarrowmos", "value": "noarrowmos", "description": "PMOS and NMOS do not have arrows analogous to PNP and NPN transistors." },
+      { "label": "fetbodydiode", "value": "fetbodydiode", "description": "Draw the body diode of a FET." },
+      { "label": "nofetbodydiode", "value": "nofetbodydiode", "description": "Do not draw the body diode of a FET." },
+      { "label": "fetsolderdot", "value": "fetsolderdot", "description": "Draw solder dot at bulk-source junction of some transistors." },
+      { "label": "nofetsolderdot", "value": "nofetsolderdot", "description": "Do not draw solder dot at bulk-source junction of some transistors." },
+      { "label": "emptypmoscircle", "value": "emptypmoscircle", "description": "The circle at the gate of a PMOS transistor does not get filled." },
+      { "label": "lazymos", "value": "lazymos", "description": "Draws lazy NMOS and PMOS transistors." },
+      { "label": "legacytransistorstext", "value": "legacytransistorstext", "description": "Text of transistor nodes is typeset near the collector." },
+      { "label": "centertransistorstext", "value": "centertransistorstext", "description": "Text of transistor nodes is typeset near the center of the component." },
+      { "label": "straightlabels", "value": "straightlabels", "description": "Labels on bipoles are always printed straight up, with horizontal baseline." },
+      { "label": "rotatelabels", "value": "rotatelabels", "description": "Labels on bipoles are always printed aligned along the bipole." },
+      { "label": "smartlabels", "value": "smartlabels", "description": "Labels are rotated along the bipole, unless the rotation is very close to multiples of 90°." },
+      { "label": "compatibility", "value": "compatibility", "description": "Makes it possible to load CircuiTikZ and TikZ circuit library together." },
+      { "label": "nocompatibility", "value": "nocompatibility", "description": "Leaves CircuiTikZ compatibility mode disabled." }
+    ]
+  }
+}
