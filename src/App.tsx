@@ -319,17 +319,9 @@ function normalizeSvgForExport(svgMarkup: string): string {
     const svg = doc.querySelector('svg');
     if (!svg) return svgMarkup;
 
-    // Keep the viewBox intact (internal coordinates must not change).
-    // Use server width/height (in pt) as unitless integers — browsers treat them as user units.
-    const wAttr = svg.getAttribute('width');
-    const hAttr = svg.getAttribute('height');
-    const wPt = wAttr ? Number.parseFloat(wAttr) : NaN;
-    const hPt = hAttr ? Number.parseFloat(hAttr) : NaN;
-    if (Number.isFinite(wPt) && Number.isFinite(hPt) && wPt > 0 && hPt > 0) {
-      svg.setAttribute('width', String(Math.round(wPt)));
-      svg.setAttribute('height', String(Math.round(hPt)));
-    }
-
+    // width/height are in pt from the server. Keeping the pt unit lets browsers
+    // apply the native 1pt = 96/72px conversion, matching screen rendering exactly.
+    // The viewBox is also in pt (same coordinate space), so everything is consistent.
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     svg.style.removeProperty('width');
     svg.style.removeProperty('height');
