@@ -45,7 +45,7 @@ import type { EditorView } from '@codemirror/view';
 import { lineNumbers } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { unifiedMergeView } from '@codemirror/merge';
-import { GRID_SIZE, TIKZ_PT_PER_UNIT } from './constants';
+import { GRID_SIZE, TIKZ_PT_PER_UNIT, RENDER_SERVER_URL } from './constants';
 import type { ImperativeAppHandle } from './initImperativeApp';
 import { initImperativeApp } from './initImperativeApp';
 import { lineIndexFromId } from './codegen/CircuiTikZParser';
@@ -1582,6 +1582,8 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const historyCursorRef = useRef<number | null>(null);
   const historyRef = useRef(history);
   const suppressHistoryRef = useRef(false);
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
+  const episodeStartIndexRef = useRef(0);
   // Tracks the latest body text typed in the editor without triggering
   // a render on every keystroke. Only committed when commitPendingLatexEdits fires.
   const latestEditorBodyRef = useRef(body);
@@ -1778,9 +1780,27 @@ function useAppState(handle: ImperativeAppHandle | null) {
     await navigator.clipboard.writeText(source);
   };
 
+  const reportPositiveFeedback = (latex: string, purpose: string) => {
+    const episode = historyRef.current.slice(episodeStartIndexRef.current);
+    episodeStartIndexRef.current = historyRef.current.length;
+    fetch(`${RENDER_SERVER_URL}/render`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        latex,
+        purpose,
+        sessionId: sessionIdRef.current,
+        episodeHistory: episode,
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  };
+
   const onCopyDocument = async () => {
     if (!handle) return;
-    await navigator.clipboard.writeText(handle.getFullLatexSource());
+    const tex = handle.getFullLatexSource();
+    await navigator.clipboard.writeText(tex);
+    reportPositiveFeedback(tex, 'copy-tex');
   };
 
   const onDownloadSvg = async () => {
@@ -1796,6 +1816,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    reportPositiveFeedback(handle.getFullLatexSource(), 'download-svg');
   };
 
   const onDownloadSvgPlus = async () => {
@@ -1812,6 +1833,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    reportPositiveFeedback(handle.getFullLatexSource(), 'download-svg-plus');
   };
 
   const onDownloadTex = async () => {
@@ -1826,6 +1848,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     link.click();
     link.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    reportPositiveFeedback(tex, 'save-tex');
   };
 
   const onOpenTexUpload = () => {
