@@ -284,12 +284,16 @@ function materializeStructuredNodeSegments(
     const isKnownComponent = Boolean(candidateTikzName && tikzToDefId.has(candidateTikzName));
     const tikzName = isKnownComponent ? candidateTikzName : undefined;
 
-    if (!tikzName && segment.tikzName && !segment.isCoordinate) {
-      // A styled-but-uncatalogued node, e.g. `\node[draw, thick, minimum width=1.5cm]
-      // (REG) at (0,0) {}` — a plain TikZ box, not a circuit part. It still has real
-      // width/height, so register it as a measurable generic node (synthetic defId)
-      // instead of a drawing, so its cardinal anchors (`.west`/`.east`/...) can be
-      // probed and resolved like any other node's.
+    if (!tikzName && segment.tikzName && !segment.isCoordinate && segment.nodeName) {
+      // A styled-but-uncatalogued *named* node, e.g. `\node[draw, thick,
+      // minimum width=1.5cm] (REG) at (0,0) {}` — a plain TikZ box, not a
+      // circuit part. It still has real width/height and is referenceable by
+      // name, so register it as a measurable generic node (synthetic defId)
+      // instead of a drawing, so its cardinal anchors (`.west`/`.east`/...)
+      // can be probed and resolved like any other node's. An *unnamed* node
+      // (e.g. `\node[right] at (IN) {label}` — `right` is a label-placement
+      // keyword, not a style, and there's no name to probe anchors for
+      // anyway) falls through to the plain text-drawing branch below.
       geometry.registerNamedReference(segment.nodeName, nodeResolved);
       const optionsText = [segment.tikzName, segment.optionsText].filter(Boolean).join(', ');
       const comp: MonopoleInstance = {
@@ -309,9 +313,13 @@ function materializeStructuredNodeSegments(
 
     if (!tikzName) {
       geometry.registerNamedReference(segment.nodeName, nodeResolved);
-      // `\coordinate` and a bare anonymous `\node (Name) at (x,y) {...}` are pure
+      // `\coordinate` and a bare (possibly unnamed) `\node at (x,y) {...}` are pure
       // reference points with no real extent — draw the (possible) text only.
-      if (!segment.isCoordinate) addTextDrawing(doc, nodeId, nodeResolved.point, segment.optionsText, segment.text);
+      // `segment.tikzName` may hold a label-placement keyword (e.g. `right` in
+      // `\node[right] at (IN) {...}`) that the syntax parser mistook for a
+      // candidate component name and stripped out of `optionsText` — restore it.
+      const optionsText = [segment.tikzName, segment.optionsText].filter(Boolean).join(', ') || undefined;
+      if (!segment.isCoordinate) addTextDrawing(doc, nodeId, nodeResolved.point, optionsText, segment.text);
       currentResolved = segment.positionText ? nodeResolved : currentResolved;
       continue;
     }

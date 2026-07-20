@@ -309,10 +309,13 @@ export class GhostRenderer {
     const comp = this.doc.getComponent(id);
     if (comp) {
       const def = this.registry.get(comp.defId);
-      if (!def) return null;
       if (comp.type === 'bipole') {
+        if (!def) return null;
         return this.buildSingleBipoleSelection(comp, def, color);
       }
+      // A generic (uncatalogued) node has no registry def, but once measured
+      // it still has real bounds to show a selection indicator for.
+      if (!def && !this.doc.getMeasuredComponentBounds(comp.id)) return null;
       const bodyGroup = this.buildPlacedComponentSelection(
         comp.position.x,
         comp.position.y,
@@ -436,11 +439,14 @@ export class GhostRenderer {
     const comp = this.doc.getComponent(id);
     if (comp) {
       const def = this.registry.get(comp.defId);
-      if (!def) return;
       if (comp.type === 'bipole') {
+        if (!def) return;
         this.deletePreviewGroup.appendChild(this.buildSingleBipoleSelection(comp, def, DELETE_PREVIEW_COLOR));
         return;
       }
+      // A generic (uncatalogued) node has no registry def, but once measured
+      // it still has real bounds to preview a deletion outline for.
+      if (!def && !this.doc.getMeasuredComponentBounds(comp.id)) return;
       const deleteGroup = this.buildPlacedComponentSelection(
         comp.position.x,
         comp.position.y,
@@ -633,7 +639,7 @@ export class GhostRenderer {
   private buildPlacedComponentSelection(
     x: number,
     y: number,
-    def: ComponentDef,
+    def: ComponentDef | undefined,
     rotation: number,
     ghost = false,
     selectionId?: string,
@@ -649,7 +655,7 @@ export class GhostRenderer {
     const nodeName = selectedComp && 'nodeName' in selectedComp ? selectedComp.nodeName : undefined;
     const currentRef = selectedComp && selectedComp.type !== 'bipole' ? selectedComp.positionSequence?.ref : undefined;
     const hasMeasuredTerminals = nodeName ? this.doc.getMeasuredNodePointGroups(nodeName, 'terminal').length > 0 : false;
-    const shouldShowReferenceAsSnap = Boolean(nodeName && def.geometry?.reference?.snap && !hasMeasuredTerminals);
+    const shouldShowReferenceAsSnap = Boolean(nodeName && def?.geometry?.reference?.snap && !hasMeasuredTerminals);
     const wrapper = createGroup('sel-component-wrapper');
     if (measuredBounds) {
       wrapper.appendChild(this.buildMeasuredBoundsGroup(
@@ -660,7 +666,10 @@ export class GhostRenderer {
         shouldShowReferenceAsSnap ? nodeName : undefined,
         measuredOffset,
       ));
-    } else {
+    } else if (def) {
+      // Without measured bounds yet, only a real catalogue def has static
+      // geometry to fall back on — a generic (uncatalogued) node has none
+      // and simply shows nothing until the next render measures it.
       wrapper.appendChild(this.buildStaticBoundsGroup(
         cx,
         cy,
