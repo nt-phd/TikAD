@@ -1830,7 +1830,8 @@ function useAppState(handle: ImperativeAppHandle | null) {
       if (!res.ok) throw new Error(await res.text());
       setBugReportStatus('sent');
       setBugReportDescription('');
-    } catch {
+    } catch (error) {
+      console.warn('[BugReport] failed to send:', error);
       setBugReportStatus('error');
     }
   };

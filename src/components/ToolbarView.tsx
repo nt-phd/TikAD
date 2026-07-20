@@ -312,15 +312,25 @@ export function ToolbarView({
           </Button>
         ))}
         <Box sx={{ flex: 1, minWidth: 0 }} />
-        <Button
-          onClick={onOpenBugReport}
-          size="small"
-          startIcon={<BugReportOutlinedIcon fontSize="small" />}
-          sx={{ color: 'text.primary' }}
-          variant="text"
-        >
-          Found a bug?
-        </Button>
+        <Box sx={{ alignItems: 'center', alignSelf: 'stretch', display: 'flex' }}>
+          <Button
+            onClick={onOpenBugReport}
+            size="small"
+            startIcon={<BugReportOutlinedIcon fontSize="small" />}
+            sx={{
+              bgcolor: 'transparent',
+              color: 'text.primary',
+              height: 26,
+              px: 1,
+              '&:hover': {
+                bgcolor: 'action.hover',
+              },
+            }}
+            variant="text"
+          >
+            Found a bug?
+          </Button>
+        </Box>
         <Box sx={{ alignItems: 'center', alignSelf: 'stretch', display: 'flex' }}>
           <Tooltip title={sidebarVisible ? 'Hide side panel' : 'Show side panel'}>
           <Button
