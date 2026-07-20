@@ -358,6 +358,7 @@ export interface EditableBipoleSegment {
 
 export interface EditableNodeSegment {
   kind: 'node';
+  isCoordinate?: boolean;
   nodeName?: string;
   optionsText?: string;
   positionText: string;

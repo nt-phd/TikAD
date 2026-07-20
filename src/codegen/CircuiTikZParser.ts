@@ -36,7 +36,7 @@ import {
   scanTikzPointSequence,
 } from './TikzPointParser';
 import { extractKV, splitOptions } from './TikzStatementSyntax';
-import { parseStructuredNodeStatement, parseStructuredStatementBody } from './TikzStructuredStatement';
+import { parseStructuredCoordinateStatement, parseStructuredNodeStatement, parseStructuredStatementBody } from './TikzStructuredStatement';
 import { TikzGeometryEngine } from './TikzGeometryEngine';
 import type { StructuredStatementBody } from './TikzStructuredStatement';
 
@@ -273,7 +273,8 @@ function materializeStructuredNodeSegments(
     const tikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
     if (!tikzName) {
       geometry.registerNamedReference(segment.nodeName, nodeResolved);
-      addTextDrawing(doc, nodeId, nodeResolved.point, segment.optionsText, segment.text);
+      // `\coordinate` is a pure named reference point — it never draws anything.
+      if (!segment.isCoordinate) addTextDrawing(doc, nodeId, nodeResolved.point, segment.optionsText, segment.text);
       currentResolved = segment.positionText ? nodeResolved : currentResolved;
       continue;
     }
@@ -406,6 +407,8 @@ export function parseCircuiTikZ(
       };
       const structuredNode = stmtText.startsWith('\\node')
         ? parseStructuredNodeStatement(stmtText.slice('\\'.length))
+        : stmtText.startsWith('\\coordinate')
+        ? parseStructuredCoordinateStatement(stmtText.slice('\\'.length))
         : null;
       if (structuredNode) {
         const structuredResolution = geometry.resolveStructuredStatement(id, structuredNode);

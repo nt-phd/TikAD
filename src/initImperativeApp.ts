@@ -624,14 +624,18 @@ function referencedNodeNamesInLine(line: string): Set<string> {
   return nodeNames;
 }
 
-// After editing a statement, any node it now references by name must be defined
-// earlier in the body — otherwise `moveNodeDefinitionBeforeFirstReference` reorders it.
-function moveReferencedNodeDefinitionsBeforeLine(body: string, lineIndex: number): string {
-  const lines = body.split('\n');
-  const line = lines[lineIndex];
-  if (line === undefined) return body;
+// Whatever just changed in the body, any node now referenced by name must be defined
+// earlier than its first reference — otherwise `moveNodeDefinitionBeforeFirstReference`
+// reorders it. Run over the whole body (not just the edited line) since a single change
+// (paste, multi-selection drag, grouped statement rewrite, ...) can touch several lines
+// at once, and is a no-op for lines that are already in order.
+function moveAllReferencedNodeDefinitionsForward(body: string): string {
   let nextBody = body;
-  for (const nodeName of referencedNodeNamesInLine(line)) {
+  const seenNodeNames = new Set<string>();
+  for (const line of nextBody.split('\n')) {
+    for (const nodeName of referencedNodeNamesInLine(line)) seenNodeNames.add(nodeName);
+  }
+  for (const nodeName of seenNodeNames) {
     const nodeLineIndex = findNodeDefinitionLineIndex(nextBody, nodeName);
     if (nodeLineIndex < 0) continue;
     nextBody = moveNodeDefinitionBeforeFirstReference(nextBody, nodeName, nodeLineIndex);
@@ -1061,6 +1065,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
   };
 
   const parseCurrentBody = (options: { preserveMeasuredComponentBounds?: boolean; preserveMeasuredSymbolPoints?: boolean } = {}) => {
+    latexDoc.body = moveAllReferencedNodeDefinitionsForward(latexDoc.body);
     parseCircuiTikZ(latexDoc.body, circuitDoc, registry, options);
   };
 
@@ -1074,6 +1079,18 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
   };
 
   const emitBodyChanged = (reason: string) => {
+    // Safety net for the few callers that mutate latexDoc.body without a
+    // parseCurrentBody() re-parse in between (e.g. live drag of a wire/drawing
+    // endpoint onto an existing node emits a node-name reference directly).
+    // A no-op when parseCurrentBody() already reordered the body; when it does
+    // reorder here, re-parse and reconcile selection so line-index-based ids
+    // (and the model they describe) stay in sync with the reordered text.
+    const beforeReorder = latexDoc.body;
+    latexDoc.body = moveAllReferencedNodeDefinitionsForward(latexDoc.body);
+    if (latexDoc.body !== beforeReorder) {
+      parseCurrentBody();
+      reconcileSelection('programmatic');
+    }
     eventBus.emit({ type: 'body-changed' });
     emitSourceChanged(reason);
   };
@@ -1213,7 +1230,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     applyEditableStatement: (statement) => {
       pushUndoSnapshot();
       latexDoc.body = applyEditableStatementToBody(latexDoc.body, statement);
-      latexDoc.body = moveReferencedNodeDefinitionsBeforeLine(latexDoc.body, statement.sourceLineIndex);
       syncTikzScale();
       invalidateRenderDerivedGeometry();
       parseCurrentBody();
@@ -1480,7 +1496,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     applyEditableStatement: (statement) => {
       pushUndoSnapshot();
       latexDoc.body = applyEditableStatementToBody(latexDoc.body, statement);
-      latexDoc.body = moveReferencedNodeDefinitionsBeforeLine(latexDoc.body, statement.sourceLineIndex);
       syncTikzScale();
       invalidateRenderDerivedGeometry();
       parseCurrentBody();

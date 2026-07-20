@@ -124,14 +124,20 @@ function parseNodeSegment(source: string, index: number, allowImplicitPosition =
   return parseNodeSegmentFromKeyword(source, nodeStart, position?.text ?? '');
 }
 
-function parseNodeSegmentFromKeyword(source: string, nodeStart: number, positionText: string): { end: number; segment: EditableNodeSegment } | null {
+function parseNodeSegmentFromKeyword(
+  source: string,
+  nodeStart: number,
+  positionText: string,
+  options: { isCoordinate?: boolean; requireBraces?: boolean } = {},
+): { end: number; segment: EditableNodeSegment } | null {
+  const requireBraces = options.requireBraces ?? true;
   let cursor = skipTikzWhitespace(source, nodeStart);
   let optionsText = '';
   if (source[cursor] === '[') {
-    const options = readTikzBalanced(source, cursor, '[', ']');
-    if (!options) return null;
-    optionsText = options.text.slice(1, -1).trim();
-    cursor = options.end;
+    const parsedOptions = readTikzBalanced(source, cursor, '[', ']');
+    if (!parsedOptions) return null;
+    optionsText = parsedOptions.text.slice(1, -1).trim();
+    cursor = parsedOptions.end;
   }
   cursor = skipTikzWhitespace(source, cursor);
   let nodeName: string | undefined;
@@ -151,18 +157,19 @@ function parseNodeSegmentFromKeyword(source: string, nodeStart: number, position
   }
   cursor = skipTikzWhitespace(source, cursor);
   const textGroup = readTikzBalanced(source, cursor, '{', '}');
-  if (!textGroup) return null;
+  if (!textGroup && requireBraces) return null;
   const optionParts = optionsText ? splitOptions(optionsText) : [];
   const firstOption = optionParts[0]?.trim();
   const hasComponentName = Boolean(firstOption && !firstOption.includes('='));
   return {
-    end: textGroup.end,
+    end: textGroup?.end ?? cursor,
     segment: {
       kind: 'node',
+      isCoordinate: options.isCoordinate || undefined,
       nodeName,
       optionsText: hasComponentName ? optionParts.slice(1).join(', ').trim() || undefined : optionsText || undefined,
       positionText,
-      text: textGroup.text.slice(1, -1).trim() || undefined,
+      text: textGroup?.text.slice(1, -1).trim() || undefined,
       tikzName: hasComponentName ? firstOption : undefined,
     },
   };
@@ -372,4 +379,19 @@ export function parseStructuredNodeStatement(source: string): StructuredStatemen
   }
   if (segments.length === 0) return null;
   return { positionTexts, segments };
+}
+
+// `\coordinate [opts] (name) at (point);` — a pure named reference point, never
+// drawn. Unlike `\node`, it has no trailing `{...}` text group and no chained
+// segments, so it gets its own (simpler) entry point rather than reusing the
+// `node` keyword loop above.
+export function parseStructuredCoordinateStatement(source: string): StructuredStatementBody | null {
+  const coordinateStart = readKeyword(source, 0, 'coordinate');
+  if (coordinateStart == null) return null;
+  const parsed = parseNodeSegmentFromKeyword(source, coordinateStart, '', {
+    isCoordinate: true,
+    requireBraces: false,
+  });
+  if (!parsed || !parsed.segment.positionText || !parsed.segment.nodeName) return null;
+  return { positionTexts: [parsed.segment.positionText], segments: [parsed.segment] };
 }
