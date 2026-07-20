@@ -11,6 +11,10 @@ import {
   Button,
   Chip,
   CssBaseline,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   ListSubheader,
   MenuItem,
@@ -1572,6 +1576,9 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const [majorGridEvery, setMajorGridEvery] = useState(5);
   const [pinSnapEnabled, setPinSnapEnabled] = useState(true);
   const [wireRoutingMode, setWireRoutingMode] = useState<WireRoutingMode>('auto');
+  const [bugReportOpen, setBugReportOpen] = useState(false);
+  const [bugReportDescription, setBugReportDescription] = useState('');
+  const [bugReportStatus, setBugReportStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [history, setHistory] = useState<HistoryEntry[]>(() => {
     const raw = localStorage.getItem('tikad-history');
     return raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
@@ -1794,6 +1801,38 @@ function useAppState(handle: ImperativeAppHandle | null) {
       }),
       keepalive: true,
     }).catch(() => {});
+  };
+
+  const onOpenBugReport = () => {
+    setBugReportStatus('idle');
+    setBugReportOpen(true);
+  };
+
+  const onCloseBugReport = () => {
+    setBugReportOpen(false);
+  };
+
+  const onSubmitBugReport = async () => {
+    if (!bugReportDescription.trim()) return;
+    setBugReportStatus('sending');
+    const episode = historyRef.current.slice(episodeStartIndexRef.current);
+    try {
+      const res = await fetch(`${RENDER_SERVER_URL}/bug-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: bugReportDescription.trim(),
+          latex: handle?.getFullLatexSource(),
+          sessionId: sessionIdRef.current,
+          episodeHistory: episode,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setBugReportStatus('sent');
+      setBugReportDescription('');
+    } catch {
+      setBugReportStatus('error');
+    }
   };
 
   const onCopyDocument = async () => {
@@ -2092,6 +2131,13 @@ function useAppState(handle: ImperativeAppHandle | null) {
     texUploadInputRef,
     onUploadTex,
     wireRoutingMode,
+    bugReportOpen,
+    bugReportDescription,
+    setBugReportDescription,
+    bugReportStatus,
+    onOpenBugReport,
+    onCloseBugReport,
+    onSubmitBugReport,
   };
 }
 
@@ -2868,6 +2914,56 @@ function AppShell({
         ref={appState.texUploadInputRef}
         type="file"
       />
+      <Button
+        onClick={appState.onOpenBugReport}
+        size="small"
+        sx={{
+          position: 'fixed',
+          bottom: 8,
+          right: 8,
+          zIndex: (t) => t.zIndex.tooltip,
+        }}
+        variant="text"
+      >
+        Segnala un problema
+      </Button>
+      <Dialog fullWidth maxWidth="sm" onClose={appState.onCloseBugReport} open={appState.bugReportOpen}>
+        <DialogTitle>Segnala un problema</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary" sx={{ mb: 2 }} variant="body2">
+            Descrivi cosa è successo. Il documento corrente verrà allegato automaticamente.
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            minRows={4}
+            multiline
+            onChange={(e) => appState.setBugReportDescription(e.target.value)}
+            placeholder="Es: cliccando su una riga \coordinate non compare nessun indicatore..."
+            value={appState.bugReportDescription}
+          />
+          {appState.bugReportStatus === 'sent' ? (
+            <Typography color="success.main" sx={{ mt: 1 }} variant="body2">
+              Grazie, la segnalazione è stata inviata.
+            </Typography>
+          ) : null}
+          {appState.bugReportStatus === 'error' ? (
+            <Typography color="error.main" sx={{ mt: 1 }} variant="body2">
+              Invio non riuscito, riprova più tardi.
+            </Typography>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={appState.onCloseBugReport}>Chiudi</Button>
+          <Button
+            disabled={!appState.bugReportDescription.trim() || appState.bugReportStatus === 'sending'}
+            onClick={appState.onSubmitBugReport}
+            variant="contained"
+          >
+            Invia
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

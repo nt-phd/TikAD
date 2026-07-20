@@ -15,15 +15,23 @@
 
 import http from 'http';
 import { spawn } from 'child_process';
+import { timingSafeEqual } from 'crypto';
 import createDOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
-import { mkdtemp, writeFile, readFile, rm, access } from 'fs/promises';
+import { mkdtemp, writeFile, readFile, rm, access, appendFile } from 'fs/promises';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 const PORT = Number.parseInt(process.env.PORT ?? '3737', 10);
 const HOST = process.env.HOST ?? '127.0.0.1';
 const REQUEST_BODY_LIMIT = 256 * 1024;
+const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
+const FEEDBACK_LOG_PATH = process.env.FEEDBACK_LOG_PATH ?? join(SERVER_DIR, 'feedback-log.jsonl');
+const DASHBOARD_HTML_PATH = join(SERVER_DIR, 'dashboard.html');
+const FEEDBACK_PURPOSES = new Set(['copy-tex', 'download-svg', 'download-svg-plus', 'save-tex']);
+const FEEDBACK_DASHBOARD_TOKEN = process.env.FEEDBACK_DASHBOARD_TOKEN ?? null;
+const FEEDBACK_EVENTS_LIMIT = 500;
 const MAX_CONCURRENT_RENDERS = 2;
 const MAX_QUEUE_LENGTH = 32;
 const CACHE_LIMIT = 100;
@@ -433,6 +441,54 @@ function log(event, details = {}) {
   console.log(JSON.stringify({ event, ts: new Date().toISOString(), ...details }));
 }
 
+function normalizeFeedbackHistory(entries) {
+  if (!Array.isArray(entries)) return [];
+  const normalized = [];
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') continue;
+    const ts = Number(entry.ts);
+    const source = typeof entry.source === 'string' ? entry.source : null;
+    if (!Number.isFinite(ts) || source === null) continue;
+    normalized.push({ ts, source });
+    if (normalized.length >= 30) break;
+  }
+  return normalized;
+}
+
+async function appendFeedbackEvent({ sessionId, purpose, latex, episodeHistory, ip }) {
+  const record = {
+    ts: new Date().toISOString(),
+    sessionId,
+    purpose,
+    ip,
+    latex,
+    episodeHistory: normalizeFeedbackHistory(episodeHistory),
+  };
+  try {
+    await appendFile(FEEDBACK_LOG_PATH, `${JSON.stringify(record)}\n`, 'utf8');
+  } catch (error) {
+    log('feedback_log_error', { detail: error.message });
+  }
+}
+
+async function appendBugReport({ sessionId, description, latex, episodeHistory, ip }) {
+  const record = {
+    kind: 'bug-report',
+    ts: new Date().toISOString(),
+    sessionId,
+    description,
+    ip,
+    latex,
+    episodeHistory: normalizeFeedbackHistory(episodeHistory),
+  };
+  try {
+    await appendFile(FEEDBACK_LOG_PATH, `${JSON.stringify(record)}\n`, 'utf8');
+  } catch (error) {
+    log('feedback_log_error', { detail: error.message });
+  }
+  return record;
+}
+
 function touchCache(key, value) {
   if (resultCache.has(key)) resultCache.delete(key);
   resultCache.set(key, value);
@@ -699,6 +755,34 @@ function sendJson(res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
+function isValidDashboardToken(candidate) {
+  if (!FEEDBACK_DASHBOARD_TOKEN || typeof candidate !== 'string') return false;
+  const expected = Buffer.from(FEEDBACK_DASHBOARD_TOKEN);
+  const actual = Buffer.from(candidate);
+  if (expected.length !== actual.length) return false;
+  return timingSafeEqual(expected, actual);
+}
+
+async function readFeedbackEvents(limit) {
+  let raw;
+  try {
+    raw = await readFile(FEEDBACK_LOG_PATH, 'utf8');
+  } catch {
+    return [];
+  }
+  const lines = raw.split('\n').filter((line) => line.trim());
+  const tail = lines.slice(-limit);
+  const events = [];
+  for (const line of tail) {
+    try {
+      events.push(JSON.parse(line));
+    } catch {
+      // Skip malformed lines.
+    }
+  }
+  return events.reverse();
+}
+
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -730,6 +814,78 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && req.url === '/dashboard') {
+    try {
+      const html = await readFile(DASHBOARD_HTML_PATH, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(html);
+    } catch {
+      res.writeHead(404);
+      res.end();
+    }
+    return;
+  }
+
+  if (req.method === 'GET' && req.url?.startsWith('/feedback-events')) {
+    if (!FEEDBACK_DASHBOARD_TOKEN) {
+      sendJson(res, 503, { error: 'feedback dashboard is not configured' });
+      return;
+    }
+    const requestUrl = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
+    const token = requestUrl.searchParams.get('token') ?? req.headers['x-feedback-token'];
+    if (!isValidDashboardToken(token)) {
+      sendJson(res, 401, { error: 'invalid or missing token' });
+      return;
+    }
+    const events = await readFeedbackEvents(FEEDBACK_EVENTS_LIMIT);
+    sendJson(res, 200, { events });
+    return;
+  }
+
+  if (req.method === 'POST' && req.url === '/bug-report') {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() ?? req.socket.remoteAddress ?? 'unknown';
+    let body = '';
+    let tooLarge = false;
+    for await (const chunk of req) {
+      body += chunk;
+      if (body.length > REQUEST_BODY_LIMIT) {
+        tooLarge = true;
+        break;
+      }
+    }
+    if (tooLarge) {
+      sendJson(res, 413, { error: 'request body too large' });
+      return;
+    }
+    try {
+      const { description, latex, sessionId, episodeHistory } = JSON.parse(body);
+      if (typeof description !== 'string' || !description.trim()) throw new Error('missing description field');
+      if (description.length > 4000) throw new Error('description too long');
+      if (latex !== undefined && typeof latex !== 'string') throw new Error('latex must be a string');
+      if (typeof latex === 'string' && latex.length > MAX_LATEX_LENGTH) throw new Error('latex too long');
+
+      const retryAfter = checkRateLimit(ip);
+      if (retryAfter !== null) {
+        res.setHeader('Retry-After', String(retryAfter));
+        sendJson(res, 429, { error: 'rate limit exceeded, retry later' });
+        return;
+      }
+
+      await appendBugReport({
+        sessionId: typeof sessionId === 'string' ? sessionId : null,
+        description: description.trim(),
+        latex,
+        episodeHistory,
+        ip,
+      });
+      log('bug_report_received', {});
+      sendJson(res, 200, { ok: true });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message });
+    }
+    return;
+  }
+
   if (req.method === 'POST' && req.url === '/render') {
     metrics.totalRequests += 1;
     const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() ?? req.socket.remoteAddress ?? 'unknown';
@@ -749,11 +905,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      const { latex, anchors, purpose: rawPurpose, forceRender } = JSON.parse(body);
+      const { latex, anchors, purpose: rawPurpose, forceRender, sessionId, episodeHistory } = JSON.parse(body);
       if (!latex || typeof latex !== 'string') throw new Error('missing latex field');
       const purpose = normalizeRenderPurpose(rawPurpose);
       const anchorRequests = normalizeAnchorRequests(anchors);
       const shouldForceRender = Boolean(forceRender);
+
+      if (FEEDBACK_PURPOSES.has(rawPurpose) && typeof sessionId === 'string') {
+        void appendFeedbackEvent({ sessionId, purpose: rawPurpose, latex, episodeHistory, ip });
+      }
       const complexityError = withinComplexityLimits(latex);
       if (complexityError) {
         sendJson(res, 422, { error: complexityError });

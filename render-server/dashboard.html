@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>TikAD — Feedback Stream</title>
+<style>
+  @font-face {
+    font-family: 'JetBrains Mono';
+    src: local('JetBrains Mono');
+    font-weight: 400 700;
+  }
+
+  :root {
+    --bg: #f6f7f6;
+    --bg-raised: #ffffff;
+    --bg-sunken: #eceeec;
+    --text: #1c2024;
+    --text-dim: #5b6460;
+    --text-faint: #8a928d;
+    --border: #dfe3e0;
+    --border-strong: #c7ccc8;
+    --accent: #2f6f6b;
+    --accent-soft: #e3efee;
+    --accent-text: #1d4a47;
+    --good: #3a7d4f;
+    --good-soft: #e5f2e8;
+    --warn: #a6650a;
+    --warn-soft: #f7ecdb;
+    --danger: #b4432f;
+    --danger-soft: #fbe9e5;
+    --shadow: 0 1px 2px rgba(20, 24, 22, 0.04), 0 8px 24px -12px rgba(20, 24, 22, 0.10);
+    --radius: 10px;
+    --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+    --sans: 'Inter', -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171a;
+      --bg-raised: #1b1f23;
+      --bg-sunken: #101315;
+      --text: #e9ecef;
+      --text-dim: #9aa3a0;
+      --text-faint: #666f6c;
+      --border: #2a2f33;
+      --border-strong: #383e42;
+      --accent: #5fb3ac;
+      --accent-soft: #17302e;
+      --accent-text: #8fd4cd;
+      --good: #6cc78a;
+      --good-soft: #16281c;
+      --warn: #dba14a;
+      --warn-soft: #2e2412;
+      --danger: #e08876;
+      --danger-soft: #301c18;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171a;
+    --bg-raised: #1b1f23;
+    --bg-sunken: #101315;
+    --text: #e9ecef;
+    --text-dim: #9aa3a0;
+    --text-faint: #666f6c;
+    --border: #2a2f33;
+    --border-strong: #383e42;
+    --accent: #5fb3ac;
+    --accent-soft: #17302e;
+    --accent-text: #8fd4cd;
+    --good: #6cc78a;
+    --good-soft: #16281c;
+    --warn: #dba14a;
+    --warn-soft: #2e2412;
+    --danger: #e08876;
+    --danger-soft: #301c18;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f7f6;
+    --bg-raised: #ffffff;
+    --bg-sunken: #eceeec;
+    --text: #1c2024;
+    --text-dim: #5b6460;
+    --text-faint: #8a928d;
+    --border: #dfe3e0;
+    --border-strong: #c7ccc8;
+    --accent: #2f6f6b;
+    --accent-soft: #e3efee;
+    --accent-text: #1d4a47;
+    --good: #3a7d4f;
+    --good-soft: #e5f2e8;
+    --warn: #a6650a;
+    --warn-soft: #f7ecdb;
+    --danger: #b4432f;
+    --danger-soft: #fbe9e5;
+    --shadow: 0 1px 2px rgba(20, 24, 22, 0.04), 0 8px 24px -12px rgba(20, 24, 22, 0.10);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 28px 20px 64px;
+  }
+  .page {
+    width: 100%;
+    max-width: 920px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* ---------- header ---------- */
+  .head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .head h1 {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .head h1 .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    flex-shrink: 0;
+  }
+  .head h1 .dot.live {
+    background: var(--good);
+    box-shadow: 0 0 0 3px var(--good-soft);
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .head h1 .dot.live { animation: none; }
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+  .head .sub {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: var(--mono);
+  }
+
+  /* ---------- connection card ---------- */
+  .conn {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .conn-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1 1 220px;
+  }
+  .field label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-faint);
+    font-weight: 600;
+  }
+  .field input {
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: var(--text);
+    width: 100%;
+  }
+  .field input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .conn-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg-raised);
+    color: var(--text);
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--bg-sunken); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button.ghost {
+    border-color: transparent;
+    background: transparent;
+    color: var(--text-dim);
+    font-weight: 500;
+    padding: 8px 10px;
+  }
+  button.ghost:hover { background: var(--bg-sunken); }
+  .status-msg {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+  .status-msg.err { color: var(--danger); }
+  .status-msg.ok { color: var(--good); }
+
+  /* ---------- stat chips ---------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  .stat {
+    background: var(--bg-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .stat .n {
+    font-family: var(--mono);
+    font-size: 22px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat .l {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+  .stat.total .n { color: var(--accent); }
+
+  /* ---------- event list ---------- */
+  .list-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px;
+  }
+  .list-head h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-faint);
+    font-weight: 700;
+    margin: 0;
+  }
+  .list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-raised);
+    box-shadow: var(--shadow);
+  }
+  .empty {
+    padding: 48px 20px;
+    text-align: center;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .row {
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+  .list .row:first-child { border-top: none; }
+  .row-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    color: inherit;
+  }
+  .row-main:hover { background: var(--bg-sunken); }
+  .row-main:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .chevron {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    width: 10px;
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+  @media (prefers-reduced-motion: reduce) { .chevron { transition: none; } }
+  .row.open .chevron { transform: rotate(90deg); }
+  .purpose-pill {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .purpose-pill.copy-tex { background: var(--accent-soft); color: var(--accent-text); }
+  .purpose-pill.download-svg { background: var(--good-soft); color: var(--good); }
+  .purpose-pill.download-svg-plus { background: var(--good-soft); color: var(--good); }
+  .purpose-pill.save-tex { background: var(--warn-soft); color: var(--warn); }
+
+  .row-latex-preview {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+  .row-time {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .row-session {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    flex-shrink: 0;
+    display: none;
+  }
+  @media (min-width: 720px) {
+    .row-session { display: inline; }
+  }
+
+  .row-detail {
+    padding: 4px 14px 16px 36px;
+    display: none;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .row.open .row-detail { display: flex; }
+  .detail-block label {
+    display: block;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-faint);
+    font-weight: 700;
+    margin-bottom: 5px;
+  }
+  .detail-block pre {
+    margin: 0;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .detail-meta {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .detail-meta b { color: var(--text); font-weight: 600; }
+  .history-item {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    padding: 4px 0;
+    border-top: 1px dashed var(--border);
+  }
+  .history-item:first-child { border-top: none; }
+  .history-item .ts { color: var(--text-faint); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .history-item .src {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  footer {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    padding-top: 8px;
+  }
+
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .row-session { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <h1><span class="dot" id="liveDot"></span>tikad · feedback stream</h1>
+    <span class="sub" id="lastUpdated">not connected</span>
+  </div>
+
+  <div class="conn" id="connCard">
+    <div class="conn-row">
+      <div class="field">
+        <label for="token">Dashboard token</label>
+        <input id="token" type="password" placeholder="FEEDBACK_DASHBOARD_TOKEN" autocomplete="off" spellcheck="false" />
+      </div>
+    </div>
+    <div class="conn-actions">
+      <button class="primary" id="connectBtn" type="button">Connect</button>
+      <button class="ghost" id="toggleTokenBtn" type="button">Show token</button>
+      <span class="status-msg" id="statusMsg">Token stays only in this browser's local storage.</span>
+    </div>
+  </div>
+
+  <div class="stats" id="stats" hidden>
+    <div class="stat total"><span class="n" id="statTotal">0</span><span class="l">Events</span></div>
+    <div class="stat"><span class="n" id="statCopyTex">0</span><span class="l">Copy TeX</span></div>
+    <div class="stat"><span class="n" id="statSvg">0</span><span class="l">Save SVG</span></div>
+    <div class="stat"><span class="n" id="statSvgPlus">0</span><span class="l">Save SVG+</span></div>
+    <div class="stat"><span class="n" id="statTex">0</span><span class="l">Save TeX</span></div>
+  </div>
+
+  <div>
+    <div class="list-head">
+      <h2>Recent events</h2>
+    </div>
+    <div style="height:8px"></div>
+    <div class="list" id="list">
+      <div class="empty">Enter the dashboard token above, then Connect.</div>
+    </div>
+  </div>
+
+  <footer id="pollFooter"></footer>
+</div>
+
+<script>
+  (function () {
+    'use strict';
+
+    var STORAGE_TOKEN = 'tikad-feedback-token';
+    var POLL_MS = 4000;
+
+    var els = {
+      token: document.getElementById('token'),
+      connectBtn: document.getElementById('connectBtn'),
+      toggleTokenBtn: document.getElementById('toggleTokenBtn'),
+      statusMsg: document.getElementById('statusMsg'),
+      connCard: document.getElementById('connCard'),
+      stats: document.getElementById('stats'),
+      list: document.getElementById('list'),
+      liveDot: document.getElementById('liveDot'),
+      lastUpdated: document.getElementById('lastUpdated'),
+      pollFooter: document.getElementById('pollFooter'),
+      statTotal: document.getElementById('statTotal'),
+      statCopyTex: document.getElementById('statCopyTex'),
+      statSvg: document.getElementById('statSvg'),
+      statSvgPlus: document.getElementById('statSvgPlus'),
+      statTex: document.getElementById('statTex'),
+    };
+
+    var pollTimer = null;
+    var openRows = {};
+    var lastEventsKey = '';
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function purposeLabel(p) {
+      return { 'copy-tex': 'Copy TeX', 'download-svg': 'Save SVG', 'download-svg-plus': 'Save SVG+', 'save-tex': 'Save TeX' }[p] || p;
+    }
+
+    function formatTime(iso) {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      var now = new Date();
+      var sameDay = d.toDateString() === now.toDateString();
+      var time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      return sameDay ? time : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + time;
+    }
+
+    function loadToken() {
+      try {
+        els.token.value = localStorage.getItem(STORAGE_TOKEN) || '';
+      } catch (e) { /* localStorage unavailable */ }
+    }
+
+    function saveToken() {
+      try {
+        localStorage.setItem(STORAGE_TOKEN, els.token.value.trim());
+      } catch (e) { /* ignore */ }
+    }
+
+    function buildEndpoint() {
+      var tok = els.token.value.trim();
+      if (!tok) return null;
+      return 'feedback-events?token=' + encodeURIComponent(tok);
+    }
+
+    function setStatus(msg, kind) {
+      els.statusMsg.textContent = msg;
+      els.statusMsg.className = 'status-msg' + (kind ? ' ' + kind : '');
+    }
+
+    function setLive(isLive) {
+      els.liveDot.classList.toggle('live', isLive);
+    }
+
+    function renderStats(events) {
+      var counts = { 'copy-tex': 0, 'download-svg': 0, 'download-svg-plus': 0, 'save-tex': 0 };
+      events.forEach(function (e) {
+        if (counts.hasOwnProperty(e.purpose)) counts[e.purpose] += 1;
+      });
+      els.stats.hidden = false;
+      els.statTotal.textContent = events.length;
+      els.statCopyTex.textContent = counts['copy-tex'];
+      els.statSvg.textContent = counts['download-svg'];
+      els.statSvgPlus.textContent = counts['download-svg-plus'];
+      els.statTex.textContent = counts['save-tex'];
+    }
+
+    function rowKey(e, i) {
+      return (e.sessionId || '') + '|' + (e.ts || '') + '|' + i;
+    }
+
+    function renderList(events) {
+      if (!events.length) {
+        els.list.innerHTML = '<div class="empty">No feedback events yet. They will appear here as users copy or download their circuits.</div>';
+        return;
+      }
+      var html = events.map(function (e, i) {
+        var key = rowKey(e, i);
+        var isOpen = !!openRows[key];
+        var latexPreview = (e.latex || '').replace(/\s+/g, ' ').trim();
+        var history = Array.isArray(e.episodeHistory) ? e.episodeHistory : [];
+        var historyHtml = history.length
+          ? history.map(function (h) {
+              var src = (h.source || '').replace(/\s+/g, ' ').trim();
+              var t = h.ts ? formatTime(new Date(h.ts).toISOString()) : '?';
+              return '<div class="history-item"><span class="ts">' + esc(t) + '</span><span class="src">' + esc(src) + '</span></div>';
+            }).join('')
+          : '<div class="history-item"><span class="src">No prior edits captured in this episode.</span></div>';
+
+        return (
+          '<div class="row' + (isOpen ? ' open' : '') + '" data-key="' + esc(key) + '">' +
+            '<button class="row-main" type="button" aria-expanded="' + isOpen + '">' +
+              '<span class="chevron">&#9656;</span>' +
+              '<span class="purpose-pill ' + esc(e.purpose || '') + '">' + esc(purposeLabel(e.purpose)) + '</span>' +
+              '<span class="row-latex-preview">' + esc(latexPreview || '(empty)') + '</span>' +
+              '<span class="row-session">' + esc((e.sessionId || '').slice(0, 8)) + '</span>' +
+              '<span class="row-time">' + esc(formatTime(e.ts)) + '</span>' +
+            '</button>' +
+            '<div class="row-detail">' +
+              '<div class="detail-meta">' +
+                '<span><b>Session</b> ' + esc(e.sessionId || '—') + '</span>' +
+                '<span><b>IP</b> ' + esc(e.ip || '—') + '</span>' +
+                '<span><b>Edits in episode</b> ' + history.length + '</span>' +
+              '</div>' +
+              '<div class="detail-block">' +
+                '<label>Full LaTeX source</label>' +
+                '<pre>' + esc(e.latex || '') + '</pre>' +
+              '</div>' +
+              '<div class="detail-block">' +
+                '<label>Episode history (' + history.length + ')</label>' +
+                historyHtml +
+              '</div>' +
+            '</div>' +
+          '</div>'
+        );
+      }).join('');
+      els.list.innerHTML = html;
+
+      els.list.querySelectorAll('.row-main').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var row = btn.closest('.row');
+          var key = row.getAttribute('data-key');
+          openRows[key] = !openRows[key];
+          row.classList.toggle('open', openRows[key]);
+          btn.setAttribute('aria-expanded', String(!!openRows[key]));
+        });
+      });
+    }
+
+    function poll() {
+      var endpoint = buildEndpoint();
+      if (!endpoint) return;
+      fetch(endpoint, { cache: 'no-store' })
+        .then(function (res) {
+          if (!res.ok) {
+            return res.json().catch(function () { return {}; }).then(function (body) {
+              throw new Error(body.error || ('HTTP ' + res.status));
+            });
+          }
+          return res.json();
+        })
+        .then(function (data) {
+          var events = Array.isArray(data.events) ? data.events : [];
+          setLive(true);
+          setStatus('Connected — polling every ' + (POLL_MS / 1000) + 's.', 'ok');
+          els.lastUpdated.textContent = 'updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          var key = JSON.stringify(events.map(function (e) { return e.ts + e.sessionId + e.purpose; }));
+          if (key !== lastEventsKey) {
+            lastEventsKey = key;
+            renderStats(events);
+            renderList(events);
+          }
+        })
+        .catch(function (err) {
+          setLive(false);
+          setStatus('Connection error: ' + err.message, 'err');
+          els.lastUpdated.textContent = 'disconnected';
+        });
+    }
+
+    function startPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      poll();
+      pollTimer = setInterval(poll, POLL_MS);
+      els.pollFooter.textContent = 'Polling every ' + (POLL_MS / 1000) + 's · last 500 events kept server-side';
+    }
+
+    els.connectBtn.addEventListener('click', function () {
+      if (!els.token.value.trim()) {
+        setStatus('Enter the dashboard token.', 'err');
+        return;
+      }
+      saveToken();
+      startPolling();
+    });
+
+    els.toggleTokenBtn.addEventListener('click', function () {
+      var isPassword = els.token.type === 'password';
+      els.token.type = isPassword ? 'text' : 'password';
+      els.toggleTokenBtn.textContent = isPassword ? 'Hide token' : 'Show token';
+    });
+
+    els.token.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') els.connectBtn.click();
+    });
+
+    loadToken();
+    if (els.token.value.trim()) {
+      startPolling();
+    }
+  })();
+</script>
+</body>
+</html>
