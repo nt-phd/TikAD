@@ -3,7 +3,7 @@ import type { ComponentInstance } from '../types';
 
 export function emitPlacedNodeLine(comp: ComponentInstance, tikzName: string): string | null {
   if (comp.type !== 'node' && comp.type !== 'monopole') return null;
-  const optionParts = [tikzName];
+  const optionParts = tikzName ? [tikzName] : [];
   const extraOptions = (comp.props.options ?? '')
     .split(',')
     .map((part) => part.trim())

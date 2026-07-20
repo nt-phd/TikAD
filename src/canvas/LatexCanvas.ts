@@ -19,6 +19,7 @@ import type { LatexDocument } from '../model/LatexDocument';
 import type { CircuitDocument } from '../model/CircuitDocument';
 import type { ComponentRegistry } from '../definitions/ComponentRegistry';
 import type { SelectionState } from '../model/SelectionState';
+import { GENERIC_NODE_DEF_ID } from '../codegen/CircuiTikZParser';
 import { ViewTransform } from './ViewTransform';
 import { SnapEngine } from './SnapEngine';
 import { GhostRenderer, type GhostLatexPreview } from './GhostRenderer';
@@ -424,6 +425,28 @@ export class LatexCanvas {
     const requests: AnchorRenderRequest[] = [];
     for (const comp of this.circuitDoc.components) {
       if (comp.type === 'bipole' || !comp.nodeName) continue;
+      if (comp.defId === GENERIC_NODE_DEF_ID) {
+        // Plain TikZ node/box with no catalogue entry (e.g. `\node[draw, minimum
+        // width=...]`) — no pin geometry to read, so probe the standard TikZ
+        // cardinal anchors directly instead of a catalogue shape's pins.
+        for (const anchor of ['reference', 'north', 'south', 'east', 'west']) {
+          const key = anchor === 'reference' ? comp.nodeName : `${comp.nodeName}.${anchor}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          requests.push({
+            nodeName: comp.nodeName,
+            anchor,
+            componentId: comp.id,
+            defId: comp.defId,
+            kind: anchor === 'reference' ? 'reference' : 'anchor',
+            names: [anchor],
+            role: anchor,
+            snap: false,
+            ghost: true,
+          });
+        }
+        continue;
+      }
       const def = this.registry.get(comp.defId);
       if (!def) continue;
       const geometry = def.geometry;

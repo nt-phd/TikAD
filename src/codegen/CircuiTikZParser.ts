@@ -40,6 +40,12 @@ import { parseStructuredCoordinateStatement, parseStructuredNodeStatement, parse
 import { TikzGeometryEngine } from './TikzGeometryEngine';
 import type { StructuredStatementBody } from './TikzStructuredStatement';
 
+// Synthetic defId for a plain TikZ node/box with no catalogue match (e.g. a
+// `\node[draw, minimum width=...]` frame). Not present in the component
+// registry — recognized by name in LatexCanvas.buildAnchorRenderRequests to
+// probe the standard cardinal anchors instead of catalogue pin geometry.
+export const GENERIC_NODE_DEF_ID = '__generic-node__';
+
 // ─── helpers ───────────────────────────────────────────────────────────────
 
 function parseCoord(s: string): GridPoint | null {
@@ -270,10 +276,41 @@ function materializeStructuredNodeSegments(
       continue;
     }
 
-    const tikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
+    // The syntax parser can't tell a real component name (`ocirc`) from a plain
+    // TikZ style keyword used as the first bracket option (`draw`, `thick`, ...) —
+    // both are just "first option without `=`". Only the component database knows
+    // the difference, so check it here before treating the node as a placed part.
+    const candidateTikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
+    const isKnownComponent = Boolean(candidateTikzName && tikzToDefId.has(candidateTikzName));
+    const tikzName = isKnownComponent ? candidateTikzName : undefined;
+
+    if (!tikzName && segment.tikzName && !segment.isCoordinate) {
+      // A styled-but-uncatalogued node, e.g. `\node[draw, thick, minimum width=1.5cm]
+      // (REG) at (0,0) {}` — a plain TikZ box, not a circuit part. It still has real
+      // width/height, so register it as a measurable generic node (synthetic defId)
+      // instead of a drawing, so its cardinal anchors (`.west`/`.east`/...) can be
+      // probed and resolved like any other node's.
+      geometry.registerNamedReference(segment.nodeName, nodeResolved);
+      const optionsText = [segment.tikzName, segment.optionsText].filter(Boolean).join(', ');
+      const comp: MonopoleInstance = {
+        id: nodeId,
+        defId: GENERIC_NODE_DEF_ID,
+        type: 'monopole',
+        nodeName: segment.nodeName,
+        position: nodeResolved.point,
+        positionSequence: nodeResolved,
+        rotation: 0,
+        props: { options: optionsText || undefined, text: segment.text?.trim() || undefined, textAnchor: undefined },
+      };
+      doc.addComponent(comp);
+      currentResolved = segment.positionText ? nodeResolved : currentResolved;
+      continue;
+    }
+
     if (!tikzName) {
       geometry.registerNamedReference(segment.nodeName, nodeResolved);
-      // `\coordinate` is a pure named reference point — it never draws anything.
+      // `\coordinate` and a bare anonymous `\node (Name) at (x,y) {...}` are pure
+      // reference points with no real extent — draw the (possible) text only.
       if (!segment.isCoordinate) addTextDrawing(doc, nodeId, nodeResolved.point, segment.optionsText, segment.text);
       currentResolved = segment.positionText ? nodeResolved : currentResolved;
       continue;

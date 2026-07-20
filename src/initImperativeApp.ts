@@ -8,7 +8,7 @@ import { EventBus } from './utils/events';
 import { registry } from './definitions/ComponentRegistry';
 import { LatexCanvas, type RenderPurpose } from './canvas/LatexCanvas';
 import { ToolManager } from './tools/ToolManager';
-import { parseCircuiTikZ, lineIndexFromId } from './codegen/CircuiTikZParser';
+import { GENERIC_NODE_DEF_ID, parseCircuiTikZ, lineIndexFromId } from './codegen/CircuiTikZParser';
 import { extractCtikzScales, extractTikzScale, scaleState } from './canvas/ScaleState';
 import { formatCoord } from './codegen/CoordFormatter';
 import { formatEndpoint } from './codegen/TikzEndpointFormatter';
@@ -160,7 +160,9 @@ function terminalString(start?: TerminalMark, end?: TerminalMark): string {
 
 function emitComponentLine(comp: ComponentInstance): string | null {
   const def = registry.get(comp.defId);
-  const tikzName = def?.tikzName ?? comp.defId;
+  // A generic (uncatalogued) node has no real tikzName — its plain TikZ style
+  // keyword (e.g. `draw`) already lives at the front of `props.options`.
+  const tikzName = comp.defId === GENERIC_NODE_DEF_ID ? '' : def?.tikzName ?? comp.defId;
   if (comp.type === 'bipole') {
     const opts: string[] = [tikzName];
     const term = terminalString(comp.props.startTerminal, comp.props.endTerminal);
@@ -183,7 +185,7 @@ function emitComponentLine(comp: ComponentInstance): string | null {
 
 function emitComponentSegment(comp: ComponentInstance): string | null {
   const def = registry.get(comp.defId);
-  const tikzName = def?.tikzName ?? comp.defId;
+  const tikzName = comp.defId === GENERIC_NODE_DEF_ID ? '' : def?.tikzName ?? comp.defId;
   if (comp.type === 'bipole') {
     const opts: string[] = [tikzName];
     const term = terminalString(comp.props.startTerminal, comp.props.endTerminal);
@@ -196,7 +198,7 @@ function emitComponentSegment(comp: ComponentInstance): string | null {
     return `${formatEndpoint(comp.start, comp.startRef)} to[${opts.join(', ')}] ${formatEndpoint(comp.end, comp.endRef)}`;
   }
   if (comp.type === 'monopole' || comp.type === 'node') {
-    const optionParts = [tikzName];
+    const optionParts = tikzName ? [tikzName] : [];
     const extraOptions = (comp.props.options ?? '')
       .split(',')
       .map((part) => part.trim())
