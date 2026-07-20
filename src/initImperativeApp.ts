@@ -595,6 +595,50 @@ function moveNodeDefinitionBeforeFirstReference(
   return lines.join('\n');
 }
 
+function findNodeDefinitionLineIndex(body: string, nodeName: string): number {
+  const escapedNodeName = escapeRegex(nodeName);
+  const definitionPattern = new RegExp(`^\\\\node(?:\\[[\\s\\S]*?\\])?\\s*\\(${escapedNodeName}\\)`);
+  const lines = body.split('\n');
+  for (let index = 0; index < lines.length; index += 1) {
+    if (definitionPattern.test(lines[index].trim())) return index;
+  }
+  return -1;
+}
+
+function referencedNodeNamesInLine(line: string): Set<string> {
+  const { code } = splitLineComment(line);
+  const nodeNames = new Set<string>();
+  let cursor = 0;
+  while (cursor < code.length) {
+    const point = scanTikzPoint(code, cursor);
+    if (!point) {
+      cursor += 1;
+      continue;
+    }
+    if (point.point.relativeMode === 'none' && point.point.kind === 'node-ref') {
+      const parsedRef = parseSimpleNodeReference(point.point.innerRaw);
+      if (parsedRef) nodeNames.add(parsedRef.nodeName);
+    }
+    cursor = point.end;
+  }
+  return nodeNames;
+}
+
+// After editing a statement, any node it now references by name must be defined
+// earlier in the body — otherwise `moveNodeDefinitionBeforeFirstReference` reorders it.
+function moveReferencedNodeDefinitionsBeforeLine(body: string, lineIndex: number): string {
+  const lines = body.split('\n');
+  const line = lines[lineIndex];
+  if (line === undefined) return body;
+  let nextBody = body;
+  for (const nodeName of referencedNodeNamesInLine(line)) {
+    const nodeLineIndex = findNodeDefinitionLineIndex(nextBody, nodeName);
+    if (nodeLineIndex < 0) continue;
+    nextBody = moveNodeDefinitionBeforeFirstReference(nextBody, nodeName, nodeLineIndex);
+  }
+  return nextBody;
+}
+
 function mergeSnappedDrawStatement(
   body: string,
   appendedLine: string,
@@ -670,7 +714,6 @@ function appendSnapAwareLine(
     || nodeStatement.positionTexts.length !== 1
     || nodeSegment?.kind !== 'node'
     || !nodeSegment.nodeName
-    || (nodeSegment.tikzName !== 'circ' && nodeSegment.tikzName !== 'ocirc')
   ) {
     return appended.body;
   }
@@ -1170,6 +1213,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     applyEditableStatement: (statement) => {
       pushUndoSnapshot();
       latexDoc.body = applyEditableStatementToBody(latexDoc.body, statement);
+      latexDoc.body = moveReferencedNodeDefinitionsBeforeLine(latexDoc.body, statement.sourceLineIndex);
       syncTikzScale();
       invalidateRenderDerivedGeometry();
       parseCurrentBody();
@@ -1436,6 +1480,7 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     applyEditableStatement: (statement) => {
       pushUndoSnapshot();
       latexDoc.body = applyEditableStatementToBody(latexDoc.body, statement);
+      latexDoc.body = moveReferencedNodeDefinitionsBeforeLine(latexDoc.body, statement.sourceLineIndex);
       syncTikzScale();
       invalidateRenderDerivedGeometry();
       parseCurrentBody();
