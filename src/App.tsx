@@ -2816,6 +2816,7 @@ function AppShell({
         onDownloadSvgPlus={appState.onDownloadSvgPlus}
         onFitToScreen={appState.onFitToScreen}
         onNewDocument={appState.onNewDocument}
+        onOpenBugReport={appState.onOpenBugReport}
         onOpenTexUpload={appState.onOpenTexUpload}
         onPasteSelection={appState.onPasteSelection}
         onRedo={appState.onRedo}
@@ -2914,24 +2915,11 @@ function AppShell({
         ref={appState.texUploadInputRef}
         type="file"
       />
-      <Button
-        onClick={appState.onOpenBugReport}
-        size="small"
-        sx={{
-          position: 'fixed',
-          bottom: 8,
-          right: 8,
-          zIndex: (t) => t.zIndex.tooltip,
-        }}
-        variant="text"
-      >
-        Segnala un problema
-      </Button>
       <Dialog fullWidth maxWidth="sm" onClose={appState.onCloseBugReport} open={appState.bugReportOpen}>
-        <DialogTitle>Segnala un problema</DialogTitle>
+        <DialogTitle>Found a bug?</DialogTitle>
         <DialogContent>
           <Typography color="text.secondary" sx={{ mb: 2 }} variant="body2">
-            Descrivi cosa è successo. Il documento corrente verrà allegato automaticamente.
+            Describe what happened. The current document will be attached automatically.
           </Typography>
           <TextField
             autoFocus
@@ -2939,28 +2927,28 @@ function AppShell({
             minRows={4}
             multiline
             onChange={(e) => appState.setBugReportDescription(e.target.value)}
-            placeholder="Es: cliccando su una riga \coordinate non compare nessun indicatore..."
+            placeholder="Describe the problem you encountered as best as you can"
             value={appState.bugReportDescription}
           />
           {appState.bugReportStatus === 'sent' ? (
             <Typography color="success.main" sx={{ mt: 1 }} variant="body2">
-              Grazie, la segnalazione è stata inviata.
+              Thanks, your report has been sent.
             </Typography>
           ) : null}
           {appState.bugReportStatus === 'error' ? (
             <Typography color="error.main" sx={{ mt: 1 }} variant="body2">
-              Invio non riuscito, riprova più tardi.
+              Failed to send, please try again later.
             </Typography>
           ) : null}
         </DialogContent>
         <DialogActions>
-          <Button onClick={appState.onCloseBugReport}>Chiudi</Button>
+          <Button onClick={appState.onCloseBugReport}>Close</Button>
           <Button
             disabled={!appState.bugReportDescription.trim() || appState.bugReportStatus === 'sending'}
             onClick={appState.onSubmitBugReport}
             variant="contained"
           >
-            Invia
+            Send
           </Button>
         </DialogActions>
       </Dialog>

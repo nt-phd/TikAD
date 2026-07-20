@@ -33,6 +33,7 @@ import DarkModeRoundedIcon from '@mui/icons-material/DarkModeOutlined';
 import NavigationRoundedIcon from '@mui/icons-material/NearMeOutlined';
 import OpenWithRoundedIcon from '@mui/icons-material/OpenWithOutlined';
 import WebAssetOutlinedIcon from '@mui/icons-material/WebAssetOutlined';
+import BugReportOutlinedIcon from '@mui/icons-material/BugReportOutlined';
 import TurnSharpRightRoundedIcon from '@mui/icons-material/TurnSharpRightRounded';
 import UTurnLeftRoundedIcon from '@mui/icons-material/UTurnLeftRounded';
 import EastRoundedIcon from '@mui/icons-material/EastOutlined';
@@ -147,6 +148,7 @@ export function ToolbarView({
   onDownloadTex,
   onFitToScreen,
   onNewDocument,
+  onOpenBugReport,
   onOpenTexUpload,
   onPasteSelection,
   onRedo,
@@ -171,6 +173,7 @@ export function ToolbarView({
   onDownloadTex: () => void;
   onFitToScreen: () => void;
   onNewDocument: () => void;
+  onOpenBugReport: () => void;
   onOpenTexUpload: () => void;
   onPasteSelection: () => void;
   onRedo: () => void;
@@ -309,6 +312,15 @@ export function ToolbarView({
           </Button>
         ))}
         <Box sx={{ flex: 1, minWidth: 0 }} />
+        <Button
+          onClick={onOpenBugReport}
+          size="small"
+          startIcon={<BugReportOutlinedIcon fontSize="small" />}
+          sx={{ color: 'text.primary' }}
+          variant="text"
+        >
+          Found a bug?
+        </Button>
         <Box sx={{ alignItems: 'center', alignSelf: 'stretch', display: 'flex' }}>
           <Tooltip title={sidebarVisible ? 'Hide side panel' : 'Show side panel'}>
           <Button
