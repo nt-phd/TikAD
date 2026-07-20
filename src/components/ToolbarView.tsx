@@ -322,6 +322,10 @@ export function ToolbarView({
               color: 'text.primary',
               height: 26,
               px: 1,
+              textTransform: 'none',
+              '& .MuiButton-startIcon': {
+                mr: 0.5,
+              },
               '&:hover': {
                 bgcolor: 'action.hover',
               },
