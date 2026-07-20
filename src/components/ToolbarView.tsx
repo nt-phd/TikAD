@@ -55,6 +55,10 @@ import shortIconSvg from './icons/toolbar/short.svg?raw';
 
 const TOOLBAR_HEIGHT = 34;
 
+// The bug-report endpoint isn't deployed to production yet — hide the entry
+// point until render-server/server.mjs is rolled out there (see deploy/deploy.sh).
+const BUG_REPORT_ENABLED = false;
+
 const TOOL_LABELS: Array<{ activeWhen: ToolType; icon: ReactNode; id: ToolType; label: string }> = [
   { id: 'select', activeWhen: 'select', label: 'Select', icon: <NavigationRoundedIcon fontSize="small" sx={{ transform: 'rotate(-90deg)' }} /> },
   { id: 'delete', activeWhen: 'delete', label: 'Delete', icon: <DeleteOutlineRoundedIcon fontSize="small" /> },
@@ -312,29 +316,31 @@ export function ToolbarView({
           </Button>
         ))}
         <Box sx={{ flex: 1, minWidth: 0 }} />
-        <Box sx={{ alignItems: 'center', alignSelf: 'stretch', display: 'flex' }}>
-          <Button
-            onClick={onOpenBugReport}
-            size="small"
-            startIcon={<BugReportOutlinedIcon fontSize="small" />}
-            sx={{
-              bgcolor: 'transparent',
-              color: 'text.primary',
-              height: 26,
-              px: 1,
-              textTransform: 'none',
-              '& .MuiButton-startIcon': {
-                mr: 0.5,
-              },
-              '&:hover': {
-                bgcolor: 'action.hover',
-              },
-            }}
-            variant="text"
-          >
-            Found a bug?
-          </Button>
-        </Box>
+        {BUG_REPORT_ENABLED ? (
+          <Box sx={{ alignItems: 'center', alignSelf: 'stretch', display: 'flex' }}>
+            <Button
+              onClick={onOpenBugReport}
+              size="small"
+              startIcon={<BugReportOutlinedIcon fontSize="small" />}
+              sx={{
+                bgcolor: 'transparent',
+                color: 'text.primary',
+                height: 26,
+                px: 1,
+                textTransform: 'none',
+                '& .MuiButton-startIcon': {
+                  mr: 0.5,
+                },
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
+              }}
+              variant="text"
+            >
+              Found a bug?
+            </Button>
+          </Box>
+        ) : null}
         <Box sx={{ alignItems: 'center', alignSelf: 'stretch', display: 'flex' }}>
           <Tooltip title={sidebarVisible ? 'Hide side panel' : 'Show side panel'}>
           <Button
