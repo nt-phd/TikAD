@@ -20,6 +20,9 @@ import AddRoundedIcon from '@mui/icons-material/AddOutlined';
 import AdsClickRoundedIcon from '@mui/icons-material/AdsClickOutlined';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
+import CallMergeRoundedIcon from '@mui/icons-material/CallMergeRounded';
+import CallSplitRoundedIcon from '@mui/icons-material/CallSplitRounded';
+import ThreeSixtyRoundedIcon from '@mui/icons-material/ThreeSixtyRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyOutlined';
 import ContentCutRoundedIcon from '@mui/icons-material/ContentCutOutlined';
 import ContentPasteRoundedIcon from '@mui/icons-material/ContentPasteOutlined';
@@ -63,6 +66,13 @@ const TOOL_LABELS: Array<{ activeWhen: ToolType; icon: ReactNode; id: ToolType; 
   { id: 'select', activeWhen: 'select', label: 'Select', icon: <NavigationRoundedIcon fontSize="small" sx={{ transform: 'rotate(-90deg)' }} /> },
   { id: 'delete', activeWhen: 'delete', label: 'Delete', icon: <DeleteOutlineRoundedIcon fontSize="small" /> },
 ];
+
+const SPLIT_PATH_TOOL: { activeWhen: ToolType; icon: ReactNode; id: ToolType; label: string } = {
+  id: 'split-path',
+  activeWhen: 'split-path',
+  label: 'Split path',
+  icon: <CallSplitRoundedIcon fontSize="small" />,
+};
 
 const DRAW_TOOLS: Array<{ icon: ReactNode; label: string; tool: ToolType }> = [
   { tool: 'draw-text', label: 'Text', icon: <TextFieldsRoundedIcon fontSize="small" /> },
@@ -124,8 +134,8 @@ function RailSvgIcon({ svg }: { svg: string }) {
   );
 }
 
-function isEditTool(tool: ToolType): tool is 'select' | 'delete' {
-  return tool === 'select' || tool === 'delete';
+function isEditTool(tool: ToolType): tool is 'select' | 'delete' | 'split-path' {
+  return tool === 'select' || tool === 'delete' || tool === 'split-path';
 }
 
 function MenuShortcut({ children }: { children: ReactNode }) {
@@ -470,11 +480,16 @@ export function ToolbarView({
 }
 
 export function ToolRailView({
+  canMergePaths,
+  canReversePath,
+  canSplitPath,
   currentDefTikzName,
   currentTool,
   gridPitch,
   gridVisible,
   onGridPitchChange,
+  onMergePaths,
+  onReversePath,
   onSelectTool,
   onToggleGridVisible,
   onTogglePinSnap,
@@ -483,11 +498,16 @@ export function ToolRailView({
   pinSnapEnabled,
   wireRoutingMode,
 }: {
+  canMergePaths: boolean;
+  canReversePath: boolean;
+  canSplitPath: boolean;
   currentDefTikzName?: string;
   currentTool: ToolType;
   gridPitch: number;
   gridVisible: boolean;
   onGridPitchChange: (value: number) => void;
+  onMergePaths: () => void;
+  onReversePath: () => void;
   onSelectTool: (tool: ToolType) => void;
   onToggleGridVisible: (checked: boolean) => void;
   onTogglePinSnap: (checked: boolean) => void;
@@ -559,6 +579,34 @@ export function ToolRailView({
             </ToggleButton>
           </Tooltip>
         ))}
+        <Tooltip placement="right" title="Split path">
+          <span>
+            <ToggleButton aria-label="Split path" disabled={!canSplitPath} value={SPLIT_PATH_TOOL.activeWhen}>
+              {SPLIT_PATH_TOOL.icon}
+            </ToggleButton>
+          </span>
+        </Tooltip>
+      </ToggleButtonGroup>
+
+      <ToggleButtonGroup
+        orientation="vertical"
+        size="small"
+        sx={{ '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 }, '& .MuiToggleButton-root': railToggleSx }}
+      >
+        <Tooltip placement="right" title="Merge paths">
+          <span>
+            <ToggleButton aria-label="Merge paths" disabled={!canMergePaths} onClick={onMergePaths} value="merge-paths">
+              <CallMergeRoundedIcon fontSize="small" />
+            </ToggleButton>
+          </span>
+        </Tooltip>
+        <Tooltip placement="right" title="Reverse path">
+          <span>
+            <ToggleButton aria-label="Reverse path" disabled={!canReversePath} onClick={onReversePath} value="reverse-path">
+              <ThreeSixtyRoundedIcon fontSize="small" />
+            </ToggleButton>
+          </span>
+        </Tooltip>
       </ToggleButtonGroup>
 
       <Divider flexItem sx={{ my: 0.5 }} />

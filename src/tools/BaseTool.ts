@@ -21,6 +21,7 @@ export interface ToolContext {
   placeClipboard: (payload: ClipboardPayload, target: GridPoint) => void;
   getEditableStatementModel: (id: string) => EditableStatement | null;
   applyEditableStatement: (statement: EditableStatement) => void;
+  splitDrawPathAt: (statement: EditableStatement, positionIndex: number) => void;
   undo: () => void;
   redo: () => void;
 }

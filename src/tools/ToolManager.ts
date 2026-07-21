@@ -5,6 +5,7 @@ import { PlaceBipoleTool } from './PlaceBipoleTool';
 import { PlaceMonopoleTool } from './PlaceMonopoleTool';
 import { WireTool } from './WireTool';
 import { DeleteTool } from './DeleteTool';
+import { SplitPathTool } from './SplitPathTool';
 import { DrawShapeTool } from './DrawShapeTool';
 import { PasteSelectionTool } from './PasteSelectionTool';
 import type { LatexCanvas } from '../canvas/LatexCanvas';
@@ -63,6 +64,9 @@ export class ToolManager {
         break;
       case 'delete':
         this.currentTool = new DeleteTool(this.ctx);
+        break;
+      case 'split-path':
+        this.currentTool = new SplitPathTool(this.ctx, this.selection);
         break;
       case 'draw-text':
         this.currentTool = new DrawShapeTool(this.ctx, 'text');

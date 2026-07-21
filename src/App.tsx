@@ -2033,6 +2033,16 @@ function useAppState(handle: ImperativeAppHandle | null) {
     handle?.deleteSelection();
   };
 
+  const onReversePath = () => {
+    const [id] = selectedIds;
+    if (id) handle?.reverseDrawPath(id);
+  };
+
+  const onMergePaths = () => {
+    const [firstId, secondId] = selectedIds;
+    if (firstId && secondId) handle?.mergeDrawPaths(firstId, secondId);
+  };
+
   const onZoomIn = () => {
     handle?.zoomIn();
   };
@@ -2075,8 +2085,28 @@ function useAppState(handle: ImperativeAppHandle | null) {
     suppressHistoryRef.current = active;
   };
 
+  const canReversePath = useMemo(() => {
+    if (!handle || selectedIds.length !== 1) return false;
+    const drawPath = handle.circuitDoc.getDrawPath(selectedIds[0]);
+    return Boolean(drawPath && drawPath.positionSequences.length >= 2);
+  }, [handle, selectedIds, documentVersion]);
+
+  const canSplitPath = useMemo(() => {
+    if (!handle || selectedIds.length !== 1) return false;
+    const drawPath = handle.circuitDoc.getDrawPath(selectedIds[0]);
+    return Boolean(drawPath && drawPath.positionSequences.length > 2);
+  }, [handle, selectedIds, documentVersion]);
+
+  const canMergePaths = useMemo(() => {
+    if (!handle || selectedIds.length !== 2) return false;
+    return handle.canMergeDrawPaths(selectedIds[0], selectedIds[1]);
+  }, [handle, selectedIds, documentVersion]);
+
   return {
     body,
+    canMergePaths,
+    canReversePath,
+    canSplitPath,
     caretLineIndex,
     currentDefId,
     currentTool,
@@ -2111,8 +2141,10 @@ function useAppState(handle: ImperativeAppHandle | null) {
     onDeleteSelection,
     onGridPitchChange,
     onMajorGridEveryChange,
+    onMergePaths,
     onOpenTexUpload,
     onPasteSelection,
+    onReversePath,
     onSelectTool,
     onToggleGridVisible,
     onTogglePinSnap,
@@ -2833,11 +2865,16 @@ function AppShell({
       />
 
       <ToolRailView
+        canMergePaths={appState.canMergePaths}
+        canReversePath={appState.canReversePath}
+        canSplitPath={appState.canSplitPath}
         currentDefTikzName={currentDefTikzName}
         currentTool={appState.currentTool}
         gridPitch={appState.gridPitch}
         gridVisible={appState.gridVisible}
         onGridPitchChange={appState.onGridPitchChange}
+        onMergePaths={appState.onMergePaths}
+        onReversePath={appState.onReversePath}
         onSelectTool={appState.onSelectTool}
         onSelectSymbolShortcut={selectSymbolShortcut}
         onToggleGridVisible={appState.onToggleGridVisible}

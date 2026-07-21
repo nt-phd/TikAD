@@ -447,6 +447,7 @@ export type ToolType =
   | 'place-node'
   | 'wire'
   | 'delete'
+  | 'split-path'
   | 'draw-text'
   | 'draw-rectangle'
   | 'draw-circle'

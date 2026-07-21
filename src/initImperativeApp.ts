@@ -701,6 +701,83 @@ function mergeSnappedDrawStatement(
   return merged ? applyEditableStatementToBody(body, merged) : null;
 }
 
+// Splits a `\draw (a) -- (b) -- (c) ...;` at an intermediate vertex into two
+// statements: `\draw (a) -- (b);` (replacing the original line) and
+// `\draw (b) -- (c) ...;` (appended as a new line). The dual of
+// `mergeSnappedDrawStatement` above.
+function splitDrawPathAtIndex(
+  body: string,
+  statement: EditableStatement,
+  positionIndex: number,
+): { body: string; secondLineIndex: number } | null {
+  if (!isDrawPathStatement(statement)) return null;
+  if (positionIndex <= 0 || positionIndex >= statement.positionTexts.length - 1) return null;
+
+  const firstStatement: EditableStatement = {
+    ...statement,
+    positionTexts: statement.positionTexts.slice(0, positionIndex + 1),
+    segments: statement.segments.slice(0, positionIndex),
+  };
+  const secondStatement: EditableStatement = {
+    ...statement,
+    positionTexts: statement.positionTexts.slice(positionIndex),
+    segments: statement.segments.slice(positionIndex),
+  };
+  const secondLine = emitEditableStatement(secondStatement);
+  if (!secondLine) return null;
+
+  const firstBody = applyEditableStatementToBody(body, firstStatement);
+  const appended = appendLinesToBody(firstBody, [secondLine]);
+  return { body: appended.body, secondLineIndex: appended.startLineIndex };
+}
+
+// Merges two `\draw` statements that share an endpoint into a single statement,
+// reversing whichever side is needed (via reverseDrawPathStatement) so the shared
+// vertex sits at the join. The dual of splitDrawPathAtIndex above. Returns null if
+// the two statements don't share exactly one terminal vertex.
+function mergeDrawPathStatements(
+  first: EditableStatement,
+  second: EditableStatement,
+  firstEndPoint: GridPoint,
+  firstStartPoint: GridPoint,
+  secondStartPoint: GridPoint,
+  secondEndPoint: GridPoint,
+): EditableStatement | null {
+  if (!isDrawPathStatement(first) || !isDrawPathStatement(second)) return null;
+
+  if (pointsEqual(firstEndPoint, secondStartPoint)) {
+    return {
+      ...first,
+      positionTexts: [...first.positionTexts, ...second.positionTexts.slice(1)],
+      segments: [...first.segments, ...second.segments],
+    };
+  }
+  if (pointsEqual(firstStartPoint, secondEndPoint)) {
+    return {
+      ...second,
+      positionTexts: [...second.positionTexts, ...first.positionTexts.slice(1)],
+      segments: [...second.segments, ...first.segments],
+    };
+  }
+  if (pointsEqual(firstStartPoint, secondStartPoint)) {
+    const reversedFirst = reverseDrawPathStatement(first);
+    return {
+      ...reversedFirst,
+      positionTexts: [...reversedFirst.positionTexts, ...second.positionTexts.slice(1)],
+      segments: [...reversedFirst.segments, ...second.segments],
+    };
+  }
+  if (pointsEqual(firstEndPoint, secondEndPoint)) {
+    const reversedSecond = reverseDrawPathStatement(second);
+    return {
+      ...first,
+      positionTexts: [...first.positionTexts, ...reversedSecond.positionTexts.slice(1)],
+      segments: [...first.segments, ...reversedSecond.segments],
+    };
+  }
+  return null;
+}
+
 function appendSnapAwareLine(
   body: string,
   line: string,
@@ -977,6 +1054,10 @@ export interface ImperativeAppHandle {
   getEditableStatementModel: (id: string) => EditableStatement | null;
   getResolvedStatementPositions: (id: string) => Array<string | null>;
   applyEditableStatement: (statement: EditableStatement) => void;
+  splitDrawPathAt: (statement: EditableStatement, positionIndex: number) => void;
+  reverseDrawPath: (id: string) => void;
+  canMergeDrawPaths: (firstId: string, secondId: string) => boolean;
+  mergeDrawPaths: (firstId: string, secondId: string) => void;
   getDef: (defId: string) => ReturnType<typeof registry.get>;
   canPasteSelection: () => boolean;
   copySelection: () => void;
@@ -1237,6 +1318,19 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       parseCurrentBody();
       reconcileSelection('programmatic');
       emitBodyChanged('apply-editable-statement');
+      canvas.refresh();
+    },
+    splitDrawPathAt: (statement, positionIndex) => {
+      const result = splitDrawPathAtIndex(latexDoc.body, statement, positionIndex);
+      if (!result) return;
+      pushUndoSnapshot();
+      latexDoc.body = result.body;
+      syncTikzScale();
+      invalidateRenderDerivedGeometry();
+      parseCurrentBody();
+      selection.setSelectedIds(idsAtLineIndex(circuitDoc, latexDoc.body, statement.sourceLineIndex));
+      reconcileSelection('programmatic');
+      emitBodyChanged('split-draw-path');
       canvas.refresh();
     },
     undo: () => {
@@ -1509,6 +1603,75 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       selection.setSelectedIds(nextSelectedIds);
       reconcileSelection('programmatic');
       emitBodyChanged('editable-statement');
+      canvas.refresh();
+    },
+    splitDrawPathAt: (statement, positionIndex) => {
+      const result = splitDrawPathAtIndex(latexDoc.body, statement, positionIndex);
+      if (!result) return;
+      pushUndoSnapshot();
+      latexDoc.body = result.body;
+      syncTikzScale();
+      invalidateRenderDerivedGeometry();
+      parseCurrentBody();
+      selection.setSelectedIds(idsAtLineIndex(circuitDoc, latexDoc.body, statement.sourceLineIndex));
+      reconcileSelection('programmatic');
+      emitBodyChanged('split-draw-path');
+      canvas.refresh();
+    },
+    reverseDrawPath: (id) => {
+      const statement = getEditableStatementModel(latexDoc.body, id);
+      if (!statement || !isDrawPathStatement(statement)) return;
+      pushUndoSnapshot();
+      latexDoc.body = applyEditableStatementToBody(latexDoc.body, reverseDrawPathStatement(statement));
+      syncTikzScale();
+      invalidateRenderDerivedGeometry();
+      parseCurrentBody();
+      selection.setSelectedIds(idsAtLineIndex(circuitDoc, latexDoc.body, statement.sourceLineIndex));
+      reconcileSelection('programmatic');
+      emitBodyChanged('reverse-draw-path');
+      canvas.refresh();
+    },
+    canMergeDrawPaths: (firstId, secondId) => {
+      const firstDrawPath = circuitDoc.getDrawPath(firstId);
+      const secondDrawPath = circuitDoc.getDrawPath(secondId);
+      if (!firstDrawPath || !secondDrawPath) return false;
+      if (firstDrawPath.positionSequences.length < 2 || secondDrawPath.positionSequences.length < 2) return false;
+      const first = getEditableStatementModel(latexDoc.body, firstId);
+      const second = getEditableStatementModel(latexDoc.body, secondId);
+      if (!first || !second) return false;
+      const firstStartPoint = firstDrawPath.positionSequences[0].point;
+      const firstEndPoint = firstDrawPath.positionSequences[firstDrawPath.positionSequences.length - 1].point;
+      const secondStartPoint = secondDrawPath.positionSequences[0].point;
+      const secondEndPoint = secondDrawPath.positionSequences[secondDrawPath.positionSequences.length - 1].point;
+      return mergeDrawPathStatements(first, second, firstEndPoint, firstStartPoint, secondStartPoint, secondEndPoint) != null;
+    },
+    mergeDrawPaths: (firstId, secondId) => {
+      const firstDrawPath = circuitDoc.getDrawPath(firstId);
+      const secondDrawPath = circuitDoc.getDrawPath(secondId);
+      if (!firstDrawPath || !secondDrawPath) return;
+      const first = getEditableStatementModel(latexDoc.body, firstId);
+      const second = getEditableStatementModel(latexDoc.body, secondId);
+      if (!first || !second) return;
+      const firstStartPoint = firstDrawPath.positionSequences[0].point;
+      const firstEndPoint = firstDrawPath.positionSequences[firstDrawPath.positionSequences.length - 1].point;
+      const secondStartPoint = secondDrawPath.positionSequences[0].point;
+      const secondEndPoint = secondDrawPath.positionSequences[secondDrawPath.positionSequences.length - 1].point;
+      const merged = mergeDrawPathStatements(first, second, firstEndPoint, firstStartPoint, secondStartPoint, secondEndPoint);
+      if (!merged) return;
+      pushUndoSnapshot();
+      const mergedLineIndex = merged.sourceLineIndex;
+      const otherLineIndex = mergedLineIndex === first.sourceLineIndex
+        ? second.sourceLineIndex
+        : first.sourceLineIndex;
+      latexDoc.body = applyEditableStatementToBody(latexDoc.body, merged);
+      latexDoc.body = removeBodyLines(latexDoc.body, [otherLineIndex]);
+      syncTikzScale();
+      invalidateRenderDerivedGeometry();
+      parseCurrentBody();
+      const adjustedLineIndex = mergedLineIndex > otherLineIndex ? mergedLineIndex - 1 : mergedLineIndex;
+      selection.setSelectedIds(idsAtLineIndex(circuitDoc, latexDoc.body, adjustedLineIndex));
+      reconcileSelection('programmatic');
+      emitBodyChanged('merge-draw-paths');
       canvas.refresh();
     },
     getDef: (defId) => registry.get(defId),
