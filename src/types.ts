@@ -479,8 +479,8 @@ export type AppEvent =
   | { type: 'geometry-changed' }
   /** Fired by CodePanel after debounce when the user finishes editing LaTeX manually. */
   | { type: 'user-edited-latex' }
-  /** Fired by CodePanel when the caret moves to another source line. */
-  | { type: 'code-caret-changed'; lineIndex: number }
+  /** Fired by CodePanel when the caret moves, carrying every line touched by the current (possibly multi-range) selection. */
+  | { type: 'code-caret-changed'; lineIndices: number[] }
   | { type: 'history-undo-requested' }
   | { type: 'history-redo-requested' }
   | { type: 'cursor-grid-changed'; gridPt: GridPoint; zoomPercent: number }

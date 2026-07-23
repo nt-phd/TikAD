@@ -1080,7 +1080,7 @@ export interface ImperativeAppHandle {
   setWireRoutingMode: (mode: WireRoutingMode) => void;
   setPositionPickMode: (enabled: boolean) => void;
   setSelectedIds: (selectedIds: string[], source?: 'canvas' | 'code' | 'programmatic') => void;
-  selectSourceLine: (lineIndex: number) => void;
+  selectSourceLine: (lineIndices: number[]) => void;
   setPreamble: (preamble: string) => void;
   setBody: (body: string) => void;
   updateDrawingProps: (id: string, props: Record<string, string | undefined>) => void;
@@ -1443,7 +1443,15 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
   eventBus.on('code-caret-changed', (e) => {
     if (e.type !== 'code-caret-changed') return;
     if (suppressCodeCaretSelection) return;
-    const selectedIds = idsAtLineIndex(circuitDoc, latexDoc.body, e.lineIndex);
+    const seen = new Set<string>();
+    const selectedIds: string[] = [];
+    for (const lineIndex of e.lineIndices) {
+      for (const id of idsAtLineIndex(circuitDoc, latexDoc.body, lineIndex)) {
+        if (seen.has(id)) continue;
+        seen.add(id);
+        selectedIds.push(id);
+      }
+    }
     eventBus.emit({ type: 'selection-changed', selectedIds, source: 'code' });
   });
 
@@ -1720,8 +1728,8 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     setSelectedIds: (selectedIds, source = 'programmatic') => {
       eventBus.emit({ type: 'selection-changed', selectedIds, source });
     },
-    selectSourceLine: (lineIndex) => {
-      eventBus.emit({ type: 'code-caret-changed', lineIndex });
+    selectSourceLine: (lineIndices) => {
+      eventBus.emit({ type: 'code-caret-changed', lineIndices });
     },
     setPreamble: (preamble) => {
       latexDoc.preamble = preamble;

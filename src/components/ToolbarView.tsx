@@ -530,12 +530,6 @@ export function ToolRailView({
     width: 40,
     p: 0,
   } as const;
-  const railConnectedToggleSx = {
-    ...railToggleSx,
-    borderColor: 'divider',
-    borderRadius: 0,
-    mx: 0,
-  } as const;
   const selectLineRouting = (mode: WireRoutingMode) => {
     onWireRoutingModeChange(mode);
     if (currentTool !== 'wire') onSelectTool('wire');
@@ -588,6 +582,7 @@ export function ToolRailView({
         </Tooltip>
       </ToggleButtonGroup>
 
+      <Divider flexItem sx={{ my: 0.5 }} />
       <ToggleButtonGroup
         orientation="vertical"
         size="small"

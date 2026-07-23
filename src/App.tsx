@@ -47,7 +47,7 @@ import RestoreRoundedIcon from '@mui/icons-material/RestoreOutlined';
 import CodeMirror from '@uiw/react-codemirror';
 import type { EditorView } from '@codemirror/view';
 import { lineNumbers } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
+import { EditorSelection, EditorState } from '@codemirror/state';
 import { unifiedMergeView } from '@codemirror/merge';
 import { GRID_SIZE, TIKZ_PT_PER_UNIT, RENDER_SERVER_URL } from './constants';
 import type { ImperativeAppHandle } from './initImperativeApp';
@@ -1731,14 +1731,19 @@ function useAppState(handle: ImperativeAppHandle | null) {
     const unsub = handle.onSelectionChange((nextSelectedIds, source) => {
       if (source === 'code') return;
       if (nextSelectedIds.length === 0) return;
-      const lineIndex = lineIndexFromId(nextSelectedIds[0]);
-      if (lineIndex < 0) return;
+      const lineIndices = [...new Set(
+        nextSelectedIds.map((id) => lineIndexFromId(id)).filter((lineIndex) => lineIndex >= 0),
+      )];
+      if (lineIndices.length === 0) return;
       const view = documentEditorRef.current;
       if (!view) return;
       if (view.hasFocus) return;
-      const docLine = view.state.doc.line(Math.min(lineIndex + 1, view.state.doc.lines));
+      const ranges = lineIndices.map((lineIndex) => {
+        const docLine = view.state.doc.line(Math.min(lineIndex + 1, view.state.doc.lines));
+        return EditorSelection.cursor(docLine.from);
+      });
       view.dispatch({
-        selection: { anchor: docLine.from, head: docLine.from },
+        selection: EditorSelection.create(ranges, ranges.length - 1),
         scrollIntoView: true,
       });
     });
@@ -1756,10 +1761,10 @@ function useAppState(handle: ImperativeAppHandle | null) {
 
   const [caretLineIndex, setCaretLineIndex] = useState<number | null>(null);
 
-  const emitCaretSelection = (lineIndex: number) => {
+  const emitCaretSelection = (lineIndices: number[]) => {
     if (!handle) return;
-    setCaretLineIndex(lineIndex);
-    handle.selectSourceLine(lineIndex);
+    setCaretLineIndex(lineIndices[lineIndices.length - 1] ?? null);
+    handle.selectSourceLine(lineIndices);
   };
 
   const commitPendingLatexEdits = () => {

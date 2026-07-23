@@ -15,6 +15,7 @@ import { styled } from '@mui/material/styles';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import CloseRoundedIcon from '@mui/icons-material/CloseOutlined';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import CallSplitRoundedIcon from '@mui/icons-material/CallSplitRounded';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDownOutlined';
 import AdjustRoundedIcon from '@mui/icons-material/AdjustOutlined';
 import ShowChartRoundedIcon from '@mui/icons-material/ShowChartOutlined';
@@ -1026,6 +1027,7 @@ function StatementTreeLabelInput({
 
 export function StatementEditor({
   onCommit,
+  onSplitAt,
   model,
   positionPick,
   resolvedPositions,
@@ -1033,6 +1035,7 @@ export function StatementEditor({
   stopShortcutPropagation,
 }: {
   onCommit: (statement: EditableStatement) => void;
+  onSplitAt?: (positionIndex: number) => void;
   model: EditableStatement;
   positionPick?: PositionPick | null;
   resolvedPositions?: Array<string | null>;

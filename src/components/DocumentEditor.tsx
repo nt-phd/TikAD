@@ -19,7 +19,7 @@ export function DocumentEditor({
   body: string;
   commitPendingLatexEdits: () => void;
   documentEditorRef: MutableRefObject<EditorView | null>;
-  emitCaretSelection: (lineIndex: number) => void;
+  emitCaretSelection: (lineIndices: number[]) => void;
   markLatexDirty: () => void;
   sx?: SxProps<Theme>;
   setBody: (value: string) => void;
@@ -113,7 +113,12 @@ export function DocumentEditor({
             if (lineChanged || lostFocus) commitPendingLatexEdits();
             activeLineRef.current = lineIndex;
             if (!hasFocus) return;
-            emitCaretSelection(lineIndex);
+            // Ctrl/Cmd+Click adds a range to the selection (CodeMirror's clickAddsSelectionRange
+            // default) — surface every range's line so multi-entity selection reaches the canvas.
+            const lineIndices = [...new Set(
+              update.state.selection.ranges.map((range) => update.state.doc.lineAt(range.head).number - 1),
+            )];
+            emitCaretSelection(lineIndices);
           }}
           style={{ height: '100%' }}
           value={body}
