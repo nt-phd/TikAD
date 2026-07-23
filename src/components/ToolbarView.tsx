@@ -582,11 +582,14 @@ export function ToolRailView({
         </Tooltip>
       </ToggleButtonGroup>
 
-      <Divider flexItem sx={{ my: 0.5 }} />
       <ToggleButtonGroup
         orientation="vertical"
         size="small"
-        sx={{ '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 }, '& .MuiToggleButton-root': railToggleSx }}
+        sx={{
+          mt: -0.5,
+          '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 },
+          '& .MuiToggleButton-root': railToggleSx,
+        }}
       >
         <Tooltip placement="right" title="Merge paths">
           <span>

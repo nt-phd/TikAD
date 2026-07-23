@@ -64,7 +64,9 @@ export class SelectTool extends BaseTool {
   onMouseDown({ point: gridPt }: SnapResult, e: MouseEvent): void {
     if (e.button !== 0) return;
     this.pendingToggleSelectionId = null;
-    const hasMultiSelection = this.selection.count > 1;
+    // With Ctrl/Cmd held, the user intends to add/remove from the selection, not drag a
+    // handle of the already-selected element — even when only one element is selected so far.
+    const hasMultiSelection = this.selection.count > 1 || this.isToggleModifierActive(e);
 
     const endpointTarget = !hasMultiSelection ? this.findSelectedBipoleEndpoint(gridPt) : null;
     if (endpointTarget) {
