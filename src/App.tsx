@@ -17,6 +17,7 @@ import {
   DialogTitle,
   Divider,
   ListSubheader,
+  Menu,
   MenuItem,
   OutlinedInput,
   Pagination,
@@ -1570,6 +1571,12 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const [currentTool, setCurrentTool] = useState<ToolType>('move');
   const [currentDefId, setCurrentDefId] = useState<string | undefined>(undefined);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [ambiguousSelection, setAmbiguousSelection] = useState<{
+    candidateIds: string[];
+    clientX: number;
+    clientY: number;
+    additive: boolean;
+  } | null>(null);
   const [documentVersion, setDocumentVersion] = useState(0);
   const [gridVisible, setGridVisible] = useState(true);
   const [gridPitch, setGridPitch] = useState(0.5);
@@ -1677,6 +1684,9 @@ function useAppState(handle: ImperativeAppHandle | null) {
     const unsubSelection = handle.onSelectionChange((nextSelectedIds) => {
       setSelectedIds(nextSelectedIds);
     });
+    const unsubSelectionAmbiguous = handle.onSelectionAmbiguous((candidateIds, clientX, clientY, additive) => {
+      setAmbiguousSelection({ candidateIds, clientX, clientY, additive });
+    });
     const unsubUndo = handle.onHistoryUndoRequest(() => {
       navigateHistory(-1);
     });
@@ -1690,6 +1700,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
       unsubLatex();
       unsubTool();
       unsubSelection();
+      unsubSelectionAmbiguous();
       unsubUndo();
       unsubRedo();
     };
@@ -2107,7 +2118,35 @@ function useAppState(handle: ImperativeAppHandle | null) {
     return handle.canMergeDrawPaths(selectedIds[0], selectedIds[1]);
   }, [handle, selectedIds, documentVersion]);
 
+  const describeCandidate = (id: string): string => {
+    if (!handle) return id;
+    const comp = handle.circuitDoc.getComponent(id);
+    if (comp) return handle.getDef(comp.defId)?.displayName ?? comp.defId;
+    if (handle.circuitDoc.getWire(id)) return 'Wire';
+    if (handle.circuitDoc.getDrawPath(id)) return 'Draw path';
+    const drawing = handle.circuitDoc.getDrawing(id);
+    if (drawing) return drawing.kind[0].toUpperCase() + drawing.kind.slice(1);
+    return id;
+  };
+
+  const resolveAmbiguousSelection = (chosenId: string) => {
+    if (!ambiguousSelection || !handle) return;
+    const nextIds = ambiguousSelection.additive
+      ? selectedIds.includes(chosenId)
+        ? selectedIds.filter((id) => id !== chosenId)
+        : [...selectedIds, chosenId]
+      : [chosenId];
+    handle.setSelectedIds(nextIds, 'canvas');
+    setAmbiguousSelection(null);
+  };
+
+  const dismissAmbiguousSelection = () => setAmbiguousSelection(null);
+
   return {
+    ambiguousSelection,
+    describeCandidate,
+    dismissAmbiguousSelection,
+    resolveAmbiguousSelection,
     body,
     canMergePaths,
     canReversePath,
@@ -2995,6 +3034,22 @@ function AppShell({
           </Button>
         </DialogActions>
       </Dialog>
+      <Menu
+        anchorPosition={
+          appState.ambiguousSelection
+            ? { top: appState.ambiguousSelection.clientY, left: appState.ambiguousSelection.clientX }
+            : undefined
+        }
+        anchorReference="anchorPosition"
+        onClose={appState.dismissAmbiguousSelection}
+        open={Boolean(appState.ambiguousSelection)}
+      >
+        {appState.ambiguousSelection?.candidateIds.map((id) => (
+          <MenuItem key={id} onClick={() => appState.resolveAmbiguousSelection(id)}>
+            {appState.describeCandidate(id)}
+          </MenuItem>
+        ))}
+      </Menu>
     </>
   );
 }

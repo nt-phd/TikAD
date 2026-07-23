@@ -169,11 +169,28 @@ export class SelectTool extends BaseTool {
       }
     }
 
-    const selectedIds = this.selection.getSelectedIds();
-    const selectedHitId = selectedIds.length > 0
-      ? this.ctx.hitTester.hitTestAmong(gridPt, new Set(selectedIds))
-      : null;
-    const hitId = selectedHitId ?? this.ctx.hitTester.hitTest(gridPt);
+    const candidates = this.ctx.hitTester.hitTestAll(gridPt);
+    const modifierActive = this.isToggleModifierActive(e) || e.shiftKey;
+    // A plain click (no modifier) that lands on multiple candidates, one of which is already
+    // selected, keeps manipulating that element — otherwise a user could never re-drag an
+    // element sitting near others. Any other ambiguous case (modifier held, or none of the
+    // candidates selected yet) must not guess: hand the choice to the user via a picker menu,
+    // like every CAD does, instead of silently picking the nearest one.
+    const alreadySelectedCandidate = !modifierActive
+      ? candidates.find((id) => this.selection.isSelected(id))
+      : undefined;
+    if (candidates.length > 1 && alreadySelectedCandidate === undefined) {
+      this.isMarqueeSelecting = false;
+      this.ctx.emit({
+        type: 'selection-ambiguous',
+        candidateIds: candidates,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        additive: modifierActive,
+      });
+      return;
+    }
+    const hitId = alreadySelectedCandidate ?? candidates[0] ?? null;
 
     if (hitId) {
       this.isMarqueeSelecting = false;

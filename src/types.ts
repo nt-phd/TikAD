@@ -484,7 +484,15 @@ export type AppEvent =
   | { type: 'history-undo-requested' }
   | { type: 'history-redo-requested' }
   | { type: 'cursor-grid-changed'; gridPt: GridPoint; zoomPercent: number }
-  | { type: 'canvas-clicked'; gridPt: GridPoint };
+  | { type: 'canvas-clicked'; gridPt: GridPoint }
+  /** Fired when a canvas click lands on 2+ overlapping/adjacent elements — host UI must show a disambiguation menu. */
+  | {
+      type: 'selection-ambiguous';
+      candidateIds: string[];
+      clientX: number;
+      clientY: number;
+      additive: boolean;
+    };
 
 // ============================================================
 // VIEW

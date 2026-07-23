@@ -1093,6 +1093,7 @@ export interface ImperativeAppHandle {
   onHistoryRedoRequest: (fn: () => void) => () => void;
   onToolChange: (fn: (tool: ToolType, defId?: string) => void) => () => void;
   onSelectionChange: (fn: (selectedIds: string[], source?: 'canvas' | 'code' | 'programmatic') => void) => () => void;
+  onSelectionAmbiguous: (fn: (candidateIds: string[], clientX: number, clientY: number, additive: boolean) => void) => () => void;
   onBodyChange: (fn: () => void) => () => void;
   onSourceChange: (fn: () => void) => () => void;
   onGeometryChange: (fn: () => void) => () => void;
@@ -1778,6 +1779,10 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     onSelectionChange: (fn) => eventBus.on('selection-changed', (event) => {
       if (event.type !== 'selection-changed') return;
       fn(event.selectedIds, event.source);
+    }),
+    onSelectionAmbiguous: (fn) => eventBus.on('selection-ambiguous', (event) => {
+      if (event.type !== 'selection-ambiguous') return;
+      fn(event.candidateIds, event.clientX, event.clientY, event.additive);
     }),
     onBodyChange: (fn) => eventBus.on('body-changed', fn),
     onSourceChange: (fn) => eventBus.on('source-changed', fn),

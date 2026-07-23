@@ -182,6 +182,26 @@ export class HitTester {
   hitTestAmong(gridPt: GridPoint, allowedIds?: Set<string>): string | null {
     let best: string | null = null;
     let bestDist = HIT_THRESHOLD;
+    for (const [id, d] of this.distancesByElement(gridPt, allowedIds)) {
+      if (d < bestDist) { bestDist = d; best = id; }
+    }
+    return best;
+  }
+
+  /** Returns every element within hit threshold at gridPt, nearest first. Used to disambiguate overlapping elements. */
+  hitTestAll(gridPt: GridPoint, allowedIds?: Set<string>): string[] {
+    return [...this.distancesByElement(gridPt, allowedIds)]
+      .filter(([, d]) => d < HIT_THRESHOLD)
+      .sort(([, a], [, b]) => a - b)
+      .map(([id]) => id);
+  }
+
+  private distancesByElement(gridPt: GridPoint, allowedIds?: Set<string>): Map<string, number> {
+    const distances = new Map<string, number>();
+    const record = (id: string, d: number) => {
+      const existing = distances.get(id);
+      if (existing === undefined || d < existing) distances.set(id, d);
+    };
 
     for (const comp of this.doc.components) {
       if (allowedIds && !allowedIds.has(comp.id)) continue;
@@ -221,7 +241,7 @@ export class HitTester {
         const top = topOffset;
         d = distanceToRect(localX, localY, left, top, left + width, top + height);
       }
-      if (d < bestDist) { bestDist = d; best = comp.id; }
+      record(comp.id, d);
     }
 
     for (const wire of this.doc.wires) {
@@ -229,8 +249,7 @@ export class HitTester {
       for (let i = 0; i < wire.points.length - 1; i++) {
         const a = wire.points[i];
         const b = wire.points[i + 1];
-        const d = distPointToSegment(gridPt.x, gridPt.y, a.x, a.y, b.x, b.y);
-        if (d < bestDist) { bestDist = d; best = wire.id; }
+        record(wire.id, distPointToSegment(gridPt.x, gridPt.y, a.x, a.y, b.x, b.y));
       }
     }
 
@@ -239,18 +258,16 @@ export class HitTester {
       for (let i = 0; i < dp.points.length - 1; i++) {
         const a = dp.points[i];
         const b = dp.points[i + 1];
-        const d = distPointToSegment(gridPt.x, gridPt.y, a.x, a.y, b.x, b.y);
-        if (d < bestDist) { bestDist = d; best = dp.id; }
+        record(dp.id, distPointToSegment(gridPt.x, gridPt.y, a.x, a.y, b.x, b.y));
       }
     }
 
     for (const drawing of this.doc.drawings) {
       if (allowedIds && !allowedIds.has(drawing.id)) continue;
-      const d = distanceToDrawing(drawing, gridPt);
-      if (d < bestDist) { bestDist = d; best = drawing.id; }
+      record(drawing.id, distanceToDrawing(drawing, gridPt));
     }
 
-    return best;
+    return distances;
   }
 
   getElementsInRect(a: GridPoint, b: GridPoint): string[] {
