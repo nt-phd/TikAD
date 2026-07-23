@@ -2118,15 +2118,27 @@ function useAppState(handle: ImperativeAppHandle | null) {
     return handle.canMergeDrawPaths(selectedIds[0], selectedIds[1]);
   }, [handle, selectedIds, documentVersion]);
 
-  const describeCandidate = (id: string): string => {
-    if (!handle) return id;
-    const comp = handle.circuitDoc.getComponent(id);
-    if (comp) return handle.getDef(comp.defId)?.displayName ?? comp.defId;
-    if (handle.circuitDoc.getWire(id)) return 'Wire';
-    if (handle.circuitDoc.getDrawPath(id)) return 'Draw path';
-    const drawing = handle.circuitDoc.getDrawing(id);
-    if (drawing) return drawing.kind[0].toUpperCase() + drawing.kind.slice(1);
-    return id;
+  const CANDIDATE_SNIPPET_LENGTH = 28;
+
+  const describeCandidate = (id: string): { label: string; snippet: string | null } => {
+    const label = (() => {
+      if (!handle) return id;
+      const comp = handle.circuitDoc.getComponent(id);
+      if (comp) return handle.getDef(comp.defId)?.displayName ?? comp.defId;
+      if (handle.circuitDoc.getWire(id)) return 'Wire';
+      if (handle.circuitDoc.getDrawPath(id)) return 'Draw path';
+      const drawing = handle.circuitDoc.getDrawing(id);
+      if (drawing) return drawing.kind[0].toUpperCase() + drawing.kind.slice(1);
+      return id;
+    })();
+    const lineIndex = lineIndexFromId(id);
+    const rawLine = lineIndex >= 0 ? body.split('\n')[lineIndex]?.trim() : undefined;
+    const snippet = rawLine
+      ? rawLine.length > CANDIDATE_SNIPPET_LENGTH
+        ? `${rawLine.slice(0, CANDIDATE_SNIPPET_LENGTH)}…`
+        : rawLine
+      : null;
+    return { label, snippet };
   };
 
   const resolveAmbiguousSelection = (chosenId: string) => {
@@ -3044,11 +3056,28 @@ function AppShell({
         onClose={appState.dismissAmbiguousSelection}
         open={Boolean(appState.ambiguousSelection)}
       >
-        {appState.ambiguousSelection?.candidateIds.map((id) => (
-          <MenuItem key={id} onClick={() => appState.resolveAmbiguousSelection(id)}>
-            {appState.describeCandidate(id)}
-          </MenuItem>
-        ))}
+        {appState.ambiguousSelection?.candidateIds.map((id) => {
+          const { label, snippet } = appState.describeCandidate(id);
+          return (
+            <MenuItem key={id} onClick={() => appState.resolveAmbiguousSelection(id)} sx={{ gap: 2 }}>
+              <Box component="span">{label}</Box>
+              {snippet ? (
+                <Box
+                  component="span"
+                  sx={{
+                    color: 'text.secondary',
+                    flex: 1,
+                    fontFamily: '"Roboto Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+                    fontSize: 11,
+                    textAlign: 'right',
+                  }}
+                >
+                  {snippet}
+                </Box>
+              ) : null}
+            </MenuItem>
+          );
+        })}
       </Menu>
     </>
   );
