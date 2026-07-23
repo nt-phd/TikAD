@@ -465,6 +465,10 @@
   <div class="conn" id="connCard">
     <div class="conn-row">
       <div class="field">
+        <label for="serverUrl">Server URL</label>
+        <input id="serverUrl" type="text" placeholder="https://go.tikad.app/api" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="field">
         <label for="token">Dashboard token</label>
         <input id="token" type="password" placeholder="FEEDBACK_DASHBOARD_TOKEN" autocomplete="off" spellcheck="false" />
       </div>
@@ -502,9 +506,12 @@
     'use strict';
 
     var STORAGE_TOKEN = 'tikad-feedback-token';
+    var STORAGE_URL = 'tikad-feedback-server-url';
+    var DEFAULT_SERVER_URL = 'https://go.tikad.app/api';
     var POLL_MS = 4000;
 
     var els = {
+      serverUrl: document.getElementById('serverUrl'),
       token: document.getElementById('token'),
       connectBtn: document.getElementById('connectBtn'),
       toggleTokenBtn: document.getElementById('toggleTokenBtn'),
@@ -548,19 +555,22 @@
     function loadToken() {
       try {
         els.token.value = localStorage.getItem(STORAGE_TOKEN) || '';
+        els.serverUrl.value = localStorage.getItem(STORAGE_URL) || DEFAULT_SERVER_URL;
       } catch (e) { /* localStorage unavailable */ }
     }
 
     function saveToken() {
       try {
         localStorage.setItem(STORAGE_TOKEN, els.token.value.trim());
+        localStorage.setItem(STORAGE_URL, els.serverUrl.value.trim());
       } catch (e) { /* ignore */ }
     }
 
     function buildEndpoint() {
       var tok = els.token.value.trim();
-      if (!tok) return null;
-      return 'feedback-events?token=' + encodeURIComponent(tok);
+      var base = els.serverUrl.value.trim().replace(/\/+$/, '');
+      if (!tok || !base) return null;
+      return base + '/feedback-events?token=' + encodeURIComponent(tok);
     }
 
     function setStatus(msg, kind) {
@@ -686,6 +696,10 @@
     }
 
     els.connectBtn.addEventListener('click', function () {
+      if (!els.serverUrl.value.trim()) {
+        setStatus('Enter the server URL.', 'err');
+        return;
+      }
       if (!els.token.value.trim()) {
         setStatus('Enter the dashboard token.', 'err');
         return;
@@ -703,9 +717,12 @@
     els.token.addEventListener('keydown', function (e) {
       if (e.key === 'Enter') els.connectBtn.click();
     });
+    els.serverUrl.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') els.connectBtn.click();
+    });
 
     loadToken();
-    if (els.token.value.trim()) {
+    if (els.token.value.trim() && els.serverUrl.value.trim()) {
       startPolling();
     }
   })();
