@@ -1632,8 +1632,14 @@ function useAppState(handle: ImperativeAppHandle | null) {
     setEnvironmentType(initialEnvironment.type);
     setEnvironmentOptions(initialEnvironment.options);
     setGridVisible(handle.getGridVisible());
-    setGridPitch(handle.getGridPitch());
-    setMajorGridEvery(handle.getMajorGridEvery());
+    const storedGridPitch = Number.parseFloat(localStorage.getItem('tikad-grid-pitch') ?? '');
+    const initialGridPitch = Number.isFinite(storedGridPitch) ? storedGridPitch : handle.getGridPitch();
+    setGridPitch(initialGridPitch);
+    handle.setGridPitch(initialGridPitch);
+    const storedMajorGridEvery = Number.parseInt(localStorage.getItem('tikad-major-grid-every') ?? '', 10);
+    const initialMajorGridEvery = Number.isFinite(storedMajorGridEvery) ? storedMajorGridEvery : handle.getMajorGridEvery();
+    setMajorGridEvery(initialMajorGridEvery);
+    handle.setMajorGridEvery(initialMajorGridEvery);
     setPinSnapEnabled(handle.getPinSnapEnabled());
     setWireRoutingMode(handle.getWireRoutingMode());
 
@@ -1958,6 +1964,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const onGridPitchChange = (value: number) => {
     setGridPitch(value);
     handle?.setGridPitch(value);
+    localStorage.setItem('tikad-grid-pitch', String(value));
   };
 
   const onEnvironmentTypeChange = (value: EnvironmentType) => {
@@ -1981,6 +1988,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const onMajorGridEveryChange = (value: number) => {
     setMajorGridEvery(value);
     handle?.setMajorGridEvery(value);
+    localStorage.setItem('tikad-major-grid-every', String(value));
   };
 
   const restoreHistoryEntry = (entry: HistoryEntry, index: number) => {
