@@ -115,13 +115,13 @@ function distanceToDrawing(drawing: DrawingInstance, pt: GridPoint): number {
 function getPlacedHitMetrics(
   comp: MonopoleInstance | NodeInstance,
   doc: CircuitDocument,
-  def: ComponentDef,
+  def: ComponentDef | undefined,
 ): {
   height: number;
   leftOffset: number;
   topOffset: number;
   width: number;
-} {
+} | null {
   const measuredBounds = doc.getMeasuredComponentBounds(comp.id);
   if (measuredBounds) {
     return {
@@ -131,6 +131,7 @@ function getPlacedHitMetrics(
       topOffset: measuredBounds.top - comp.position.y,
     };
   }
+  if (!def) return null;
   const { width, height, leftOffset, topOffset } = getPlacedComponentMetrics(def, 1);
   return { width, height, leftOffset, topOffset };
 }
@@ -230,8 +231,9 @@ export class HitTester {
         }
       } else if (comp.type === 'monopole' || comp.type === 'node') {
         const def = this.registry.get(comp.defId);
-        if (!def) continue;
-        const { width, height, leftOffset, topOffset } = getPlacedHitMetrics(comp, this.doc, def);
+        const metrics = getPlacedHitMetrics(comp, this.doc, def);
+        if (!metrics) continue;
+        const { width, height, leftOffset, topOffset } = metrics;
         const angle = -(comp.rotation ?? 0) * Math.PI / 180;
         const relX = gridPt.x - comp.position.x;
         const relY = gridPt.y - comp.position.y;
@@ -306,8 +308,9 @@ export class HitTester {
       }
 
       const def = this.registry.get(comp.defId);
-      if (!def) continue;
-      const { width, height, leftOffset, topOffset } = getPlacedHitMetrics(comp, this.doc, def);
+      const metrics = getPlacedHitMetrics(comp, this.doc, def);
+      if (!metrics) continue;
+      const { width, height, leftOffset, topOffset } = metrics;
       const leftLocal = leftOffset;
       const topLocal = topOffset;
       const angle = (comp.rotation ?? 0) * Math.PI / 180;
