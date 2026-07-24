@@ -362,7 +362,7 @@ function buildStructuredDrawPath(
 
   const segments: DrawPathSegment[] = nonNodeSegments.map((segment) => {
     if (segment.kind === 'connection') {
-      return { kind: 'connection', operator: segment.operator };
+      return { kind: 'connection', operator: segment.operator, isCycle: segment.isCycle };
     }
     const tikzName = segment.tikzName ? normalizeTikzComponentName(segment.tikzName) : undefined;
     const defId = tikzName ? (tikzToDefId.get(tikzName) ?? tikzName) : undefined;

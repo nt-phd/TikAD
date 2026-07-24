@@ -237,6 +237,8 @@ export interface DrawPathSegment {
   kind: 'connection' | 'bipole';
   // for connection segments:
   operator?: '--' | '|-' | '-|';
+  /** True when this connection segment was written as `-- cycle` — closes back to the path's first point. */
+  isCycle?: boolean;
   // for bipole segments:
   defId?: string;
   props?: ComponentProps;

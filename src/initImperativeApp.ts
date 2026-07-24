@@ -705,28 +705,44 @@ function mergeSnappedDrawStatement(
 // statements: `\draw (a) -- (b);` (replacing the original line) and
 // `\draw (b) -- (c) ...;` (appended as a new line). The dual of
 // `mergeSnappedDrawStatement` above.
+//
+// If the split point is the path's last vertex, there's nothing after it to form a second
+// statement — this only happens when that vertex closes a cycle (`-- cycle`), since ordinary
+// open paths can't be split on their own endpoint (SplitPathTool never offers that vertex).
+// In that case the cycle segment is unwound into an explicit coordinate and the path stays a
+// single (now open) statement, with no second line appended.
 function splitDrawPathAtIndex(
   body: string,
   statement: EditableStatement,
   positionIndex: number,
-): { body: string; secondLineIndex: number } | null {
+): { body: string; secondLineIndex?: number } | null {
   if (!isDrawPathStatement(statement)) return null;
-  if (positionIndex <= 0 || positionIndex >= statement.positionTexts.length - 1) return null;
+  if (positionIndex <= 0 || positionIndex >= statement.positionTexts.length) return null;
+
+  const segments = statement.segments.map((segment) =>
+    segment.kind === 'connection' && segment.isCycle ? { ...segment, isCycle: false } : segment,
+  );
 
   const firstStatement: EditableStatement = {
     ...statement,
     positionTexts: statement.positionTexts.slice(0, positionIndex + 1),
-    segments: statement.segments.slice(0, positionIndex),
+    segments: segments.slice(0, positionIndex),
   };
+  const firstBody = applyEditableStatementToBody(body, firstStatement);
+
+  const secondSegments = segments.slice(positionIndex);
+  if (secondSegments.length === 0) {
+    return { body: firstBody };
+  }
+
   const secondStatement: EditableStatement = {
     ...statement,
     positionTexts: statement.positionTexts.slice(positionIndex),
-    segments: statement.segments.slice(positionIndex),
+    segments: secondSegments,
   };
   const secondLine = emitEditableStatement(secondStatement);
   if (!secondLine) return null;
 
-  const firstBody = applyEditableStatementToBody(body, firstStatement);
   const appended = appendLinesToBody(firstBody, [secondLine]);
   return { body: appended.body, secondLineIndex: appended.startLineIndex };
 }

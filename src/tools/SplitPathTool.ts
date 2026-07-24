@@ -15,7 +15,11 @@ export class SplitPathTool extends BaseTool {
     if (!id) return null;
     const dp = this.ctx.getDocument().getDrawPath(id);
     if (!dp || dp.positionSequences.length <= 2) return null;
-    for (let index = 1; index < dp.positionSequences.length - 1; index++) {
+    // Any vertex but the first is a valid split point. Splitting on the last vertex of an
+    // ordinary open path is a no-op (nothing follows it), same as splitting on a plain
+    // coordinate that happens to equal the first point — splitDrawPathAtIndex handles that
+    // degenerate case on its own. Splitting on a closed path's cycle point opens the cycle.
+    for (let index = 1; index < dp.positionSequences.length; index++) {
       const pt = dp.positionSequences[index].point;
       if (Math.hypot(gridPt.x - pt.x, gridPt.y - pt.y) <= HANDLE_HIT_RADIUS) {
         return { id, index };
