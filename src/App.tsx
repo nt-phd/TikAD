@@ -1839,17 +1839,19 @@ function useAppState(handle: ImperativeAppHandle | null) {
     setBugReportStatus('sending');
     const episode = historyRef.current.slice(episodeStartIndexRef.current);
     try {
-      const res = await fetch(`${RENDER_SERVER_URL}/bug-report`, {
+      const res = await fetch(`${RENDER_SERVER_URL}/render`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          latex: handle?.getFullLatexSource() ?? '',
+          purpose: 'bug-report',
           description: bugReportDescription.trim(),
-          latex: handle?.getFullLatexSource(),
           sessionId: sessionIdRef.current,
           episodeHistory: episode,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
+      episodeStartIndexRef.current = historyRef.current.length;
       setBugReportStatus('sent');
       setBugReportDescription('');
     } catch (error) {

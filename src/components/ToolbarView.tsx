@@ -58,9 +58,7 @@ import shortIconSvg from './icons/toolbar/short.svg?raw';
 
 const TOOLBAR_HEIGHT = 34;
 
-// The bug-report endpoint isn't deployed to production yet — hide the entry
-// point until render-server/server.mjs is rolled out there (see deploy/deploy.sh).
-const BUG_REPORT_ENABLED = false;
+const BUG_REPORT_ENABLED = true;
 
 const TOOL_LABELS: Array<{ activeWhen: ToolType; icon: ReactNode; id: ToolType; label: string }> = [
   { id: 'select', activeWhen: 'select', label: 'Select', icon: <NavigationRoundedIcon fontSize="small" sx={{ transform: 'rotate(-90deg)' }} /> },
@@ -347,7 +345,7 @@ export function ToolbarView({
               }}
               variant="text"
             >
-              Found a bug?
+              Hit a bug?
             </Button>
           </Box>
         ) : null}
