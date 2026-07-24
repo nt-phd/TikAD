@@ -193,6 +193,7 @@ function parseConnectionSegment(
         kind: 'connection',
         operator: opMatch[1] as EditableConnectionOperator,
         endPositionText: firstPositionText,
+        isCycle: true,
       },
     };
   }
@@ -298,7 +299,7 @@ export function emitStructuredStatementBody(structured: StructuredStatementBody)
     if (segment.kind === 'connection') {
       const endPos = structured.positionTexts[positionIndex + 1];
       if (!endPos) return null;
-      parts.push(`${segment.operator} ${endPos}`.trim());
+      parts.push(segment.isCycle ? `${segment.operator} cycle`.trim() : `${segment.operator} ${endPos}`.trim());
       positionIndex += 1;
       continue;
     }

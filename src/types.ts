@@ -343,6 +343,8 @@ export interface EditableConnectionSegment {
   kind: 'connection';
   endPositionText: string;
   operator: EditableConnectionOperator;
+  /** True when this segment was written as `-- cycle` — closes back to the path's first point. */
+  isCycle?: boolean;
 }
 
 export interface EditableBipoleSegment {
