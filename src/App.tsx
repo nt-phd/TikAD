@@ -1580,7 +1580,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const [documentVersion, setDocumentVersion] = useState(0);
   const [gridVisible, setGridVisible] = useState(true);
   const [gridPitch, setGridPitch] = useState(0.5);
-  const [majorGridEvery, setMajorGridEvery] = useState(5);
+  const [majorGridEvery, setMajorGridEvery] = useState(4);
   const [pinSnapEnabled, setPinSnapEnabled] = useState(true);
   const [wireRoutingMode, setWireRoutingMode] = useState<WireRoutingMode>('auto');
   const [bugReportOpen, setBugReportOpen] = useState(false);
@@ -3059,17 +3059,19 @@ function AppShell({
         {appState.ambiguousSelection?.candidateIds.map((id) => {
           const { label, snippet } = appState.describeCandidate(id);
           return (
-            <MenuItem key={id} onClick={() => appState.resolveAmbiguousSelection(id)} sx={{ gap: 2 }}>
-              <Box component="span">{label}</Box>
+            <MenuItem
+              key={id}
+              onClick={() => appState.resolveAmbiguousSelection(id)}
+              sx={{ alignItems: 'flex-start', flexDirection: 'column', gap: 0.25 }}
+            >
+              <Box component="span" sx={{ fontSize: 13 }}>{label}</Box>
               {snippet ? (
                 <Box
                   component="span"
                   sx={{
                     color: 'text.secondary',
-                    flex: 1,
                     fontFamily: '"Roboto Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
                     fontSize: 11,
-                    textAlign: 'right',
                   }}
                 >
                   {snippet}

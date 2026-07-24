@@ -18,7 +18,7 @@ import type { ComponentDef, ScaleFamily } from '../types';
 export const scaleState = {
   tikzScale: 1.0,
   gridPitch: 0.5,
-  majorGridEvery: 5,
+  majorGridEvery: 4,
   componentScales: {
     resistors: 1.0,
     capacitors: 1.0,
