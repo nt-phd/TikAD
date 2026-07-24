@@ -175,11 +175,28 @@ function parseNodeSegmentFromKeyword(
   };
 }
 
-function parseConnectionSegment(source: string, index: number): { end: number; segment: EditableConnectionSegment } | null {
+function parseConnectionSegment(
+  source: string,
+  index: number,
+  firstPositionText: string,
+): { end: number; segment: EditableConnectionSegment } | null {
   const cursor = skipTikzWhitespace(source, index);
   const opMatch = /^(--|\|-|-\|)/.exec(source.slice(cursor));
   if (!opMatch) return null;
-  const position = scanTikzPointSequence(source, cursor + opMatch[1].length);
+  const afterOp = cursor + opMatch[1].length;
+  // `-- cycle` closes the path back to its first point instead of naming a new coordinate.
+  const cycleEnd = readKeyword(source, afterOp, 'cycle');
+  if (cycleEnd != null) {
+    return {
+      end: cycleEnd,
+      segment: {
+        kind: 'connection',
+        operator: opMatch[1] as EditableConnectionOperator,
+        endPositionText: firstPositionText,
+      },
+    };
+  }
+  const position = scanTikzPointSequence(source, afterOp);
   if (!position) return null;
   return {
     end: position.end,
@@ -344,7 +361,7 @@ export function parseStructuredStatementBody(body: string): StructuredStatementB
       cursor = bipole.end;
       continue;
     }
-    const connection = parseConnectionSegment(body, cursor);
+    const connection = parseConnectionSegment(body, cursor, start.text);
     if (connection) {
       segments.push(connection.segment);
       positionTexts.push(connection.segment.endPositionText);
