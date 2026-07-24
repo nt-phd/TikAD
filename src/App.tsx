@@ -1597,6 +1597,13 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const historyRef = useRef(history);
   const suppressHistoryRef = useRef(false);
   const sessionIdRef = useRef<string>(crypto.randomUUID());
+  const browserIdRef = useRef<string>((() => {
+    const stored = localStorage.getItem('tikad-browser-id');
+    if (stored) return stored;
+    const next = crypto.randomUUID();
+    localStorage.setItem('tikad-browser-id', next);
+    return next;
+  })());
   const episodeStartIndexRef = useRef(0);
   // Tracks the latest body text typed in the editor without triggering
   // a render on every keystroke. Only committed when commitPendingLatexEdits fires.
@@ -1819,6 +1826,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
         latex,
         purpose,
         sessionId: sessionIdRef.current,
+        browserId: browserIdRef.current,
         episodeHistory: episode,
       }),
       keepalive: true,
@@ -1847,6 +1855,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
           purpose: 'bug-report',
           description: bugReportDescription.trim(),
           sessionId: sessionIdRef.current,
+          browserId: browserIdRef.current,
           episodeHistory: episode,
         }),
       });
