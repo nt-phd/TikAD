@@ -524,11 +524,13 @@ export function ToolRailView({
     closeGridPitchMenu();
   };
   const railToggleSx = {
+    border: 0,
     borderRadius: 1,
     height: 40,
     minWidth: 0,
     width: 40,
     p: 0,
+    '&.Mui-disabled': { border: 0 },
   } as const;
   const selectLineRouting = (mode: WireRoutingMode) => {
     onWireRoutingModeChange(mode);
@@ -582,30 +584,34 @@ export function ToolRailView({
         </Tooltip>
       </ToggleButtonGroup>
 
-      <ToggleButtonGroup
-        orientation="vertical"
-        size="small"
-        sx={{
-          mt: -0.5,
-          '& .MuiToggleButtonGroup-grouped': { border: 0, m: 0.25 },
-          '& .MuiToggleButton-root': railToggleSx,
-        }}
-      >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: -0.25 }}>
         <Tooltip placement="right" title="Merge paths">
           <span>
-            <ToggleButton aria-label="Merge paths" disabled={!canMergePaths} onClick={onMergePaths} value="merge-paths">
+            <ToggleButton
+              aria-label="Merge paths"
+              disabled={!canMergePaths}
+              onClick={onMergePaths}
+              sx={railToggleSx}
+              value="merge-paths"
+            >
               <CallMergeRoundedIcon fontSize="small" />
             </ToggleButton>
           </span>
         </Tooltip>
         <Tooltip placement="right" title="Reverse path">
           <span>
-            <ToggleButton aria-label="Reverse path" disabled={!canReversePath} onClick={onReversePath} value="reverse-path">
+            <ToggleButton
+              aria-label="Reverse path"
+              disabled={!canReversePath}
+              onClick={onReversePath}
+              sx={railToggleSx}
+              value="reverse-path"
+            >
               <ThreeSixtyRoundedIcon fontSize="small" />
             </ToggleButton>
           </span>
         </Tooltip>
-      </ToggleButtonGroup>
+      </Box>
 
       <Divider flexItem sx={{ my: 0.5 }} />
       <ToggleButtonGroup
