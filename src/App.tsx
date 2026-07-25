@@ -61,7 +61,9 @@ import { PanelSection } from './components/PanelSection';
 import { StatementEditor, type PositionPick } from './components/StatementEditor';
 import { ToolbarView, ToolRailView, type SymbolShortcutTikzName } from './components/ToolbarView';
 import { createCodeMirrorTheme, latexLanguage } from './components/ui/codeMirrorTheme';
-import { DEFAULT_PREAMBLE } from './model/LatexDocument';
+import { DEFAULT_PREAMBLE, LatexDocument } from './model/LatexDocument';
+import { DocumentHistory } from './model/DocumentHistory';
+import type { HistoryEntry } from './model/DocumentHistory';
 import type {
   ComponentDef,
   EditableStatement,
@@ -71,7 +73,6 @@ import type {
 import type { WireRoutingMode } from './types';
 import { componentCatalog } from './data/componentCatalog';
 import statementEditorSchemaJson from './data/statementEditorSchema.json';
-type HistoryEntry = { ts: number; source: string };
 type ThemeMode = 'light' | 'dark';
 
 function CodePanelLayout({
@@ -1586,16 +1587,17 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const [bugReportOpen, setBugReportOpen] = useState(false);
   const [bugReportDescription, setBugReportDescription] = useState('');
   const [bugReportStatus, setBugReportStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
-  const [history, setHistory] = useState<HistoryEntry[]>(() => {
-    const raw = localStorage.getItem('tikad-history');
-    return raw ? (JSON.parse(raw) as HistoryEntry[]) : [];
-  });
+  const docHistoryRef = useRef<DocumentHistory | null>(null);
+  if (!docHistoryRef.current) docHistoryRef.current = DocumentHistory.loadFromStorage();
+  const docHistory = docHistoryRef.current;
+  const [history, setHistoryVersion] = useState<readonly HistoryEntry[]>(() => docHistory.getEntries());
+  const syncHistory = () => {
+    setHistoryVersion(docHistory.getEntries());
+  };
   const documentEditorRef = useRef<EditorView | null>(null);
   const texUploadInputRef = useRef<HTMLInputElement | null>(null);
   const pendingLatexCommitRef = useRef(false);
-  const historyCursorRef = useRef<number | null>(null);
-  const historyRef = useRef(history);
-  const suppressHistoryRef = useRef(false);
+  const suppressRecordingRef = useRef(false);
   const sessionIdRef = useRef<string>(crypto.randomUUID());
   const browserIdRef = useRef<string>((() => {
     const stored = localStorage.getItem('tikad-browser-id');
@@ -1604,19 +1606,11 @@ function useAppState(handle: ImperativeAppHandle | null) {
     localStorage.setItem('tikad-browser-id', next);
     return next;
   })());
-  const episodeStartIndexRef = useRef(0);
   // Tracks the latest body text typed in the editor without triggering
   // a render on every keystroke. Only committed when commitPendingLatexEdits fires.
   const latestEditorBodyRef = useRef(body);
 
   const preamble = useMemo(() => buildPreambleFromPackages(preamblePackages), [preamblePackages]);
-
-  useEffect(() => {
-    historyRef.current = history;
-    if (historyCursorRef.current === null || historyCursorRef.current >= history.length) {
-      historyCursorRef.current = history.length > 0 ? history.length - 1 : null;
-    }
-  }, [history]);
 
   useEffect(() => {
     if (!handle) return;
@@ -1627,10 +1621,12 @@ function useAppState(handle: ImperativeAppHandle | null) {
     const initialPreamble = handle.getPreamble();
     setPreamblePackages(parsePreamblePackages(initialPreamble));
     setDocumentSettings(parsePreambleSettings(initialPreamble));
-    const savedSource = localStorage.getItem('tikad-document');
-    if (savedSource) {
+    const draft = docHistory.loadDraft();
+    const currentEntrySource = docHistory.getCurrentSource();
+    const sourceToLoad = draft && draft.source !== currentEntrySource ? draft.source : currentEntrySource;
+    if (sourceToLoad) {
       handle.resetInitialFit();
-      handle.loadFullLatexSource(savedSource);
+      handle.loadFullLatexSource(sourceToLoad);
     }
     const initialBody = handle.getBody();
     latestEditorBodyRef.current = initialBody;
@@ -1658,37 +1654,13 @@ function useAppState(handle: ImperativeAppHandle | null) {
       setEnvironmentType(nextEnvironment.type);
       setEnvironmentOptions(nextEnvironment.options);
       setDocumentVersion((version) => version + 1);
-      if (!suppressHistoryRef.current) {
-        const source = handle.getFullLatexSource();
-        setHistory((prev) => {
-          const cursor = historyCursorRef.current;
-          const base = cursor !== null && cursor < prev.length - 1
-            ? prev.slice(0, cursor + 1)
-            : prev;
-          if (base.length > 0 && base[base.length - 1].source === source) {
-            historyCursorRef.current = base.length - 1;
-            if (base !== prev) {
-              localStorage.setItem('tikad-history', JSON.stringify(base));
-              historyRef.current = base;
-            }
-            return base;
-          }
-          const entry: HistoryEntry = { ts: Date.now(), source };
-          const next = [...base, entry];
-          if (next.length > 30) next.shift();
-          historyCursorRef.current = next.length - 1;
-          historyRef.current = next;
-          localStorage.setItem('tikad-history', JSON.stringify(next));
-          return next;
-        });
+      if (!suppressRecordingRef.current) {
+        docHistory.record(handle.getFullLatexSource());
+        syncHistory();
       }
     });
     const unsubGeometry = handle.onGeometryChange(() => {
       setDocumentVersion((version) => version + 1);
-    });
-    const unsubLatex = handle.onLatexEdited(() => {
-      const source = handle.getFullLatexSource();
-      localStorage.setItem('tikad-document', source);
     });
     const unsubTool = handle.onToolChange((tool, defId) => {
       setCurrentTool(tool);
@@ -1701,16 +1673,15 @@ function useAppState(handle: ImperativeAppHandle | null) {
       setAmbiguousSelection({ candidateIds, clientX, clientY, additive });
     });
     const unsubUndo = handle.onHistoryUndoRequest(() => {
-      navigateHistory(-1);
+      onUndo();
     });
     const unsubRedo = handle.onHistoryRedoRequest(() => {
-      navigateHistory(1);
+      onRedo();
     });
 
     return () => {
       unsubBody();
       unsubGeometry();
-      unsubLatex();
       unsubTool();
       unsubSelection();
       unsubSelectionAmbiguous();
@@ -1779,6 +1750,28 @@ function useAppState(handle: ImperativeAppHandle | null) {
     handle.setPreamble(preamble);
   }, [handle, preamble]);
 
+  // Backstop for data loss: if the user reloads/closes mid-edit (before the line-change/blur
+  // commit signal fires), synchronously persist the history and whatever is still uncommitted
+  // in the editor. This is the only place a draft is written outside of a normal commit.
+  useEffect(() => {
+    const flush = () => {
+      docHistory.flush();
+      if (pendingLatexCommitRef.current && handle) {
+        const pendingSource = new LatexDocument(handle.getPreamble(), latestEditorBodyRef.current).toFullSource();
+        docHistory.saveDraft(pendingSource);
+      }
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('beforeunload', flush);
+    };
+  }, [handle]);
+
   const stopShortcutPropagation = (event: ReactKeyboardEvent<HTMLElement>) => {
     event.stopPropagation();
   };
@@ -1817,8 +1810,8 @@ function useAppState(handle: ImperativeAppHandle | null) {
   };
 
   const reportPositiveFeedback = (latex: string, purpose: string) => {
-    const episode = historyRef.current.slice(episodeStartIndexRef.current);
-    episodeStartIndexRef.current = historyRef.current.length;
+    const episode = docHistory.sliceEpisode();
+    docHistory.markEpisodeConsumed();
     fetch(`${RENDER_SERVER_URL}/render`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1845,7 +1838,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const onSubmitBugReport = async () => {
     if (!bugReportDescription.trim()) return;
     setBugReportStatus('sending');
-    const episode = historyRef.current.slice(episodeStartIndexRef.current);
+    const episode = docHistory.sliceEpisode();
     try {
       const res = await fetch(`${RENDER_SERVER_URL}/render`, {
         method: 'POST',
@@ -1860,7 +1853,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      episodeStartIndexRef.current = historyRef.current.length;
+      docHistory.markEpisodeConsumed();
       setBugReportStatus('sent');
       setBugReportDescription('');
     } catch (error) {
@@ -2002,13 +1995,11 @@ function useAppState(handle: ImperativeAppHandle | null) {
     localStorage.setItem('tikad-major-grid-every', String(value));
   };
 
-  const restoreHistoryEntry = (entry: HistoryEntry, index: number) => {
+  const applyHistoryEntry = (entry: HistoryEntry) => {
     if (!handle) return;
-    historyCursorRef.current = index;
-    suppressHistoryRef.current = true;
+    suppressRecordingRef.current = true;
     handle.loadFullLatexSource(entry.source);
-    suppressHistoryRef.current = false;
-    localStorage.setItem('tikad-document', entry.source);
+    suppressRecordingRef.current = false;
     setSelectedIds(handle.getSelectedIds());
     setDocumentSettings(parsePreambleSettings(handle.getPreamble()));
     const nextBody = handle.getBody();
@@ -2020,32 +2011,16 @@ function useAppState(handle: ImperativeAppHandle | null) {
     setDocumentVersion((version) => version + 1);
   };
 
-  const currentHistoryIndex = (entries: HistoryEntry[]) => {
-    if (!handle || entries.length === 0) return -1;
-    const source = handle.getFullLatexSource();
-    const cursor = historyCursorRef.current;
-    if (cursor !== null && entries[cursor]?.source === source) return cursor;
-    for (let index = entries.length - 1; index >= 0; index -= 1) {
-      if (entries[index].source === source) return index;
-    }
-    return entries.length - 1;
-  };
-
-  const navigateHistory = (direction: -1 | 1) => {
-    const entries = historyRef.current;
-    if (!handle || entries.length === 0) return;
-    const currentIndex = currentHistoryIndex(entries);
-    const nextIndex = currentIndex + direction;
-    if (nextIndex < 0 || nextIndex >= entries.length) return;
-    restoreHistoryEntry(entries[nextIndex], nextIndex);
-  };
-
   const onUndo = () => {
-    navigateHistory(-1);
+    const entry = docHistory.undo();
+    syncHistory();
+    if (entry) applyHistoryEntry(entry);
   };
 
   const onRedo = () => {
-    navigateHistory(1);
+    const entry = docHistory.redo();
+    syncHistory();
+    if (entry) applyHistoryEntry(entry);
   };
 
   const onNewDocument = () => {
@@ -2100,8 +2075,9 @@ function useAppState(handle: ImperativeAppHandle | null) {
   };
 
   const onRestoreHistory = (source: string) => {
-    const index = historyRef.current.findIndex((entry) => entry.source === source);
-    restoreHistoryEntry({ source, ts: Date.now() }, index >= 0 ? index : Math.max(0, historyRef.current.length - 1));
+    const entry = docHistory.restore(source);
+    syncHistory();
+    applyHistoryEntry(entry);
   };
 
   const markLatexDirty = () => {
@@ -2117,7 +2093,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
   };
 
   const setHistoryPreviewActive = (active: boolean) => {
-    suppressHistoryRef.current = active;
+    suppressRecordingRef.current = active;
   };
 
   const canReversePath = useMemo(() => {
@@ -2416,7 +2392,7 @@ function HistoryView({
 }: {
   currentSource: string;
   handle: ImperativeAppHandle | null;
-  history: HistoryEntry[];
+  history: readonly HistoryEntry[];
   onRestore: (source: string) => void;
   setHistoryPreviewActive: (active: boolean) => void;
 }) {

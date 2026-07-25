@@ -1253,10 +1253,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     canvas.refresh();
   };
 
-  // Undo/redo history is owned by React state/localStorage. The imperative layer
-  // keeps these call sites as mutation markers, but does not maintain a second stack.
-  const pushUndoSnapshot = () => {};
-
   syncTikzScale();
   scaleState.gridPitch = circuitDoc.metadata.snapSize;
 
@@ -1267,7 +1263,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     getDocument: () => circuitDoc,
     getDef: (defId: string) => registry.get(defId),
     appendLine: (line: string) => {
-      pushUndoSnapshot();
       latexDoc.body = appendSnapAwareLine(
         latexDoc.body,
         line,
@@ -1282,7 +1277,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     },
     deleteElements: (ids: string[]) => {
       if (ids.length === 0) return;
-      pushUndoSnapshot();
       const lineIndices = ids.map(lineIndexFromId).filter((idx) => idx >= 0);
       const deletedNodeNames = new Set(
         ids
@@ -1309,7 +1303,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       canvas.refresh();
     },
     placeClipboard: (payload, target) => {
-      pushUndoSnapshot();
       const entries = materializeClipboardAt(payload, target, () => circuitDoc.nextNodeName());
       const lines = entries
         .map((entry) => emitClipboardEntry(entry))
@@ -1328,7 +1321,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     },
     getEditableStatementModel: (id) => getEditableStatementModel(latexDoc.body, id),
     applyEditableStatement: (statement) => {
-      pushUndoSnapshot();
       latexDoc.body = applyEditableStatementToBody(latexDoc.body, statement);
       syncTikzScale();
       invalidateRenderDerivedGeometry();
@@ -1340,7 +1332,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     splitDrawPathAt: (statement, positionIndex) => {
       const result = splitDrawPathAtIndex(latexDoc.body, statement, positionIndex);
       if (!result) return;
-      pushUndoSnapshot();
       latexDoc.body = result.body;
       syncTikzScale();
       invalidateRenderDerivedGeometry();
@@ -1484,7 +1475,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
 
   eventBus.on('document-changed', (e) => {
     if (e.type !== 'document-changed') return;
-    pushUndoSnapshot();
     if (e.sourceTranslations && e.sourceTranslations.length > 0) {
       latexDoc.body = translateSourceCoordinates(latexDoc.body, e.sourceTranslations);
       syncTikzScale();
@@ -1593,7 +1583,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     getBody: () => latexDoc.body,
     getFullLatexSource: () => latexDoc.toFullSource(),
     loadFullLatexSource: (source) => {
-      pushUndoSnapshot();
       applyFullSource(source);
       eventBus.emit({ type: 'user-edited-latex' });
     },
@@ -1615,7 +1604,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     getEditableStatementModel: (id) => getEditableStatementModel(latexDoc.body, id),
     getResolvedStatementPositions,
     applyEditableStatement: (statement) => {
-      pushUndoSnapshot();
       latexDoc.body = applyEditableStatementToBody(latexDoc.body, statement);
       syncTikzScale();
       invalidateRenderDerivedGeometry();
@@ -1633,7 +1621,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     splitDrawPathAt: (statement, positionIndex) => {
       const result = splitDrawPathAtIndex(latexDoc.body, statement, positionIndex);
       if (!result) return;
-      pushUndoSnapshot();
       latexDoc.body = result.body;
       syncTikzScale();
       invalidateRenderDerivedGeometry();
@@ -1646,7 +1633,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
     reverseDrawPath: (id) => {
       const statement = getEditableStatementModel(latexDoc.body, id);
       if (!statement || !isDrawPathStatement(statement)) return;
-      pushUndoSnapshot();
       latexDoc.body = applyEditableStatementToBody(latexDoc.body, reverseDrawPathStatement(statement));
       syncTikzScale();
       invalidateRenderDerivedGeometry();
@@ -1683,7 +1669,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       const secondEndPoint = secondDrawPath.positionSequences[secondDrawPath.positionSequences.length - 1].point;
       const merged = mergeDrawPathStatements(first, second, firstEndPoint, firstStartPoint, secondStartPoint, secondEndPoint);
       if (!merged) return;
-      pushUndoSnapshot();
       const mergedLineIndex = merged.sourceLineIndex;
       const otherLineIndex = mergedLineIndex === first.sourceLineIndex
         ? second.sourceLineIndex
@@ -1773,11 +1758,9 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       toolManager.pasteSelection();
     },
     commitLatexEdits: () => {
-      pushUndoSnapshot();
       eventBus.emit({ type: 'user-edited-latex' });
     },
     commitDocumentChange: () => {
-      pushUndoSnapshot();
       eventBus.emit({ type: 'document-changed' });
     },
     onHistoryUndoRequest: (fn) => eventBus.on('history-undo-requested', (event) => {
@@ -1821,7 +1804,6 @@ async function createImperativeApp(canvasContainer: HTMLElement): Promise<Impera
       fn(event.gridPt);
     }),
     clearDocument: () => {
-      pushUndoSnapshot();
       circuitDoc.clear();
       latexDoc.body = DEFAULT_BODY;
       emitBodyChanged('clear-document');
