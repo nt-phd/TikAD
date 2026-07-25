@@ -63,6 +63,8 @@ import { ToolbarView, ToolRailView, type SymbolShortcutTikzName } from './compon
 import { createCodeMirrorTheme, latexLanguage } from './components/ui/codeMirrorTheme';
 import { DEFAULT_PREAMBLE, LatexDocument } from './model/LatexDocument';
 import { DocumentHistory } from './model/DocumentHistory';
+import { RecentDocuments } from './model/RecentDocuments';
+import type { RecentDoc } from './model/RecentDocuments';
 import type { HistoryEntry } from './model/DocumentHistory';
 import type {
   ComponentDef,
@@ -1563,6 +1565,30 @@ function PropertiesViewInner({
   );
 }
 
+// Resolves the doc id that scopes this tab's storage keys, reading it from the `?doc=`
+// query param when present. When absent — the common case today, since no link produced
+// by the app sets it yet — falls back to a fixed legacy id so a single pre-existing
+// document (saved under the old unsuffixed keys) keeps loading for users who already had
+// one; DocumentHistory's own legacy migration then upgrades it in place. Any doc id minted
+// after that (via "New" or "Recent") is a fresh crypto.randomUUID() reflected into the URL.
+const LEGACY_DOC_ID = 'legacy';
+
+function resolveDocId(): string {
+  const url = new URL(window.location.href);
+  const fromUrl = url.searchParams.get('doc');
+  if (fromUrl) return fromUrl;
+  return LEGACY_DOC_ID;
+}
+
+function docStorageKeys(docId: string) {
+  if (docId === LEGACY_DOC_ID) {
+    // No suffix: matches the keys DocumentHistory has always used, so existing users'
+    // documents keep loading (and get migrated to the current schema) without a `?doc=`.
+    return { historyKey: undefined, draftKey: undefined };
+  }
+  return { historyKey: `tikad-history-${docId}`, draftKey: `tikad-draft-${docId}` };
+}
+
 function useAppState(handle: ImperativeAppHandle | null) {
   const [documentSettings, setDocumentSettings] = useState<CircuitikzDocumentSettings>(DEFAULT_DOCUMENT_SETTINGS);
   const [preamblePackages, setPreamblePackages] = useState<PreamblePackage[]>(() => parsePreamblePackages(DEFAULT_PREAMBLE));
@@ -1587,9 +1613,15 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const [bugReportOpen, setBugReportOpen] = useState(false);
   const [bugReportDescription, setBugReportDescription] = useState('');
   const [bugReportStatus, setBugReportStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const docIdRef = useRef<string | null>(null);
+  if (!docIdRef.current) docIdRef.current = resolveDocId();
+  const docId = docIdRef.current;
   const docHistoryRef = useRef<DocumentHistory | null>(null);
-  if (!docHistoryRef.current) docHistoryRef.current = DocumentHistory.loadFromStorage();
+  if (!docHistoryRef.current) docHistoryRef.current = DocumentHistory.loadFromStorage(docStorageKeys(docId));
   const docHistory = docHistoryRef.current;
+  const recentDocsRef = useRef<RecentDocuments | null>(null);
+  if (!recentDocsRef.current) recentDocsRef.current = RecentDocuments.loadFromStorage();
+  const recentDocs = recentDocsRef.current;
   const [history, setHistoryVersion] = useState<readonly HistoryEntry[]>(() => docHistory.getEntries());
   const syncHistory = () => {
     setHistoryVersion(docHistory.getEntries());
@@ -1656,6 +1688,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
       setDocumentVersion((version) => version + 1);
       if (!suppressRecordingRef.current) {
         docHistory.record(handle.getFullLatexSource());
+        recentDocs.touch(docId);
         syncHistory();
       }
     });
@@ -2023,8 +2056,19 @@ function useAppState(handle: ImperativeAppHandle | null) {
     if (entry) applyHistoryEntry(entry);
   };
 
+  const openDocInNewTab = (id: string) => {
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.searchParams.set('doc', id);
+    window.open(url.toString(), '_blank', 'noopener,noreferrer');
+  };
+
   const onNewDocument = () => {
-    window.open(window.location.href, '_blank', 'noopener,noreferrer');
+    openDocInNewTab(crypto.randomUUID());
+  };
+
+  const onOpenRecentDocument = (id: string) => {
+    openDocInNewTab(id);
   };
 
   const onCutSelection = () => {
@@ -2174,7 +2218,9 @@ function useAppState(handle: ImperativeAppHandle | null) {
     majorGridEvery,
     markLatexDirty,
     onClear,
+    onOpenRecentDocument,
     onRestoreHistory,
+    recentDocuments: recentDocs.list(),
     setHistoryPreviewActive,
     onCopyCommands,
     onCopyPreamble,
@@ -2901,6 +2947,7 @@ function AppShell({
         onFitToScreen={appState.onFitToScreen}
         onNewDocument={appState.onNewDocument}
         onOpenBugReport={appState.onOpenBugReport}
+        onOpenRecentDocument={appState.onOpenRecentDocument}
         onOpenTexUpload={appState.onOpenTexUpload}
         onPasteSelection={appState.onPasteSelection}
         onRedo={appState.onRedo}
@@ -2910,6 +2957,7 @@ function AppShell({
         onUndo={appState.onUndo}
         onZoomIn={appState.onZoomIn}
         onZoomOut={appState.onZoomOut}
+        recentDocuments={appState.recentDocuments.map((doc) => ({ id: doc.id, label: formatHistoryTimestamp(doc.ts) }))}
         selectedIds={appState.selectedIds}
         sidebarVisible={!collapsed.sidebar}
         themeMode={themeMode}

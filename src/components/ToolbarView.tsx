@@ -161,6 +161,7 @@ export function ToolbarView({
   onFitToScreen,
   onNewDocument,
   onOpenBugReport,
+  onOpenRecentDocument,
   onOpenTexUpload,
   onPasteSelection,
   onRedo,
@@ -170,6 +171,7 @@ export function ToolbarView({
   onUndo,
   onZoomIn,
   onZoomOut,
+  recentDocuments,
   selectedIds,
   sidebarVisible,
   themeMode,
@@ -186,6 +188,7 @@ export function ToolbarView({
   onFitToScreen: () => void;
   onNewDocument: () => void;
   onOpenBugReport: () => void;
+  onOpenRecentDocument: (id: string) => void;
   onOpenTexUpload: () => void;
   onPasteSelection: () => void;
   onRedo: () => void;
@@ -195,11 +198,13 @@ export function ToolbarView({
   onUndo: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  recentDocuments: { id: string; label: string }[];
   selectedIds: string[];
   sidebarVisible: boolean;
   themeMode: 'light' | 'dark';
 }) {
   const [menuAnchor, setMenuAnchor] = useState<{ id: 'file' | 'edit' | 'view'; el: HTMLElement } | null>(null);
+  const [recentMenuAnchor, setRecentMenuAnchor] = useState<HTMLElement | null>(null);
   const hasSelection = selectedIds.length > 0;
   const denseMenuProps = {
     dense: true,
@@ -388,6 +393,14 @@ export function ToolbarView({
             <MenuIcon><UploadFileRoundedIcon fontSize="small" /></MenuIcon>
             <ListItemText>Open...</ListItemText>
           </MenuItem>
+          <MenuItem
+            disabled={recentDocuments.length === 0}
+            onClick={(event) => setRecentMenuAnchor(event.currentTarget)}
+          >
+            <MenuIcon><WebAssetOutlinedIcon fontSize="small" /></MenuIcon>
+            <ListItemText>Recent</ListItemText>
+            <MenuShortcut>{recentDocuments.length > 0 ? '›' : ''}</MenuShortcut>
+          </MenuItem>
           <MenuItem onClick={() => run(onDownloadTex)}>
             <MenuIcon><DownloadRoundedIcon fontSize="small" /></MenuIcon>
             <ListItemText>Save TeX</ListItemText>
@@ -400,6 +413,32 @@ export function ToolbarView({
             <MenuIcon><DownloadRoundedIcon fontSize="small" /></MenuIcon>
             <ListItemText>Export clean SVG</ListItemText>
           </MenuItem>
+        </Menu>
+
+        <Menu
+          anchorEl={recentMenuAnchor}
+          disablePortal
+          id="recent-menu"
+          MenuListProps={denseMenuProps}
+          onClose={() => setRecentMenuAnchor(null)}
+          open={Boolean(recentMenuAnchor)}
+        >
+          {recentDocuments.length === 0 ? (
+            <MenuItem disabled>
+              <ListItemText>No recent documents</ListItemText>
+            </MenuItem>
+          ) : recentDocuments.map((doc) => (
+            <MenuItem
+              key={doc.id}
+              onClick={() => {
+                onOpenRecentDocument(doc.id);
+                setRecentMenuAnchor(null);
+                closeMenu();
+              }}
+            >
+              <ListItemText>{doc.label}</ListItemText>
+            </MenuItem>
+          ))}
         </Menu>
 
         <Menu
