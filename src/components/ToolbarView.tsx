@@ -417,11 +417,13 @@ export function ToolbarView({
 
         <Menu
           anchorEl={recentMenuAnchor}
+          anchorOrigin={{ horizontal: 'right', vertical: 'top' }}
           disablePortal
           id="recent-menu"
           MenuListProps={denseMenuProps}
           onClose={() => setRecentMenuAnchor(null)}
           open={Boolean(recentMenuAnchor)}
+          transformOrigin={{ horizontal: 'left', vertical: 'top' }}
         >
           {recentDocuments.length === 0 ? (
             <MenuItem disabled>
