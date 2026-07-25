@@ -2446,6 +2446,10 @@ function HistoryView({
   const codeMirrorTheme = useMemo(() => createCodeMirrorTheme(theme), [theme]);
   const entries = useMemo(() => [...history].reverse(), [history]);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  // Cleanup below only runs on unmount/handle-change, so it must read the LATEST current
+  // source (e.g. right after Restore) rather than whatever was captured when it was set up.
+  const currentSourceRef = useRef(currentSource);
+  currentSourceRef.current = currentSource;
 
   // Keep selectedIndex within bounds when history grows
   useEffect(() => {
@@ -2475,7 +2479,7 @@ function HistoryView({
     return () => {
       handle.showInfoBanner(null);
       setHistoryPreviewActive(true);
-      handle.loadFullLatexSource(currentSource);
+      handle.loadFullLatexSource(currentSourceRef.current);
       setHistoryPreviewActive(false);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
