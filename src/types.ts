@@ -386,9 +386,15 @@ export interface EditableRectangleSegment {
   endPositionText: string;
 }
 
+export interface EditableCircleSegment {
+  kind: 'circle';
+  radiusText: string;
+}
+
 export type EditableSegment =
   | EditableConnectionSegment
   | EditableBipoleSegment
+  | EditableCircleSegment
   | EditableNodeSegment
   | EditablePackageSegment
   | EditableRawSegment

@@ -80,7 +80,7 @@ export class DrawShapeTool extends BaseTool {
     switch (this.kind) {
       case 'line':
         if (!pointsEqual(this.points[0].point, this.points[1].point)) {
-          this.ctx.appendLine(`\\draw[thin] ${formatEndpoint(this.points[0].point, this.points[0].ref)} -- ${formatEndpoint(this.points[1].point, this.points[1].ref)};`);
+          this.ctx.appendLine(`\\draw ${formatEndpoint(this.points[0].point, this.points[0].ref)} -- ${formatEndpoint(this.points[1].point, this.points[1].ref)};`);
         }
         break;
       case 'arrow':
@@ -93,18 +93,18 @@ export class DrawShapeTool extends BaseTool {
         break;
       case 'rectangle':
         if (!pointsEqual(this.points[0].point, this.points[1].point)) {
-          this.ctx.appendLine(`\\draw[thin] ${formatEndpoint(this.points[0].point, this.points[0].ref)} rectangle ${formatEndpoint(this.points[1].point, this.points[1].ref)};`);
+          this.ctx.appendLine(`\\draw ${formatEndpoint(this.points[0].point, this.points[0].ref)} rectangle ${formatEndpoint(this.points[1].point, this.points[1].ref)};`);
         }
         break;
       case 'circle': {
         const dx = this.points[1].point.x - this.points[0].point.x;
         const dy = this.points[1].point.y - this.points[0].point.y;
         const radius = Math.hypot(dx, dy);
-        if (radius > 0) this.ctx.appendLine(`\\draw[thin] ${formatEndpoint(this.points[0].point, this.points[0].ref)} circle (${radius.toFixed(2)});`);
+        if (radius > 0) this.ctx.appendLine(`\\draw ${formatEndpoint(this.points[0].point, this.points[0].ref)} circle (${radius.toFixed(2)});`);
         break;
       }
       case 'bezier':
-        this.ctx.appendLine(`\\draw[thin] ${formatEndpoint(this.points[0].point, this.points[0].ref)} .. controls ${formatEndpoint(this.points[1].point, this.points[1].ref)} and ${formatEndpoint(this.points[2].point, this.points[2].ref)} .. ${formatEndpoint(this.points[3].point, this.points[3].ref)};`);
+        this.ctx.appendLine(`\\draw ${formatEndpoint(this.points[0].point, this.points[0].ref)} .. controls ${formatEndpoint(this.points[1].point, this.points[1].ref)} and ${formatEndpoint(this.points[2].point, this.points[2].ref)} .. ${formatEndpoint(this.points[3].point, this.points[3].ref)};`);
         break;
     }
 

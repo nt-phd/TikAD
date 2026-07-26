@@ -1,6 +1,7 @@
 import type {
   ComponentProps,
   EditableBipoleSegment,
+  EditableCircleSegment,
   EditableConnectionOperator,
   EditableConnectionSegment,
   EditableNodeSegment,
@@ -210,15 +211,45 @@ function parseConnectionSegment(
   };
 }
 
-function parseRectangleSegment(source: string, index: number): { end: number; segment: EditableRectangleSegment } | null {
-  const keywordEnd = readKeyword(source, index, 'rectangle');
+/**
+ * Shared shape for TikZ shorthands of the form `<keyword> <argument>` that name a second
+ * shape parameter (a coordinate for `rectangle`, a radius for `circle`) rather than
+ * connecting to another element — factored out so adding a similar shorthand later only
+ * needs a keyword + an argument reader, not a whole new hand-rolled parser.
+ */
+function parseKeywordArgSegment<TSegment>(
+  source: string,
+  index: number,
+  keyword: string,
+  readArg: (source: string, index: number) => { end: number; text: string } | null,
+  buildSegment: (argText: string) => TSegment,
+): { end: number; segment: TSegment } | null {
+  const keywordEnd = readKeyword(source, index, keyword);
   if (keywordEnd == null) return null;
-  const position = scanTikzPointSequence(source, keywordEnd);
-  if (!position) return null;
-  return {
-    end: position.end,
-    segment: { kind: 'rectangle', endPositionText: position.text },
-  };
+  const cursor = skipTikzWhitespace(source, keywordEnd);
+  const arg = readArg(source, cursor);
+  if (!arg) return null;
+  return { end: arg.end, segment: buildSegment(arg.text) };
+}
+
+function parseRectangleSegment(source: string, index: number): { end: number; segment: EditableRectangleSegment } | null {
+  return parseKeywordArgSegment(
+    source,
+    index,
+    'rectangle',
+    scanTikzPointSequence,
+    (endPositionText): EditableRectangleSegment => ({ kind: 'rectangle', endPositionText }),
+  );
+}
+
+function parseCircleSegment(source: string, index: number): { end: number; segment: EditableCircleSegment } | null {
+  return parseKeywordArgSegment(
+    source,
+    index,
+    'circle',
+    (s, i) => readTikzBalanced(s, i, '(', ')'),
+    (radiusText): EditableCircleSegment => ({ kind: 'circle', radiusText }),
+  );
 }
 
 function parseBipoleSegment(source: string, index: number): { end: number; segment: EditableBipoleSegment } | null {
@@ -329,6 +360,10 @@ export function emitStructuredStatementBody(structured: StructuredStatementBody)
       positionIndex += 1;
       continue;
     }
+    if (segment.kind === 'circle') {
+      parts.push(`circle ${segment.radiusText}`.trim());
+      continue;
+    }
     if (segment.kind === 'node') {
       parts.push(serializeNodeSegment(segment));
       continue;
@@ -386,6 +421,13 @@ export function parseStructuredStatementBody(body: string): StructuredStatementB
       segments.push(rectangle.segment);
       positionTexts.push(rectangle.segment.endPositionText);
       cursor = rectangle.end;
+      continue;
+    }
+    const circle = parseCircleSegment(body, cursor);
+    if (circle) {
+      // radiusText is a bare number, not a coordinate — it doesn't join positionTexts.
+      segments.push(circle.segment);
+      cursor = circle.end;
       continue;
     }
     const connection = parseConnectionSegment(body, cursor, start.text);
