@@ -1599,7 +1599,15 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const texUploadInputRef = useRef<HTMLInputElement | null>(null);
   const pendingLatexCommitRef = useRef(false);
   const suppressRecordingRef = useRef(false);
-  const sessionIdRef = useRef<string>(crypto.randomUUID());
+  // Persists across reloads — a "session" spans until the user explicitly starts over via
+  // Reset Document, not until the tab happens to reload.
+  const sessionIdRef = useRef<string>((() => {
+    const stored = localStorage.getItem('tikad-session-id');
+    if (stored) return stored;
+    const next = crypto.randomUUID();
+    localStorage.setItem('tikad-session-id', next);
+    return next;
+  })());
   const browserIdRef = useRef<string>((() => {
     const stored = localStorage.getItem('tikad-browser-id');
     if (stored) return stored;
@@ -1640,10 +1648,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     const initialGridPitch = Number.isFinite(storedGridPitch) ? storedGridPitch : handle.getGridPitch();
     setGridPitch(initialGridPitch);
     handle.setGridPitch(initialGridPitch);
-    const storedMajorGridEvery = Number.parseInt(localStorage.getItem('tikad-major-grid-every') ?? '', 10);
-    const initialMajorGridEvery = Number.isFinite(storedMajorGridEvery) ? storedMajorGridEvery : handle.getMajorGridEvery();
-    setMajorGridEvery(initialMajorGridEvery);
-    handle.setMajorGridEvery(initialMajorGridEvery);
+    setMajorGridEvery(handle.getMajorGridEvery());
     setPinSnapEnabled(handle.getPinSnapEnabled());
     setWireRoutingMode(handle.getWireRoutingMode());
 
@@ -1993,7 +1998,6 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const onMajorGridEveryChange = (value: number) => {
     setMajorGridEvery(value);
     handle?.setMajorGridEvery(value);
-    localStorage.setItem('tikad-major-grid-every', String(value));
   };
 
   const applyHistoryEntry = (entry: HistoryEntry) => {
@@ -2077,6 +2081,9 @@ function useAppState(handle: ImperativeAppHandle | null) {
 
   const onConfirmReset = () => {
     handle?.clearDocument();
+    const nextSessionId = crypto.randomUUID();
+    localStorage.setItem('tikad-session-id', nextSessionId);
+    sessionIdRef.current = nextSessionId;
     setResetDialogOpen(false);
   };
 
