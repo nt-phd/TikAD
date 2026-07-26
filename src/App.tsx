@@ -63,8 +63,6 @@ import { ToolbarView, ToolRailView, type SymbolShortcutTikzName } from './compon
 import { createCodeMirrorTheme, latexLanguage } from './components/ui/codeMirrorTheme';
 import { DEFAULT_PREAMBLE, LatexDocument } from './model/LatexDocument';
 import { DocumentHistory } from './model/DocumentHistory';
-import { RecentDocuments } from './model/RecentDocuments';
-import type { RecentDoc } from './model/RecentDocuments';
 import type { HistoryEntry } from './model/DocumentHistory';
 import type {
   ComponentDef,
@@ -1565,30 +1563,6 @@ function PropertiesViewInner({
   );
 }
 
-// Resolves the doc id that scopes this tab's storage keys, reading it from the `?doc=`
-// query param when present. When absent — the common case today, since no link produced
-// by the app sets it yet — falls back to a fixed legacy id so a single pre-existing
-// document (saved under the old unsuffixed keys) keeps loading for users who already had
-// one; DocumentHistory's own legacy migration then upgrades it in place. Any doc id minted
-// after that (via "New" or "Recent") is a fresh crypto.randomUUID() reflected into the URL.
-const LEGACY_DOC_ID = 'legacy';
-
-function resolveDocId(): string {
-  const url = new URL(window.location.href);
-  const fromUrl = url.searchParams.get('doc');
-  if (fromUrl) return fromUrl;
-  return LEGACY_DOC_ID;
-}
-
-function docStorageKeys(docId: string) {
-  if (docId === LEGACY_DOC_ID) {
-    // No suffix: matches the keys DocumentHistory has always used, so existing users'
-    // documents keep loading (and get migrated to the current schema) without a `?doc=`.
-    return { historyKey: undefined, draftKey: undefined };
-  }
-  return { historyKey: `tikad-history-${docId}`, draftKey: `tikad-draft-${docId}` };
-}
-
 function useAppState(handle: ImperativeAppHandle | null) {
   const [documentSettings, setDocumentSettings] = useState<CircuitikzDocumentSettings>(DEFAULT_DOCUMENT_SETTINGS);
   const [preamblePackages, setPreamblePackages] = useState<PreamblePackage[]>(() => parsePreamblePackages(DEFAULT_PREAMBLE));
@@ -1613,15 +1587,10 @@ function useAppState(handle: ImperativeAppHandle | null) {
   const [bugReportOpen, setBugReportOpen] = useState(false);
   const [bugReportDescription, setBugReportDescription] = useState('');
   const [bugReportStatus, setBugReportStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
-  const docIdRef = useRef<string | null>(null);
-  if (!docIdRef.current) docIdRef.current = resolveDocId();
-  const docId = docIdRef.current;
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const docHistoryRef = useRef<DocumentHistory | null>(null);
-  if (!docHistoryRef.current) docHistoryRef.current = DocumentHistory.loadFromStorage(docStorageKeys(docId));
+  if (!docHistoryRef.current) docHistoryRef.current = DocumentHistory.loadFromStorage();
   const docHistory = docHistoryRef.current;
-  const recentDocsRef = useRef<RecentDocuments | null>(null);
-  if (!recentDocsRef.current) recentDocsRef.current = RecentDocuments.loadFromStorage();
-  const recentDocs = recentDocsRef.current;
   const [history, setHistoryVersion] = useState<readonly HistoryEntry[]>(() => docHistory.getEntries());
   const syncHistory = () => {
     setHistoryVersion(docHistory.getEntries());
@@ -1688,7 +1657,6 @@ function useAppState(handle: ImperativeAppHandle | null) {
       setDocumentVersion((version) => version + 1);
       if (!suppressRecordingRef.current) {
         docHistory.record(handle.getFullLatexSource());
-        recentDocs.touch(docId);
         syncHistory();
       }
     });
@@ -2056,21 +2024,6 @@ function useAppState(handle: ImperativeAppHandle | null) {
     if (entry) applyHistoryEntry(entry);
   };
 
-  const openDocInNewTab = (id: string) => {
-    const url = new URL(window.location.href);
-    url.search = '';
-    url.searchParams.set('doc', id);
-    window.open(url.toString(), '_blank', 'noopener,noreferrer');
-  };
-
-  const onNewDocument = () => {
-    openDocInNewTab(crypto.randomUUID());
-  };
-
-  const onOpenRecentDocument = (id: string) => {
-    openDocInNewTab(id);
-  };
-
   const onCutSelection = () => {
     handle?.cutSelection();
   };
@@ -2114,8 +2067,17 @@ function useAppState(handle: ImperativeAppHandle | null) {
     handle?.setWireRoutingMode(mode);
   };
 
-  const onClear = () => {
+  const onOpenResetDialog = () => {
+    setResetDialogOpen(true);
+  };
+
+  const onCloseResetDialog = () => {
+    setResetDialogOpen(false);
+  };
+
+  const onConfirmReset = () => {
     handle?.clearDocument();
+    setResetDialogOpen(false);
   };
 
   const onRestoreHistory = (source: string) => {
@@ -2217,10 +2179,7 @@ function useAppState(handle: ImperativeAppHandle | null) {
     history,
     majorGridEvery,
     markLatexDirty,
-    onClear,
-    onOpenRecentDocument,
     onRestoreHistory,
-    recentDocuments: recentDocs.list(),
     setHistoryPreviewActive,
     onCopyCommands,
     onCopyPreamble,
@@ -2232,7 +2191,6 @@ function useAppState(handle: ImperativeAppHandle | null) {
     onEnvironmentOptionsChange,
     onEnvironmentTypeChange,
     onFitToScreen,
-    onNewDocument,
     onCutSelection,
     onCopySelection,
     onDeleteSelection,
@@ -2268,6 +2226,10 @@ function useAppState(handle: ImperativeAppHandle | null) {
     onOpenBugReport,
     onCloseBugReport,
     onSubmitBugReport,
+    resetDialogOpen,
+    onOpenResetDialog,
+    onCloseResetDialog,
+    onConfirmReset,
   };
 }
 
@@ -2941,7 +2903,6 @@ function AppShell({
             visibleCount={libraryVisibleCount}
           />
         )}
-        onClear={appState.onClear}
         onCopySelection={appState.onCopySelection}
         onCutSelection={appState.onCutSelection}
         onDeleteSelection={appState.onDeleteSelection}
@@ -2949,9 +2910,8 @@ function AppShell({
         onDownloadSvg={appState.onDownloadSvg}
         onDownloadSvgPlus={appState.onDownloadSvgPlus}
         onFitToScreen={appState.onFitToScreen}
-        onNewDocument={appState.onNewDocument}
         onOpenBugReport={appState.onOpenBugReport}
-        onOpenRecentDocument={appState.onOpenRecentDocument}
+        onOpenResetDialog={appState.onOpenResetDialog}
         onOpenTexUpload={appState.onOpenTexUpload}
         onPasteSelection={appState.onPasteSelection}
         onRedo={appState.onRedo}
@@ -2961,7 +2921,6 @@ function AppShell({
         onUndo={appState.onUndo}
         onZoomIn={appState.onZoomIn}
         onZoomOut={appState.onZoomOut}
-        recentDocuments={appState.recentDocuments.map((doc) => ({ id: doc.id, label: formatHistoryTimestamp(doc.ts) }))}
         selectedIds={appState.selectedIds}
         sidebarVisible={!collapsed.sidebar}
         themeMode={themeMode}
@@ -3090,6 +3049,20 @@ function AppShell({
             variant="contained"
           >
             Send
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog fullWidth maxWidth="xs" onClose={appState.onCloseResetDialog} open={appState.resetDialogOpen}>
+        <DialogTitle>Reset document?</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary" variant="body2">
+            This clears the entire document and cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={appState.onCloseResetDialog}>Cancel</Button>
+          <Button color="error" onClick={appState.onConfirmReset} variant="contained">
+            Reset
           </Button>
         </DialogActions>
       </Dialog>

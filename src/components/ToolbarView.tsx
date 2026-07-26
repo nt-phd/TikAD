@@ -16,7 +16,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import AddRoundedIcon from '@mui/icons-material/AddOutlined';
 import AdsClickRoundedIcon from '@mui/icons-material/AdsClickOutlined';
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
@@ -151,7 +150,6 @@ function MenuIcon({ children }: { children: ReactNode }) {
 export function ToolbarView({
   currentTool,
   librarySlot,
-  onClear,
   onCopySelection,
   onCutSelection,
   onDeleteSelection,
@@ -159,9 +157,8 @@ export function ToolbarView({
   onDownloadSvgPlus,
   onDownloadTex,
   onFitToScreen,
-  onNewDocument,
   onOpenBugReport,
-  onOpenRecentDocument,
+  onOpenResetDialog,
   onOpenTexUpload,
   onPasteSelection,
   onRedo,
@@ -171,14 +168,12 @@ export function ToolbarView({
   onUndo,
   onZoomIn,
   onZoomOut,
-  recentDocuments,
   selectedIds,
   sidebarVisible,
   themeMode,
 }: {
   currentTool: ToolType;
   librarySlot?: ReactNode;
-  onClear: () => void;
   onCopySelection: () => void;
   onCutSelection: () => void;
   onDeleteSelection: () => void;
@@ -186,9 +181,8 @@ export function ToolbarView({
   onDownloadSvgPlus: () => void;
   onDownloadTex: () => void;
   onFitToScreen: () => void;
-  onNewDocument: () => void;
   onOpenBugReport: () => void;
-  onOpenRecentDocument: (id: string) => void;
+  onOpenResetDialog: () => void;
   onOpenTexUpload: () => void;
   onPasteSelection: () => void;
   onRedo: () => void;
@@ -198,13 +192,11 @@ export function ToolbarView({
   onUndo: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
-  recentDocuments: { id: string; label: string }[];
   selectedIds: string[];
   sidebarVisible: boolean;
   themeMode: 'light' | 'dark';
 }) {
   const [menuAnchor, setMenuAnchor] = useState<{ id: 'file' | 'edit' | 'view'; el: HTMLElement } | null>(null);
-  const [recentMenuAnchor, setRecentMenuAnchor] = useState<HTMLElement | null>(null);
   const hasSelection = selectedIds.length > 0;
   const denseMenuProps = {
     dense: true,
@@ -385,21 +377,9 @@ export function ToolbarView({
           onClose={closeMenu}
           open={menuAnchor?.id === 'file'}
         >
-          <MenuItem onClick={() => run(onNewDocument)}>
-            <MenuIcon><AddRoundedIcon fontSize="small" /></MenuIcon>
-            <ListItemText>New</ListItemText>
-          </MenuItem>
           <MenuItem onClick={() => run(onOpenTexUpload)}>
             <MenuIcon><UploadFileRoundedIcon fontSize="small" /></MenuIcon>
             <ListItemText>Open...</ListItemText>
-          </MenuItem>
-          <MenuItem
-            disabled={recentDocuments.length === 0}
-            onClick={(event) => setRecentMenuAnchor(event.currentTarget)}
-          >
-            <MenuIcon><WebAssetOutlinedIcon fontSize="small" /></MenuIcon>
-            <ListItemText>Recent</ListItemText>
-            <MenuShortcut>{recentDocuments.length > 0 ? '›' : ''}</MenuShortcut>
           </MenuItem>
           <MenuItem onClick={() => run(onDownloadTex)}>
             <MenuIcon><DownloadRoundedIcon fontSize="small" /></MenuIcon>
@@ -413,34 +393,11 @@ export function ToolbarView({
             <MenuIcon><DownloadRoundedIcon fontSize="small" /></MenuIcon>
             <ListItemText>Export clean SVG</ListItemText>
           </MenuItem>
-        </Menu>
-
-        <Menu
-          anchorEl={recentMenuAnchor}
-          anchorOrigin={{ horizontal: 'right', vertical: 'top' }}
-          disablePortal
-          id="recent-menu"
-          MenuListProps={denseMenuProps}
-          onClose={() => setRecentMenuAnchor(null)}
-          open={Boolean(recentMenuAnchor)}
-          transformOrigin={{ horizontal: 'left', vertical: 'top' }}
-        >
-          {recentDocuments.length === 0 ? (
-            <MenuItem disabled>
-              <ListItemText>No recent documents</ListItemText>
-            </MenuItem>
-          ) : recentDocuments.map((doc) => (
-            <MenuItem
-              key={doc.id}
-              onClick={() => {
-                onOpenRecentDocument(doc.id);
-                setRecentMenuAnchor(null);
-                closeMenu();
-              }}
-            >
-              <ListItemText>{doc.label}</ListItemText>
-            </MenuItem>
-          ))}
+          <Divider />
+          <MenuItem onClick={() => run(onOpenResetDialog)} sx={{ color: 'error.main' }}>
+            <MenuIcon><DeleteSweepRoundedIcon fontSize="small" sx={{ color: 'error.main' }} /></MenuIcon>
+            <ListItemText>Reset Document…</ListItemText>
+          </MenuItem>
         </Menu>
 
         <Menu
@@ -470,10 +427,6 @@ export function ToolbarView({
             <MenuIcon><DeleteOutlineRoundedIcon fontSize="small" /></MenuIcon>
             <ListItemText>Delete selected</ListItemText>
             <MenuShortcut>Del</MenuShortcut>
-          </MenuItem>
-          <MenuItem onClick={() => run(onClear)}>
-            <MenuIcon><DeleteSweepRoundedIcon fontSize="small" /></MenuIcon>
-            <ListItemText>Delete all</ListItemText>
           </MenuItem>
         </Menu>
 
