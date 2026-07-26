@@ -4,6 +4,7 @@ import type {
   EditableConnectionOperator,
   EditableConnectionSegment,
   EditableNodeSegment,
+  EditableRectangleSegment,
   EditableSegment,
 } from '../types';
 import {
@@ -209,6 +210,17 @@ function parseConnectionSegment(
   };
 }
 
+function parseRectangleSegment(source: string, index: number): { end: number; segment: EditableRectangleSegment } | null {
+  const keywordEnd = readKeyword(source, index, 'rectangle');
+  if (keywordEnd == null) return null;
+  const position = scanTikzPointSequence(source, keywordEnd);
+  if (!position) return null;
+  return {
+    end: position.end,
+    segment: { kind: 'rectangle', endPositionText: position.text },
+  };
+}
+
 function parseBipoleSegment(source: string, index: number): { end: number; segment: EditableBipoleSegment } | null {
   const keywordEnd = readKeyword(source, index, 'to');
   if (keywordEnd == null) return null;
@@ -310,6 +322,13 @@ export function emitStructuredStatementBody(structured: StructuredStatementBody)
       positionIndex += 1;
       continue;
     }
+    if (segment.kind === 'rectangle') {
+      const endPos = structured.positionTexts[positionIndex + 1];
+      if (!endPos) return null;
+      parts.push(`rectangle ${endPos}`.trim());
+      positionIndex += 1;
+      continue;
+    }
     if (segment.kind === 'node') {
       parts.push(serializeNodeSegment(segment));
       continue;
@@ -360,6 +379,13 @@ export function parseStructuredStatementBody(body: string): StructuredStatementB
       segments.push(bipole.segment);
       positionTexts.push(bipole.segment.endPositionText);
       cursor = bipole.end;
+      continue;
+    }
+    const rectangle = parseRectangleSegment(body, cursor);
+    if (rectangle) {
+      segments.push(rectangle.segment);
+      positionTexts.push(rectangle.segment.endPositionText);
+      cursor = rectangle.end;
       continue;
     }
     const connection = parseConnectionSegment(body, cursor, start.text);

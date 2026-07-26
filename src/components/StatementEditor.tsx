@@ -102,7 +102,7 @@ type StatementTreeNodeSchema = {
   positionIndex?: number;
   positionIndexFromSegmentOffset?: number;
   scope: 'root' | 'segment';
-  showForSegmentKinds?: Array<'bipole' | 'connection' | 'node' | 'raw' | 'package'>;
+  showForSegmentKinds?: Array<'bipole' | 'connection' | 'node' | 'raw' | 'package' | 'rectangle'>;
   showWhen?: 'not-top-level-node' | 'position-exists';
 };
 
@@ -372,6 +372,7 @@ function getSegmentDisplayName(segment: EditableStatement['segments'][number]): 
   if (segment.kind === 'raw') return 'Raw';
   if (segment.kind === 'package') return 'Package';
   if (segment.kind === 'connection') return 'Route';
+  if (segment.kind === 'rectangle') return 'Rectangle';
   const def = registry.getAll().find((entry) =>
     entry.tikzName === segment.tikzName
       && (segment.kind === 'bipole' ? entry.placementType === 'bipole' : entry.placementType !== 'bipole'));
@@ -1562,7 +1563,9 @@ export function StatementEditor({
                 ? segment.operator
                 : segment.kind === 'package'
                   ? segment.name
-                  : (segment.kind === 'bipole' && segment.tikzValue !== undefined ? `${segment.tikzName}=${segment.tikzValue}` : segment.tikzName) ?? '',
+                  : segment.kind === 'rectangle'
+                    ? 'rectangle'
+                    : (segment.kind === 'bipole' && segment.tikzValue !== undefined ? `${segment.tikzName}=${segment.tikzValue}` : segment.tikzName) ?? '',
           ),
           options: segment.kind === 'connection' && routeOptions.length > 0 ? routeOptions : objectField.options,
           propertyId: segment.kind === 'package' ? `package:${segment.name}` : undefined,
@@ -1574,7 +1577,9 @@ export function StatementEditor({
                 ? segment.operator
                 : segment.kind === 'package'
                   ? segment.name
-                  : (segment.kind === 'bipole' && segment.tikzValue !== undefined ? `${segment.tikzName}=${segment.tikzValue}` : segment.tikzName) ?? '',
+                  : segment.kind === 'rectangle'
+                    ? 'rectangle'
+                    : (segment.kind === 'bipole' && segment.tikzValue !== undefined ? `${segment.tikzName}=${segment.tikzValue}` : segment.tikzName) ?? '',
           segmentIndex: index,
         });
       }

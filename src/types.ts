@@ -381,12 +381,18 @@ export interface EditablePackageSegment {
   optionsText?: string;
 }
 
+export interface EditableRectangleSegment {
+  kind: 'rectangle';
+  endPositionText: string;
+}
+
 export type EditableSegment =
   | EditableConnectionSegment
   | EditableBipoleSegment
   | EditableNodeSegment
   | EditablePackageSegment
-  | EditableRawSegment;
+  | EditableRawSegment
+  | EditableRectangleSegment;
 
 export type EditableStatementEditField =
   | 'annotation'

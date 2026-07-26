@@ -218,9 +218,10 @@ function emitWireLine(wire: WireInstance, asSegment = false): string {
 }
 
 function emitDrawingLine(drawing: DrawingInstance): string {
+  const bracketed = (options: string | undefined) => (options ? `[${options}]` : '');
   switch (drawing.kind) {
     case 'line':
-      return `\\draw[${drawing.props.options || 'thin'}] ${formatCoord(drawing.start)} -- ${formatCoord(drawing.end)};`;
+      return `\\draw${bracketed(drawing.props.options)} ${formatCoord(drawing.start)} -- ${formatCoord(drawing.end)};`;
     case 'arrow':
       return `\\draw[${drawing.props.options || '->'}] ${formatCoord(drawing.start)} -- ${formatCoord(drawing.end)};`;
     case 'text':
@@ -234,11 +235,11 @@ function emitDrawingLine(drawing: DrawingInstance): string {
         return `\\node${options} at ${formatCoord(drawing.position)} {${drawing.props.text ?? 'Text'}};`;
       }
     case 'rectangle':
-      return `\\draw[${drawing.props.options || 'thin'}] ${formatCoord(drawing.start)} rectangle ${formatCoord(drawing.end)};`;
+      return `\\draw${bracketed(drawing.props.options)} ${formatCoord(drawing.start)} rectangle ${formatCoord(drawing.end)};`;
     case 'circle':
-      return `\\draw[${drawing.props.options || 'thin'}] ${formatCoord(drawing.center)} circle (${drawing.radius});`;
+      return `\\draw${bracketed(drawing.props.options)} ${formatCoord(drawing.center)} circle (${drawing.radius});`;
     case 'bezier':
-      return `\\draw[${drawing.props.options || 'thin'}] ${formatCoord(drawing.start)} .. controls ${formatCoord(drawing.control1)} and ${formatCoord(drawing.control2)} .. ${formatCoord(drawing.end)};`;
+      return `\\draw${bracketed(drawing.props.options)} ${formatCoord(drawing.start)} .. controls ${formatCoord(drawing.control1)} and ${formatCoord(drawing.control2)} .. ${formatCoord(drawing.end)};`;
   }
 }
 
