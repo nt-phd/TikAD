@@ -163,6 +163,21 @@ export class DocumentHistory {
     this.episodeStart = this.entries.length;
   }
 
+  /**
+   * Wipes the history entirely (in memory and on disk) — used by "Reset Document", which
+   * wants a true blank slate, not a new entry appended to the old history. Writes directly
+   * rather than via flush(), since flush() intentionally no-ops on an empty store to avoid
+   * clobbering storage with a stale empty state — here an empty state is exactly the intent.
+   */
+  clear(): void {
+    this.entries = [];
+    this.cursor = -1;
+    this.episodeStart = 0;
+    this.clearDraft();
+    const payload: PersistedShape = { version: 1, entries: [], cursor: -1 };
+    this.writeWithQuotaRetry(() => localStorage.setItem(this.historyKey, JSON.stringify(payload)));
+  }
+
   /** Synchronous, immediate write — used as the beforeunload/visibilitychange backstop. */
   flush(): void {
     // An empty in-memory store (nothing recorded this session) is never a legitimate reason

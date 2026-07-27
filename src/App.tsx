@@ -2080,7 +2080,11 @@ function useAppState(handle: ImperativeAppHandle | null) {
   };
 
   const onConfirmReset = () => {
+    suppressRecordingRef.current = true;
     handle?.clearDocument();
+    suppressRecordingRef.current = false;
+    docHistory.clear();
+    syncHistory();
     const nextSessionId = crypto.randomUUID();
     localStorage.setItem('tikad-session-id', nextSessionId);
     sessionIdRef.current = nextSessionId;
@@ -3060,16 +3064,17 @@ function AppShell({
         </DialogActions>
       </Dialog>
       <Dialog fullWidth maxWidth="xs" onClose={appState.onCloseResetDialog} open={appState.resetDialogOpen}>
-        <DialogTitle>Reset document?</DialogTitle>
         <DialogContent>
           <Typography color="text.secondary" variant="body2">
-            This clears the entire document and cannot be undone.
+            The reset button will delete this document and its history. This action cannot be undone.
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={appState.onCloseResetDialog}>Cancel</Button>
-          <Button color="error" onClick={appState.onConfirmReset} variant="contained">
+          <Button color="error" onClick={appState.onConfirmReset} variant="outlined">
             Reset
+          </Button>
+          <Button onClick={appState.onCloseResetDialog} variant="contained">
+            Cancel
           </Button>
         </DialogActions>
       </Dialog>
