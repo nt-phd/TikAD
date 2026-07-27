@@ -4,7 +4,7 @@ export type HistoryEntry = { ts: number; source: string };
 
 type PersistedShape = { version: 1; entries: HistoryEntry[]; cursor: number };
 
-const DEFAULT_CAP = 30;
+const DEFAULT_CAP = 150;
 const DEFAULT_HISTORY_KEY = 'tikad-history';
 const DEFAULT_DRAFT_KEY = 'tikad-draft';
 const PERSIST_DEBOUNCE_MS = 400;
