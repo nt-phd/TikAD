@@ -396,7 +396,7 @@ export function ToolbarView({
           <Divider />
           <MenuItem onClick={() => run(onOpenResetDialog)} sx={{ color: 'error.main' }}>
             <MenuIcon><DeleteSweepRoundedIcon fontSize="small" sx={{ color: 'error.main' }} /></MenuIcon>
-            <ListItemText>Reset Document…</ListItemText>
+            <ListItemText>Reset document…</ListItemText>
           </MenuItem>
         </Menu>
 

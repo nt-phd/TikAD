@@ -125,17 +125,37 @@ function findPictureEndMarker(body: string): string | null {
   return null;
 }
 
+// DEFAULT_BODY ships with a single blank placeholder line between \begin/\end so the empty
+// document doesn't look broken. Once real content is inserted that placeholder should go
+// away rather than linger as a permanent leading blank line — so only ever strip it when
+// it's the sole line of "content" (nothing else has been added around it yet).
+function stripPlaceholderBlankLine(lines: string[], markerIndex: number): string[] {
+  const priorIndex = markerIndex - 1;
+  if (priorIndex < 0 || lines[priorIndex].trim() !== '') return lines;
+  const isOnlyContentLine = lines.slice(0, priorIndex).every((line) => line.trim() === '' || line.trim().startsWith('\\begin'));
+  if (!isOnlyContentLine) return lines;
+  return [...lines.slice(0, priorIndex), ...lines.slice(priorIndex + 1)];
+}
+
 function appendLineToBody(body: string, line: string): string {
   const marker = findPictureEndMarker(body);
   if (!marker) return body + '\n' + line;
-  const idx = body.lastIndexOf(marker);
-  return body.slice(0, idx) + '  ' + line + '\n' + body.slice(idx);
+  let lines = body.split('\n');
+  let markerIndex = lines.findIndex((l) => l.includes(marker));
+  lines = stripPlaceholderBlankLine(lines, markerIndex);
+  markerIndex = lines.findIndex((l) => l.includes(marker));
+  lines.splice(markerIndex, 0, `  ${line}`);
+  return lines.join('\n');
 }
 
 function appendLinesToBody(body: string, linesToAppend: string[]): { body: string; startLineIndex: number } {
   const marker = findPictureEndMarker(body);
-  const lines = body.split('\n');
-  const markerIndex = marker ? lines.findIndex((line) => line.includes(marker)) : -1;
+  let lines = body.split('\n');
+  let markerIndex = marker ? lines.findIndex((line) => line.includes(marker)) : -1;
+  if (marker && markerIndex >= 0) {
+    lines = stripPlaceholderBlankLine(lines, markerIndex);
+    markerIndex = lines.findIndex((line) => line.includes(marker));
+  }
   const insertIndex = markerIndex >= 0 ? markerIndex : lines.length;
   const indented = linesToAppend.map((line) => `  ${line}`);
   lines.splice(insertIndex, 0, ...indented);
